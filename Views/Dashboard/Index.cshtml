@@ -1,0 +1,345 @@
+@model ExpenseTracker.Models.ViewModel.DashboardViewModel
+
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<h1 class="mb-4"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+    <form method="get" asp-action="Index" class="row g-3 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label fw-semibold">Filter By</label>
+            <select name="filterType" id="filterType" class="form-select" onchange="toggleFilterInputs()">
+                <option value="Month" selected="@(Model.FilterType == "Month" ? "selected" : null)">Month</option>
+                <option value="Year" selected="@(Model.FilterType == "Year" ? "selected" : null)">Year</option>
+                <option value="DateRange" selected="@(Model.FilterType == "DateRange" ? "selected" : null)">Date Range</option>
+            </select>
+        </div>
+        <div class="col-md-2" id="monthInput">
+            <label class="form-label fw-semibold">Month</label>
+            <input type="month" name="selectedMonth" class="form-control" value="@Model.SelectedMonth" />
+        </div>
+        <div class="col-md-2" id="yearInput" style="display:none;">
+            <label class="form-label fw-semibold">Year</label>
+            <input type="number" name="selectedYear" class="form-control" min="2020" max="2030" value="@Model.SelectedYear" />
+        </div>
+        <div class="col-md-2" id="startDateInput" style="display:none;">
+            <label class="form-label fw-semibold">Start Date</label>
+            <input type="date" name="startDate" class="form-control" value="@(Model.StartDate?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="col-md-2" id="endDateInput" style="display:none;">
+            <label class="form-label fw-semibold">End Date</label>
+            <input type="date" name="endDate" class="form-control" value="@(Model.EndDate?.ToString("yyyy-MM-dd"))" />
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-funnel me-1"></i>Apply
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md">
+        <div class="card summary-card bg-gradient-income">
+            <div class="card-body text-center">
+                <h6 class="card-title"><i class="bi bi-graph-up-arrow me-1"></i>Income</h6>
+                <div class="display-value">@Model.TotalIncome.ToString("C")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md">
+        <div class="card summary-card bg-gradient-expense">
+            <div class="card-body text-center">
+                <h6 class="card-title"><i class="bi bi-cash-stack me-1"></i>Expenses</h6>
+                <div class="display-value">@Model.TotalExpense.ToString("C")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md">
+        <div class="card summary-card bg-gradient-savings">
+            <div class="card-body text-center">
+                <h6 class="card-title"><i class="bi bi-piggy-bank me-1"></i>Savings</h6>
+                <div class="display-value">@Model.TotalSaving.ToString("C")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md">
+        <div class="card summary-card bg-gradient-balance">
+            <div class="card-body text-center">
+                <h6 class="card-title"><i class="bi bi-wallet2 me-1"></i>Net Balance</h6>
+                <div class="display-value">@Model.NetBalance.ToString("C")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md">
+        <div class="card summary-card bg-gradient-rate">
+            <div class="card-body text-center">
+                <h6 class="card-title"><i class="bi bi-percent me-1"></i>Savings Rate</h6>
+                <div class="display-value">@Model.SavingsRate.ToString("0.0")%</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dashboard Tabs -->
+<ul class="nav nav-pills dashboard-tabs mb-4" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="overview-tab" data-bs-toggle="pill"
+                data-bs-target="#overview-pane" type="button" role="tab"
+                aria-controls="overview-pane" aria-selected="true">
+            <i class="bi bi-graph-up me-1"></i>Overview
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="leakage-tab" data-bs-toggle="pill"
+                data-bs-target="#leakage-pane" type="button" role="tab"
+                aria-controls="leakage-pane" aria-selected="false">
+            <i class="bi bi-droplet-half me-1"></i>Leakage
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="transactions-tab" data-bs-toggle="pill"
+                data-bs-target="#transactions-pane" type="button" role="tab"
+                aria-controls="transactions-pane" aria-selected="false">
+            <i class="bi bi-clock-history me-1"></i>Transactions
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <!-- Overview Tab -->
+    <div class="tab-pane fade show active" id="overview-pane" role="tabpanel" aria-labelledby="overview-tab">
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header fw-semibold">
+                        <i class="bi bi-pie-chart me-1"></i>Expenses by Category
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-header fw-semibold">
+                        <i class="bi bi-bar-chart me-1"></i>Income vs Expenses
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="comparisonChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leakage Tab -->
+    <div class="tab-pane fade" id="leakage-pane" role="tabpanel" aria-labelledby="leakage-tab">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-droplet-half me-1"></i>Money Leakage Tracker
+            </div>
+            <div class="card-body">
+                @if (Model.TopLeakages.Any())
+                {
+                    @foreach (var (leakage, index) in Model.TopLeakages.Select((l, i) => (l, i)))
+                    {
+                        var barColor = index switch
+                        {
+                            0 => "bg-danger",
+                            1 => "bg-warning",
+                            2 => "bg-info",
+                            _ => "bg-secondary"
+                        };
+                        <div class="leakage-item d-flex align-items-center mb-3 p-3 rounded">
+                            <span class="rank-badge me-3">@(index + 1)</span>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="fw-semibold">@leakage.Category</span>
+                                    <span>
+                                        <span class="fw-bold">@leakage.Amount.ToString("C")</span>
+                                        <span class="text-muted ms-1">(@leakage.Percentage%)</span>
+                                    </span>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar @barColor" role="progressbar"
+                                         style="width: @leakage.Percentage%" aria-valuenow="@leakage.Percentage"
+                                         aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                        <p class="mt-2 mb-0">No expenses found for the selected period.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Transactions Tab -->
+    <div class="tab-pane fade" id="transactions-pane" role="tabpanel" aria-labelledby="transactions-tab">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-clock-history me-1"></i>Recent Transactions
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th class="text-end">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.RecentTransactions.Any())
+                        {
+                            @foreach (var t in Model.RecentTransactions)
+                            {
+                                <tr>
+                                    <td>@t.Date.ToString("yyyy-MM-dd")</td>
+                                    <td>
+                                        @if (t.Type == "Income")
+                                        {
+                                            <span class="badge badge-income">Income</span>
+                                        }
+                                        else if (t.Type == "Expense")
+                                        {
+                                            <span class="badge badge-expense">Expense</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-saving">Saving</span>
+                                        }
+                                    </td>
+                                    <td>@t.Description</td>
+                                    <td class="text-end fw-semibold">@t.Amount.ToString("C")</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">No transactions found for the selected period.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script>
+        // Filter toggle
+        function toggleFilterInputs() {
+            var type = document.getElementById('filterType').value;
+            document.getElementById('monthInput').style.display = type === 'Month' ? '' : 'none';
+            document.getElementById('yearInput').style.display = type === 'Year' ? '' : 'none';
+            document.getElementById('startDateInput').style.display = type === 'DateRange' ? '' : 'none';
+            document.getElementById('endDateInput').style.display = type === 'DateRange' ? '' : 'none';
+        }
+        toggleFilterInputs();
+
+        // Chart instances for resize on tab switch
+        var chartInstances = [];
+
+        // Category doughnut chart
+        var catLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ExpensesByCategory.Keys.ToArray()));
+        var catValues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ExpensesByCategory.Values.ToArray()));
+        var catColors = ['#ef5350', '#42a5f5', '#66bb6a', '#ffa726', '#ab47bc', '#78909c'];
+
+        if (catLabels.length > 0) {
+            chartInstances.push(new Chart(document.getElementById('categoryChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: catLabels,
+                    datasets: [{
+                        data: catValues,
+                        backgroundColor: catColors.slice(0, catLabels.length),
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            }));
+        }
+
+        // Comparison chart (income vs expenses)
+        var allMonths = [...new Set([
+            ...@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MonthlyIncomes.Keys.ToArray())),
+            ...@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MonthlyExpenses.Keys.ToArray()))
+        ])].sort();
+
+        var incomeData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MonthlyIncomes));
+        var expenseData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MonthlyExpenses));
+
+        var incomeValues = allMonths.map(function(m) { return incomeData[m] || 0; });
+        var expenseValues = allMonths.map(function(m) { return expenseData[m] || 0; });
+
+        var filterType = '@Model.FilterType';
+        var compChartType = (filterType === 'Month') ? 'doughnut' : 'bar';
+
+        if (allMonths.length > 0) {
+            if (compChartType === 'bar') {
+                chartInstances.push(new Chart(document.getElementById('comparisonChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: allMonths,
+                        datasets: [
+                            { label: 'Income', data: incomeValues, backgroundColor: '#66bb6a' },
+                            { label: 'Expenses', data: expenseValues, backgroundColor: '#ef5350' }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                }));
+            } else {
+                chartInstances.push(new Chart(document.getElementById('comparisonChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Income', 'Expenses'],
+                        datasets: [{
+                            data: [@Model.TotalIncome, @Model.TotalExpense],
+                            backgroundColor: ['#66bb6a', '#ef5350'],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } }
+                    }
+                }));
+            }
+        }
+
+        // Resize charts when switching back to overview tab
+        document.getElementById('overview-tab').addEventListener('shown.bs.tab', function () {
+            chartInstances.forEach(function (c) { c.resize(); });
+        });
+    </script>
+}

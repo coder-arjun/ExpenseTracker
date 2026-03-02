@@ -1,0 +1,59 @@
+## .NET / ASP.NET Core
+bin/
+obj/
+publish/
+
+## User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## VS / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.rsuser
+launchSettings.json
+
+## NuGet
+*.nupkg
+**/packages/
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+build/
+bld/
+
+## MSBuild
+*.log
+msbuild*.wrn
+msbuild*.err
+
+## SQL Server LocalDB
+*.mdf
+*.ldf
+
+## Entity Framework Migrations - keep these tracked
+# !Migrations/
+
+## OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+## Secrets & environment
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+*.pfx
+*.key
+
+## Misc
+*.cache
+*.tmp
+*~
