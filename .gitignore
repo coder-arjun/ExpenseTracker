@@ -57,3 +57,4 @@ appsettings.*.json
 *.cache
 *.tmp
 *~
+/CLAUDE.md
