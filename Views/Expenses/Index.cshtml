@@ -1,4 +1,4 @@
-@model IEnumerable<ExpenseTracker.Models.Domain.Expense>
+@model ExpenseTracker.Models.PaginatedList<ExpenseTracker.Models.Domain.Expense>
 
 @{
     ViewData["Title"] = "Expenses";
@@ -50,3 +50,11 @@
         </table>
     </div>
 </div>
+
+@{
+    ViewData["PageIndex"] = Model.PageIndex;
+    ViewData["TotalPages"] = Model.TotalPages;
+    ViewData["HasPreviousPage"] = Model.HasPreviousPage;
+    ViewData["HasNextPage"] = Model.HasNextPage;
+}
+<partial name="_PaginationPartial" />

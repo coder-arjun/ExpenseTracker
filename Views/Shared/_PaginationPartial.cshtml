@@ -1,0 +1,26 @@
+@{
+    var pageIndex = (int)ViewData["PageIndex"]!;
+    var totalPages = (int)ViewData["TotalPages"]!;
+    var hasPreviousPage = (bool)ViewData["HasPreviousPage"]!;
+    var hasNextPage = (bool)ViewData["HasNextPage"]!;
+}
+
+@if (totalPages > 1)
+{
+    <nav aria-label="Page navigation" class="mt-3">
+        <ul class="pagination justify-content-center">
+            <li class="page-item @(hasPreviousPage ? "" : "disabled")">
+                <a class="page-link" asp-route-page="@(pageIndex - 1)">Previous</a>
+            </li>
+            @for (int i = 1; i <= totalPages; i++)
+            {
+                <li class="page-item @(i == pageIndex ? "active" : "")">
+                    <a class="page-link" asp-route-page="@i">@i</a>
+                </li>
+            }
+            <li class="page-item @(hasNextPage ? "" : "disabled")">
+                <a class="page-link" asp-route-page="@(pageIndex + 1)">Next</a>
+            </li>
+        </ul>
+    </nav>
+}

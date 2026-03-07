@@ -1,4 +1,5 @@
 using ExpenseTracker.Data;
+using ExpenseTracker.Models;
 using ExpenseTracker.Models.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -20,14 +21,13 @@ namespace ExpenseTracker.Controllers
         }
 
         // GET: Expenses
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(int page = 1)
         {
             var userId = _userManager.GetUserId(User);
-            var expenses = await _context.Expenses
+            var query = _context.Expenses
                 .Where(e => e.UserId == userId)
-                .OrderByDescending(e => e.Date)
-                .ToListAsync();
-            return View(expenses);
+                .OrderByDescending(e => e.Date);
+            return View(await PaginatedList<Expense>.CreateAsync(query, page));
         }
 
         // GET: Expenses/Details/5
