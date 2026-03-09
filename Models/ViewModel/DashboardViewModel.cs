@@ -26,6 +26,7 @@ namespace ExpenseTracker.Models.ViewModel
 
         // Money leakage tracker
         public List<MoneyLeakage> TopLeakages { get; set; } = [];
+        public List<BudgetStatusViewModel> BudgetAlerts { get; set; } = [];
     }
 
     public class MoneyLeakage

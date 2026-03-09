@@ -1,0 +1,42 @@
+@model ExpenseTracker.Models.Domain.Budget
+
+@{
+    ViewData["Title"] = "Edit Budget";
+    var label = Model.Category?.ToString() ?? "Overall";
+}
+
+<h1><i class="bi bi-pencil me-2"></i>Edit Budget</h1>
+<hr />
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form asp-action="Edit">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                    <input type="hidden" asp-for="Id" />
+                    <div class="form-group mb-3">
+                        <label class="form-label">Category</label>
+                        <input type="text" class="form-control" value="@label" disabled />
+                    </div>
+                    <div class="form-group mb-3">
+                        <label class="form-label">Month</label>
+                        <input type="text" class="form-control" value="@Model.YearMonth" disabled />
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="Amount" class="form-label"></label>
+                        <input asp-for="Amount" class="form-control" />
+                        <span asp-validation-for="Amount" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
+                        <a asp-action="Index" asp-route-yearMonth="@Model.YearMonth" class="btn btn-secondary ms-2">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

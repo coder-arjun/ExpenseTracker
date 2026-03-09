@@ -1,0 +1,136 @@
+@using ExpenseTracker.Models.Domain
+@model ExpenseTracker.Models.PaginatedList<ExpenseTracker.Models.Domain.Budget>
+
+@{
+    ViewData["Title"] = "Budgets";
+    var yearMonth = ViewData["YearMonth"] as string ?? DateTime.Now.ToString("yyyy-MM");
+    var expenses = ViewData["Expenses"] as Dictionary<ExpenseCategory, decimal> ?? new();
+    var totalSpent = (decimal)(ViewData["TotalSpent"] ?? 0m);
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0"><i class="bi bi-speedometer me-2"></i>Budgets</h1>
+    <div>
+        <form asp-action="CopyFromPreviousMonth" method="post" class="d-inline">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="yearMonth" value="@yearMonth" />
+            <button type="submit" class="btn btn-outline-secondary" title="Copy budgets from previous month">
+                <i class="bi bi-clipboard-check me-1"></i>Copy Previous
+            </button>
+        </form>
+        <a asp-action="Create" asp-route-yearMonth="@yearMonth" class="btn btn-primary ms-1">
+            <i class="bi bi-plus-circle me-1"></i>Add Budget
+        </a>
+    </div>
+</div>
+
+<!-- Month Selector -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body py-2">
+        <form method="get" asp-action="Index" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label fw-semibold mb-0">Month</label>
+            </div>
+            <div class="col-auto">
+                <input type="month" name="yearMonth" class="form-control" value="@yearMonth" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-funnel me-1"></i>Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="card shadow-sm">
+        <div class="card-body text-center text-muted py-5">
+            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+            <p class="mt-2 mb-0">No budgets set for @yearMonth. Create one or copy from the previous month.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row g-4 mb-4">
+        @foreach (var budget in Model)
+        {
+            var label = budget.Category?.ToString() ?? "Overall";
+            var spent = budget.Category.HasValue && expenses.ContainsKey(budget.Category.Value)
+                ? expenses[budget.Category.Value]
+                : (!budget.Category.HasValue ? totalSpent : 0m);
+            var pct = budget.Amount > 0 ? Math.Round(spent / budget.Amount * 100, 1) : 0;
+            var remaining = budget.Amount - spent;
+
+            var barClass = pct >= 100 ? "bg-danger" : pct >= 80 ? "bg-warning" : "bg-success";
+            var cardBorder = pct >= 100 ? "border-danger" : pct >= 80 ? "border-warning" : "";
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-sm @cardBorder">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-tag me-1"></i>@label
+                            </h5>
+                            <div>
+                                <a asp-action="Edit" asp-route-id="@budget.Id" class="btn btn-sm btn-outline-primary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a asp-action="Delete" asp-route-id="@budget.Id" class="btn btn-sm btn-outline-danger" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">Spent</span>
+                            <span class="fw-semibold">@spent.ToString("C") / @budget.Amount.ToString("C")</span>
+                        </div>
+                        <div class="progress mb-2" style="height: 10px;">
+                            <div class="progress-bar @barClass" role="progressbar"
+                                 style="width: @Math.Min(pct, 100)%" aria-valuenow="@pct"
+                                 aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">@pct% used</small>
+                            @if (remaining >= 0)
+                            {
+                                <small class="text-success fw-semibold">@remaining.ToString("C") remaining</small>
+                            }
+                            else
+                            {
+                                <small class="text-danger fw-semibold">@((-remaining).ToString("C")) over budget!</small>
+                            }
+                        </div>
+                        @if (pct >= 100)
+                        {
+                            <div class="alert alert-danger py-1 px-2 mt-2 mb-0 small">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i>Budget exceeded!
+                            </div>
+                        }
+                        else if (pct >= 80)
+                        {
+                            <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
+                                <i class="bi bi-exclamation-circle me-1"></i>Approaching budget limit
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+}
+
+@{
+    ViewData["PageIndex"] = Model.PageIndex;
+    ViewData["TotalPages"] = Model.TotalPages;
+    ViewData["HasPreviousPage"] = Model.HasPreviousPage;
+    ViewData["HasNextPage"] = Model.HasNextPage;
+}
+
+@if (Model.Any())
+{
+    <partial name="_PaginationPartial" />
+}

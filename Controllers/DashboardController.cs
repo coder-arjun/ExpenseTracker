@@ -149,6 +149,35 @@ namespace ExpenseTracker.Controllers
                 })
                 .ToList();
 
+            // Budget alerts (only for month filter)
+            var budgetAlerts = new List<BudgetStatusViewModel>();
+            if (filterType == "Month" && !string.IsNullOrEmpty(selectedMonth))
+            {
+                var budgets = await _context.Budgets
+                    .Where(b => b.UserId == userId && b.YearMonth == selectedMonth)
+                    .ToListAsync();
+
+                foreach (var budget in budgets)
+                {
+                    var spent = budget.Category.HasValue
+                        ? (expensesByCategory.TryGetValue(budget.Category.Value.ToString(), out var catTotal) ? catTotal : 0)
+                        : totalExpense;
+                    var pct = budget.Amount > 0 ? Math.Round(spent / budget.Amount * 100, 1) : 0;
+
+                    if (pct >= 80)
+                    {
+                        budgetAlerts.Add(new BudgetStatusViewModel
+                        {
+                            Id = budget.Id,
+                            CategoryName = budget.Category?.ToString() ?? "Overall",
+                            BudgetAmount = budget.Amount,
+                            ActualSpent = spent,
+                            Category = budget.Category
+                        });
+                    }
+                }
+            }
+
             var model = new DashboardViewModel
             {
                 TotalIncome = totalIncome,
@@ -166,7 +195,8 @@ namespace ExpenseTracker.Controllers
                 MonthlyIncomes = monthlyIncomes,
                 MonthlySavings = monthlySavings,
                 RecentTransactions = recentTransactions,
-                TopLeakages = topLeakages
+                TopLeakages = topLeakages,
+                BudgetAlerts = budgetAlerts
             };
 
             return View(model);

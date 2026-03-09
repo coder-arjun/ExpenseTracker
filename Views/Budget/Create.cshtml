@@ -1,0 +1,50 @@
+@using ExpenseTracker.Models.Domain
+@model ExpenseTracker.Models.Domain.Budget
+
+@{
+    ViewData["Title"] = "Add Budget";
+    var yearMonth = ViewData["YearMonth"] as string ?? DateTime.Now.ToString("yyyy-MM");
+}
+
+<h1><i class="bi bi-plus-circle me-2"></i>Add Budget</h1>
+<hr />
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form asp-action="Create">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                    <div class="form-group mb-3">
+                        <label asp-for="Amount" class="form-label"></label>
+                        <input asp-for="Amount" class="form-control" />
+                        <span asp-validation-for="Amount" class="text-danger"></span>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="Category" class="form-label"></label>
+                        <select asp-for="Category" class="form-select">
+                            <option value="">Overall (All Categories)</option>
+                            @foreach (var cat in Enum.GetValues<ExpenseCategory>())
+                            {
+                                <option value="@((int)cat)">@cat</option>
+                            }
+                        </select>
+                        <span asp-validation-for="Category" class="text-danger"></span>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="YearMonth" class="form-label">Month</label>
+                        <input asp-for="YearMonth" type="month" class="form-control" value="@yearMonth" />
+                        <span asp-validation-for="YearMonth" class="text-danger"></span>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create</button>
+                        <a asp-action="Index" asp-route-yearMonth="@yearMonth" class="btn btn-secondary ms-2">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

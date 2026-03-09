@@ -108,6 +108,17 @@
             <i class="bi bi-clock-history me-1"></i>Transactions
         </button>
     </li>
+    @if (Model.BudgetAlerts.Any())
+    {
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="budget-tab" data-bs-toggle="pill"
+                    data-bs-target="#budget-pane" type="button" role="tab"
+                    aria-controls="budget-pane" aria-selected="false">
+                <i class="bi bi-exclamation-triangle me-1"></i>Budget Alerts
+                <span class="badge bg-danger ms-1">@Model.BudgetAlerts.Count</span>
+            </button>
+        </li>
+    }
 </ul>
 
 <div class="tab-content">
@@ -188,6 +199,54 @@
             </div>
         </div>
     </div>
+
+    <!-- Budget Alerts Tab -->
+    @if (Model.BudgetAlerts.Any())
+    {
+        <div class="tab-pane fade" id="budget-pane" role="tabpanel" aria-labelledby="budget-tab">
+            <div class="card shadow-sm">
+                <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-exclamation-triangle me-1"></i>Budget Alerts</span>
+                    <a asp-controller="Budget" asp-action="Index" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-speedometer me-1"></i>Manage Budgets
+                    </a>
+                </div>
+                <div class="card-body">
+                    @foreach (var alert in Model.BudgetAlerts.OrderByDescending(a => a.PercentageUsed))
+                    {
+                        var barClass = alert.PercentageUsed >= 100 ? "bg-danger" : "bg-warning";
+                        var alertClass = alert.PercentageUsed >= 100 ? "border-danger" : "border-warning";
+                        var icon = alert.PercentageUsed >= 100 ? "bi-exclamation-triangle-fill" : "bi-exclamation-circle";
+
+                        <div class="border rounded p-3 mb-3 @alertClass">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-0">
+                                    <i class="bi @icon me-1 @(alert.PercentageUsed >= 100 ? "text-danger" : "text-warning")"></i>
+                                    @alert.CategoryName
+                                </h6>
+                                <span class="fw-semibold">@alert.ActualSpent.ToString("C") / @alert.BudgetAmount.ToString("C")</span>
+                            </div>
+                            <div class="progress mb-2" style="height: 8px;">
+                                <div class="progress-bar @barClass" role="progressbar"
+                                     style="width: @Math.Min(alert.PercentageUsed, 100)%"></div>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">@alert.PercentageUsed% used</small>
+                                @if (alert.Remaining >= 0)
+                                {
+                                    <small class="text-warning fw-semibold">@alert.Remaining.ToString("C") remaining</small>
+                                }
+                                else
+                                {
+                                    <small class="text-danger fw-semibold">@((-alert.Remaining).ToString("C")) over budget!</small>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
 
     <!-- Transactions Tab -->
     <div class="tab-pane fade" id="transactions-pane" role="tabpanel" aria-labelledby="transactions-tab">
