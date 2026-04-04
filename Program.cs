@@ -25,10 +25,12 @@ builder.Services.AddControllersWithViews(options =>
     options.Filters.Add(new Microsoft.AspNetCore.Mvc.Authorization.AuthorizeFilter(policy));
 });
 
-// Ephemeral data protection: keys live in memory only.
-// All auth cookies are invalidated when the app restarts.
+// Persist data-protection keys to disk so auth cookies survive app restarts.
+// Required for "Remember me" to work across restarts.
+var keysDir = Path.Combine(builder.Environment.ContentRootPath, "keys");
 builder.Services.AddDataProtection()
-    .UseEphemeralDataProtectionProvider();
+    .PersistKeysToFileSystem(new DirectoryInfo(keysDir))
+    .SetApplicationName("ExpenseTracker");
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -39,9 +41,21 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
     options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.MaxAge = null;  // no Max-Age → true session cookie, cleared on browser close
+    options.Cookie.MaxAge = null;  // session cookie by default — cleared on browser close
     options.Cookie.IsEssential = true;
     options.Cookie.Name = ".ExpenseTracker.Auth";
+
+    // When "Remember me" is checked, make the cookie persistent (30 days).
+    // Default (unchecked) stays a session cookie — browser close = logged out.
+    options.Events.OnSigningIn = context =>
+    {
+        if (context.Properties.IsPersistent)
+        {
+            context.CookieOptions.MaxAge = TimeSpan.FromDays(30);
+            context.Properties.ExpiresUtc = DateTimeOffset.UtcNow.AddDays(30);
+        }
+        return Task.CompletedTask;
+    };
 });
 
 // Re-validate security stamp every 5 minutes (catches password changes, etc.)

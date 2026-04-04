@@ -4,12 +4,16 @@
 @{
     ViewData["Title"] = "Add Expense";
 }
+@{string currentYearMonth = DateTime.Now.ToString("yyyy-MM");}
 
-<h1><i class="bi bi-plus-circle me-2"></i>Add Expense</h1>
-<hr />
-<div class="row">
-    <div class="col-md-6">
-        <div class="card shadow-sm">
+<div class="create-page-header illus-expense">
+    <i class="bi bi-cash-stack header-icon"></i>
+    <h1>Add Expense</h1>
+</div>
+
+<div class="row g-4 align-items-start">
+    <div class="col-lg-6">
+        <div class="card create-form-card" style="border-top-color: #1565c0;">
             <div class="card-body">
                 <form asp-action="Create">
                     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
@@ -20,7 +24,7 @@
                     </div>
                     <div class="form-group mb-3">
                         <label asp-for="Date" class="form-label"></label>
-                        <input asp-for="Date" type="date" class="form-control" />
+                        <input asp-for="Date" type="date" class="form-control" value="@DateTime.Now.ToString("yyyy-MM-dd")" />
                         <span asp-validation-for="Date" class="text-danger"></span>
                     </div>
                     <div class="form-group mb-3">
@@ -37,7 +41,7 @@
                     </div>
                     <div class="form-group mb-3">
                         <label asp-for="Month" class="form-label">Month (yyyy-MM)</label>
-                        <input asp-for="Month" class="form-control" placeholder="2026-03" />
+                        <input asp-for="Month" class="form-control" value="@currentYearMonth" placeholder="@currentYearMonth" />
                         <span asp-validation-for="Month" class="text-danger"></span>
                     </div>
                     <div class="form-group">
@@ -45,6 +49,24 @@
                         <a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6 d-none d-lg-block">
+        <div class="create-illustration illus-expense">
+            <div class="illus-ring"></div>
+            <div class="illus-ring"></div>
+            <div class="illus-ring"></div>
+            <span class="illus-particle"><i class="bi bi-coin"></i></span>
+            <span class="illus-particle"><i class="bi bi-receipt"></i></span>
+            <span class="illus-particle"><i class="bi bi-cart3"></i></span>
+            <span class="illus-particle"><i class="bi bi-credit-card"></i></span>
+            <span class="illus-particle"><i class="bi bi-bag"></i></span>
+            <i class="bi bi-wallet2 illus-icon"></i>
+            <div class="illus-title">Track Every Rupee</div>
+            <div class="illus-subtitle">Recording your expenses is the first step towards better financial health.</div>
+            <div class="create-tip">
+                <i class="bi bi-lightbulb-fill"></i> Tip: Categorize expenses accurately for insightful reports.
             </div>
         </div>
     </div>

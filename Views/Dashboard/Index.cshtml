@@ -4,7 +4,10 @@
     ViewData["Title"] = "Dashboard";
 }
 
-<h1 class="mb-4"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
+<div class="page-header">
+    <h1><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
+    <p>Your financial overview at a glance</p>
+</div>
 
 <!-- Filter Bar -->
 <div class="filter-bar">
@@ -42,42 +45,42 @@
 </div>
 
 <!-- Summary Cards -->
-<div class="row g-4 mb-4">
+<div class="row g-3 mb-4">
     <div class="col-md">
-        <div class="card summary-card bg-gradient-income">
-            <div class="card-body text-center">
+        <div class="card summary-card summary-card-income">
+            <div class="card-body">
                 <h6 class="card-title"><i class="bi bi-graph-up-arrow me-1"></i>Income</h6>
                 <div class="display-value">@Model.TotalIncome.ToString("C")</div>
             </div>
         </div>
     </div>
     <div class="col-md">
-        <div class="card summary-card bg-gradient-expense">
-            <div class="card-body text-center">
+        <div class="card summary-card summary-card-expense">
+            <div class="card-body">
                 <h6 class="card-title"><i class="bi bi-cash-stack me-1"></i>Expenses</h6>
                 <div class="display-value">@Model.TotalExpense.ToString("C")</div>
             </div>
         </div>
     </div>
     <div class="col-md">
-        <div class="card summary-card bg-gradient-savings">
-            <div class="card-body text-center">
+        <div class="card summary-card summary-card-savings">
+            <div class="card-body">
                 <h6 class="card-title"><i class="bi bi-piggy-bank me-1"></i>Savings</h6>
                 <div class="display-value">@Model.TotalSaving.ToString("C")</div>
             </div>
         </div>
     </div>
     <div class="col-md">
-        <div class="card summary-card bg-gradient-balance">
-            <div class="card-body text-center">
+        <div class="card summary-card summary-card-balance">
+            <div class="card-body">
                 <h6 class="card-title"><i class="bi bi-wallet2 me-1"></i>Net Balance</h6>
                 <div class="display-value">@Model.NetBalance.ToString("C")</div>
             </div>
         </div>
     </div>
     <div class="col-md">
-        <div class="card summary-card bg-gradient-rate">
-            <div class="card-body text-center">
+        <div class="card summary-card summary-card-rate">
+            <div class="card-body">
                 <h6 class="card-title"><i class="bi bi-percent me-1"></i>Savings Rate</h6>
                 <div class="display-value">@Model.SavingsRate.ToString("0.0")%</div>
             </div>
@@ -322,7 +325,7 @@
         // Category doughnut chart
         var catLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ExpensesByCategory.Keys.ToArray()));
         var catValues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ExpensesByCategory.Values.ToArray()));
-        var catColors = ['#ef5350', '#42a5f5', '#66bb6a', '#ffa726', '#ab47bc', '#78909c'];
+        var catColors = ['#DC2626', '#2563EB', '#16A34A', '#D97706', '#7C3AED', '#71717A', '#0891B2', '#DB2777', '#EA580C', '#4F46E5'];
 
         if (catLabels.length > 0) {
             chartInstances.push(new Chart(document.getElementById('categoryChart'), {
@@ -365,8 +368,8 @@
                     data: {
                         labels: allMonths,
                         datasets: [
-                            { label: 'Income', data: incomeValues, backgroundColor: '#66bb6a' },
-                            { label: 'Expenses', data: expenseValues, backgroundColor: '#ef5350' }
+                            { label: 'Income', data: incomeValues, backgroundColor: '#16A34A' },
+                            { label: 'Expenses', data: expenseValues, backgroundColor: '#DC2626' }
                         ]
                     },
                     options: {
@@ -383,7 +386,7 @@
                         labels: ['Income', 'Expenses'],
                         datasets: [{
                             data: [@Model.TotalIncome, @Model.TotalExpense],
-                            backgroundColor: ['#66bb6a', '#ef5350'],
+                            backgroundColor: ['#16A34A', '#DC2626'],
                             borderWidth: 2
                         }]
                     },

@@ -53,6 +53,9 @@ appsettings.*.json
 *.pfx
 *.key
 
+## Data protection keys (machine-specific)
+/keys/
+
 ## Misc
 *.cache
 *.tmp
@@ -60,3 +63,4 @@ appsettings.*.json
 /CLAUDE.md
 /appsettings.Development.json
 /appsettings.json
+/.claude/settings.local.json

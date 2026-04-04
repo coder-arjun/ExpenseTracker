@@ -23,7 +23,7 @@ namespace ExpenseTracker.Controllers
         public async Task<IActionResult> Index(string? filterType, string? selectedMonth, int? selectedYear, DateTime? startDate, DateTime? endDate)
         {
             var userId = _userManager.GetUserId(User);
-            filterType ??= "Month";
+            filterType ??= "Year";
 
             // Default month to current
             if (filterType == "Month" && string.IsNullOrEmpty(selectedMonth))
@@ -183,7 +183,7 @@ namespace ExpenseTracker.Controllers
                 TotalIncome = totalIncome,
                 TotalExpense = totalExpense,
                 TotalSaving = totalSaving,
-                NetBalance = totalIncome - totalExpense,
+                NetBalance = totalIncome + totalSaving - totalExpense,
                 SavingsRate = totalIncome == 0 ? 0 : (totalSaving / totalIncome) * 100,
                 FilterType = filterType,
                 SelectedMonth = selectedMonth,

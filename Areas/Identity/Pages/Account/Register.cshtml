@@ -4,38 +4,57 @@
     ViewData["Title"] = "Register";
 }
 
-<div class="row justify-content-center mt-5">
-    <div class="col-md-5">
-        <div class="card shadow-sm">
-            <div class="card-body p-4">
-                <h3 class="card-title text-center mb-4">
-                    <i class="bi bi-person-plus me-2"></i>Create Account
-                </h3>
-                <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post">
-                    <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
-                    <div class="form-floating mb-3">
-                        <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
-                        <label asp-for="Input.Email">Email</label>
-                        <span asp-validation-for="Input.Email" class="text-danger"></span>
-                    </div>
-                    <div class="form-floating mb-3">
-                        <input asp-for="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                        <label asp-for="Input.Password">Password</label>
-                        <span asp-validation-for="Input.Password" class="text-danger"></span>
-                    </div>
-                    <div class="form-floating mb-3">
-                        <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                        <label asp-for="Input.ConfirmPassword">Confirm Password</label>
-                        <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
-                    </div>
-                    <div class="d-grid mb-3">
-                        <button id="registerSubmit" type="submit" class="btn btn-lg btn-primary">Register</button>
-                    </div>
-                    <div class="text-center">
-                        <p>Already have an account? <a asp-page="./Login">Log in</a></p>
-                    </div>
-                </form>
-            </div>
+<div class="login-wrapper">
+    <div class="login-container">
+        <!-- Left illustration panel -->
+        <div class="login-illustration d-none d-md-flex">
+            <div class="login-shape login-shape-1"></div>
+            <div class="login-shape login-shape-2"></div>
+            <div class="login-shape login-shape-3"></div>
+            <span class="login-float-icon"><i class="bi bi-currency-rupee"></i></span>
+            <span class="login-float-icon"><i class="bi bi-shield-check"></i></span>
+            <span class="login-float-icon"><i class="bi bi-graph-up"></i></span>
+            <span class="login-float-icon"><i class="bi bi-piggy-bank"></i></span>
+            <i class="bi bi-person-plus-fill login-logo"></i>
+            <div class="login-app-name">Get Started</div>
+            <div class="login-tagline">Create your free account and start managing your finances today.</div>
+            <ul class="login-features">
+                <li><i class="bi bi-check-circle-fill"></i> Free to use, no credit card needed</li>
+                <li><i class="bi bi-check-circle-fill"></i> Track income, expenses & savings</li>
+                <li><i class="bi bi-check-circle-fill"></i> Set budgets with smart alerts</li>
+                <li><i class="bi bi-check-circle-fill"></i> Visual dashboards & insights</li>
+            </ul>
+        </div>
+        <!-- Right form panel -->
+        <div class="login-form-panel">
+            <div class="login-heading">Create Account</div>
+            <div class="login-subheading">Fill in your details to get started</div>
+            <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
+                <div class="form-floating mb-3 login-field">
+                    <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                    <label asp-for="Input.Email">Email</label>
+                    <span asp-validation-for="Input.Email" class="text-danger"></span>
+                </div>
+                <div class="form-floating mb-3 login-field">
+                    <input asp-for="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
+                    <label asp-for="Input.Password">Password</label>
+                    <span asp-validation-for="Input.Password" class="text-danger"></span>
+                </div>
+                <div class="form-floating mb-3 login-field">
+                    <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
+                    <label asp-for="Input.ConfirmPassword">Confirm Password</label>
+                    <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
+                </div>
+                <div class="d-grid mb-3 login-field">
+                    <button id="registerSubmit" type="submit" class="btn btn-lg btn-primary">
+                        <i class="bi bi-person-plus me-2"></i>Create Account
+                    </button>
+                </div>
+                <div class="text-center login-field">
+                    <p class="mb-0">Already have an account? <a asp-page="./Login">Log in</a></p>
+                </div>
+            </form>
         </div>
     </div>
 </div>

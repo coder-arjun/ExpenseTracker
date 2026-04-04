@@ -5,44 +5,63 @@
     ViewData["Title"] = "Log in";
 }
 
-<div class="row justify-content-center mt-5">
-    <div class="col-md-5">
-        <div class="card shadow-sm">
-            <div class="card-body p-4">
-                <h3 class="card-title text-center mb-4">
-                    <i class="bi bi-box-arrow-in-right me-2"></i>Log in
-                </h3>
-                <form id="account" method="post">
-                    <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
-                    <div class="form-floating mb-3">
-                        <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
-                        <label asp-for="Input.Email" class="form-label">Email</label>
-                        <span asp-validation-for="Input.Email" class="text-danger"></span>
-                    </div>
-                    <div class="form-floating mb-3">
-                        <input asp-for="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="password" />
-                        <label asp-for="Input.Password" class="form-label">Password</label>
-                        <span asp-validation-for="Input.Password" class="text-danger"></span>
-                    </div>
-                    <div class="checkbox mb-3">
-                        <label asp-for="Input.RememberMe" class="form-label">
-                            <input class="form-check-input" asp-for="Input.RememberMe" />
-                            @Html.DisplayNameFor(m => m.Input.RememberMe)
-                        </label>
-                    </div>
-                    <div class="d-grid mb-3">
-                        <button id="login-submit" type="submit" class="btn btn-lg btn-primary">Log in</button>
-                    </div>
-                    <div class="text-center">
-                        <p>
-                            <a id="forgot-password" asp-page="./ForgotPassword">Forgot your password?</a>
-                        </p>
-                        <p>
-                            <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">Register as a new user</a>
-                        </p>
-                    </div>
-                </form>
-            </div>
+<div class="login-wrapper">
+    <div class="login-container">
+        <!-- Left illustration panel -->
+        <div class="login-illustration d-none d-md-flex">
+            <div class="login-shape login-shape-1"></div>
+            <div class="login-shape login-shape-2"></div>
+            <div class="login-shape login-shape-3"></div>
+            <span class="login-float-icon"><i class="bi bi-currency-rupee"></i></span>
+            <span class="login-float-icon"><i class="bi bi-graph-up"></i></span>
+            <span class="login-float-icon"><i class="bi bi-piggy-bank"></i></span>
+            <span class="login-float-icon"><i class="bi bi-wallet2"></i></span>
+            <i class="bi bi-bar-chart-line-fill login-logo"></i>
+            <div class="login-app-name">ExpenseTracker</div>
+            <div class="login-tagline">Your personal finance companion for smarter money management.</div>
+            <ul class="login-features">
+                <li><i class="bi bi-check-circle-fill"></i> Track income, expenses & savings</li>
+                <li><i class="bi bi-check-circle-fill"></i> Set budgets with smart alerts</li>
+                <li><i class="bi bi-check-circle-fill"></i> Visual dashboards & insights</li>
+                <li><i class="bi bi-check-circle-fill"></i> Category-wise spending analysis</li>
+            </ul>
+        </div>
+        <!-- Right form panel -->
+        <div class="login-form-panel">
+            <div class="login-heading">Welcome Back</div>
+            <div class="login-subheading">Sign in to continue managing your finances</div>
+            <form id="account" method="post">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
+                <div class="form-floating mb-3 login-field">
+                    <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                    <label asp-for="Input.Email" class="form-label">Email</label>
+                    <span asp-validation-for="Input.Email" class="text-danger"></span>
+                </div>
+                <div class="form-floating mb-3 login-field">
+                    <input asp-for="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="password" />
+                    <label asp-for="Input.Password" class="form-label">Password</label>
+                    <span asp-validation-for="Input.Password" class="text-danger"></span>
+                </div>
+                <div class="form-check mb-3 login-field">
+                    <input class="form-check-input" asp-for="Input.RememberMe" />
+                    <label asp-for="Input.RememberMe" class="form-check-label">
+                        @Html.DisplayNameFor(m => m.Input.RememberMe)
+                    </label>
+                </div>
+                <div class="d-grid mb-3 login-field">
+                    <button id="login-submit" type="submit" class="btn btn-lg btn-primary">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Log in
+                    </button>
+                </div>
+                <div class="text-center login-field">
+                    <p class="mb-2">
+                        <a id="forgot-password" asp-page="./ForgotPassword">Forgot your password?</a>
+                    </p>
+                    <p class="mb-0">
+                        <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl">Register as a new user</a>
+                    </p>
+                </div>
+            </form>
         </div>
     </div>
 </div>

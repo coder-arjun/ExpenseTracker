@@ -11,7 +11,8 @@
         Other = 6,
         Tea = 7,
         Vehicle = 8,
-        Marriage = 9
+        Marriage = 9,
+        Loan = 10
     }
 
 }

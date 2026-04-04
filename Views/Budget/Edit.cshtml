@@ -5,11 +5,13 @@
     var label = Model.Category?.ToString() ?? "Overall";
 }
 
-<h1><i class="bi bi-pencil me-2"></i>Edit Budget</h1>
-<hr />
+<div class="page-header">
+    <h1><i class="bi bi-pencil me-2"></i>Edit Budget</h1>
+    <p><a asp-action="Index" asp-route-yearMonth="@Model.YearMonth" class="text-decoration-none">Budgets</a> / Edit</p>
+</div>
 <div class="row">
     <div class="col-md-6">
-        <div class="card shadow-sm">
+        <div class="card">
             <div class="card-body">
                 <form asp-action="Edit">
                     <div asp-validation-summary="ModelOnly" class="text-danger"></div>

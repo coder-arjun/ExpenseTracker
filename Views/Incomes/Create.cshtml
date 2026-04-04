@@ -3,12 +3,18 @@
 @{
     ViewData["Title"] = "Add Income";
 }
+@{
+    string currentYearMonth = DateTime.Now.ToString("yyyy-MM");
+}
 
-<h1><i class="bi bi-plus-circle me-2"></i>Add Income</h1>
-<hr />
-<div class="row">
-    <div class="col-md-6">
-        <div class="card shadow-sm">
+<div class="create-page-header illus-income">
+    <i class="bi bi-graph-up-arrow header-icon"></i>
+    <h1>Add Income</h1>
+</div>
+
+<div class="row g-4 align-items-start">
+    <div class="col-lg-6">
+        <div class="card create-form-card" style="border-top-color: #2e7d32;">
             <div class="card-body">
                 <form asp-action="Create">
                     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
@@ -19,7 +25,7 @@
                     </div>
                     <div class="form-group mb-3">
                         <label asp-for="Date" class="form-label"></label>
-                        <input asp-for="Date" type="date" class="form-control" />
+                        <input asp-for="Date" type="date" class="form-control" value="@DateTime.Now.ToString("yyyy-MM-dd")" />
                         <span asp-validation-for="Date" class="text-danger"></span>
                     </div>
                     <div class="form-group mb-3">
@@ -29,7 +35,7 @@
                     </div>
                     <div class="form-group mb-3">
                         <label asp-for="YearMonth" class="form-label">Month (yyyy-MM)</label>
-                        <input asp-for="YearMonth" class="form-control" placeholder="2026-03" />
+                        <input asp-for="YearMonth" class="form-control" value="@currentYearMonth" placeholder="2026-03" />
                         <span asp-validation-for="YearMonth" class="text-danger"></span>
                     </div>
                     <div class="form-group">
@@ -37,6 +43,24 @@
                         <a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6 d-none d-lg-block">
+        <div class="create-illustration illus-income">
+            <div class="illus-ring"></div>
+            <div class="illus-ring"></div>
+            <div class="illus-ring"></div>
+            <span class="illus-particle"><i class="bi bi-currency-rupee"></i></span>
+            <span class="illus-particle"><i class="bi bi-arrow-up-circle"></i></span>
+            <span class="illus-particle"><i class="bi bi-cash"></i></span>
+            <span class="illus-particle"><i class="bi bi-bank"></i></span>
+            <span class="illus-particle"><i class="bi bi-briefcase"></i></span>
+            <i class="bi bi-graph-up-arrow illus-icon"></i>
+            <div class="illus-title">Grow Your Wealth</div>
+            <div class="illus-subtitle">Log every income source to get a complete picture of your earnings.</div>
+            <div class="create-tip">
+                <i class="bi bi-lightbulb-fill"></i> Tip: Track all sources — salary, freelance, investments, and more.
             </div>
         </div>
     </div>

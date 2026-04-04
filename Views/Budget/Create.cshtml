@@ -6,11 +6,14 @@
     var yearMonth = ViewData["YearMonth"] as string ?? DateTime.Now.ToString("yyyy-MM");
 }
 
-<h1><i class="bi bi-plus-circle me-2"></i>Add Budget</h1>
-<hr />
-<div class="row">
-    <div class="col-md-6">
-        <div class="card shadow-sm">
+<div class="create-page-header illus-budget">
+    <i class="bi bi-bullseye header-icon"></i>
+    <h1>Add Budget</h1>
+</div>
+
+<div class="row g-4 align-items-start">
+    <div class="col-lg-6">
+        <div class="card create-form-card" style="border-top-color: #1565c0;">
             <div class="card-body">
                 <form asp-action="Create">
                     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
@@ -40,6 +43,24 @@
                         <a asp-action="Index" asp-route-yearMonth="@yearMonth" class="btn btn-secondary ms-2">Cancel</a>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6 d-none d-lg-block">
+        <div class="create-illustration illus-budget">
+            <div class="illus-ring"></div>
+            <div class="illus-ring"></div>
+            <div class="illus-ring"></div>
+            <span class="illus-particle"><i class="bi bi-clipboard-data"></i></span>
+            <span class="illus-particle"><i class="bi bi-pie-chart"></i></span>
+            <span class="illus-particle"><i class="bi bi-calculator"></i></span>
+            <span class="illus-particle"><i class="bi bi-bar-chart-line"></i></span>
+            <span class="illus-particle"><i class="bi bi-speedometer2"></i></span>
+            <i class="bi bi-bullseye illus-icon"></i>
+            <div class="illus-title">Set Your Limits</div>
+            <div class="illus-subtitle">Define spending limits to stay on track and avoid overspending.</div>
+            <div class="create-tip">
+                <i class="bi bi-lightbulb-fill"></i> Tip: You'll get alerts when spending reaches 80% of budget.
             </div>
         </div>
     </div>

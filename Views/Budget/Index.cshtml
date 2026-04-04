@@ -9,7 +9,10 @@
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="mb-0"><i class="bi bi-speedometer me-2"></i>Budgets</h1>
+    <div class="page-header mb-0">
+        <h1><i class="bi bi-speedometer me-2"></i>Budgets</h1>
+        <p>Set and track your spending limits</p>
+    </div>
     <div>
         <form asp-action="CopyFromPreviousMonth" method="post" class="d-inline">
             @Html.AntiForgeryToken()
@@ -25,7 +28,7 @@
 </div>
 
 <!-- Month Selector -->
-<div class="card shadow-sm mb-4">
+<div class="card  mb-4">
     <div class="card-body py-2">
         <form method="get" asp-action="Index" class="row g-2 align-items-end">
             <div class="col-auto">
@@ -45,7 +48,7 @@
 
 @if (!Model.Any())
 {
-    <div class="card shadow-sm">
+    <div class="card ">
         <div class="card-body text-center text-muted py-5">
             <i class="bi bi-inbox" style="font-size: 2rem;"></i>
             <p class="mt-2 mb-0">No budgets set for @yearMonth. Create one or copy from the previous month.</p>
@@ -68,7 +71,7 @@ else
             var cardBorder = pct >= 100 ? "border-danger" : pct >= 80 ? "border-warning" : "";
 
             <div class="col-md-6 col-lg-4">
-                <div class="card shadow-sm @cardBorder">
+                <div class="card  @cardBorder">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <h5 class="card-title mb-0">
