@@ -1,0 +1,39 @@
+@model List<ExpenseTracker.Models.ViewModel.MoneyLeakage>
+
+@if (Model.Any())
+{
+    @foreach (var (leakage, index) in Model.Select((l, i) => (l, i)))
+    {
+        var barColor = index switch
+        {
+            0 => "bg-danger",
+            1 => "bg-warning",
+            2 => "bg-info",
+            _ => "bg-secondary"
+        };
+        <div class="leakage-item d-flex align-items-center mb-3 p-3 rounded">
+            <span class="rank-badge me-3">@(index + 1)</span>
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="fw-semibold">@leakage.Category</span>
+                    <span>
+                        <span class="fw-bold">@leakage.Amount.ToString("C")</span>
+                        <span class="text-muted ms-1">(@leakage.Percentage%)</span>
+                    </span>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar @barColor" role="progressbar"
+                         style="width: @leakage.Percentage%" aria-valuenow="@leakage.Percentage"
+                         aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+        </div>
+    }
+}
+else
+{
+    <div class="text-center text-muted py-5">
+        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+        <p class="mt-2 mb-0">No expenses found for the selected period.</p>
+    </div>
+}

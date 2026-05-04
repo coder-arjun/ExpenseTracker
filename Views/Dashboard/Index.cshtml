@@ -162,43 +162,46 @@
                 <i class="bi bi-droplet-half me-1"></i>Money Leakage Tracker
             </div>
             <div class="card-body">
-                @if (Model.TopLeakages.Any())
-                {
-                    @foreach (var (leakage, index) in Model.TopLeakages.Select((l, i) => (l, i)))
-                    {
-                        var barColor = index switch
-                        {
-                            0 => "bg-danger",
-                            1 => "bg-warning",
-                            2 => "bg-info",
-                            _ => "bg-secondary"
-                        };
-                        <div class="leakage-item d-flex align-items-center mb-3 p-3 rounded">
-                            <span class="rank-badge me-3">@(index + 1)</span>
-                            <div class="flex-grow-1">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="fw-semibold">@leakage.Category</span>
-                                    <span>
-                                        <span class="fw-bold">@leakage.Amount.ToString("C")</span>
-                                        <span class="text-muted ms-1">(@leakage.Percentage%)</span>
-                                    </span>
-                                </div>
-                                <div class="progress" style="height: 8px;">
-                                    <div class="progress-bar @barColor" role="progressbar"
-                                         style="width: @leakage.Percentage%" aria-valuenow="@leakage.Percentage"
-                                         aria-valuemin="0" aria-valuemax="100"></div>
-                                </div>
-                            </div>
+                <!-- Leakage Filter Bar -->
+                <div class="border rounded p-3 mb-4 bg-light">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold small mb-1">Filter By</label>
+                            <select id="leakageFilterType" class="form-select form-select-sm" onchange="toggleLeakageFilters()">
+                                <option value="Month">Month</option>
+                                <option value="Year" selected>Year</option>
+                                <option value="DateRange">Date Range</option>
+                            </select>
                         </div>
-                    }
-                }
-                else
-                {
-                    <div class="text-center text-muted py-5">
-                        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                        <p class="mt-2 mb-0">No expenses found for the selected period.</p>
+                        <div class="col-md-2" id="leakageMonthInput" style="display:none;">
+                            <label class="form-label fw-semibold small mb-1">Month</label>
+                            <input type="month" id="leakageMonth" class="form-control form-control-sm"
+                                   value="@DateTime.Now.ToString("yyyy-MM")" />
+                        </div>
+                        <div class="col-md-2" id="leakageYearInput">
+                            <label class="form-label fw-semibold small mb-1">Year</label>
+                            <input type="number" id="leakageYear" class="form-control form-control-sm"
+                                   min="2020" max="2030" value="@DateTime.Now.Year" />
+                        </div>
+                        <div class="col-md-2" id="leakageStartDateInput" style="display:none;">
+                            <label class="form-label fw-semibold small mb-1">Start Date</label>
+                            <input type="date" id="leakageStartDate" class="form-control form-control-sm" />
+                        </div>
+                        <div class="col-md-2" id="leakageEndDateInput" style="display:none;">
+                            <label class="form-label fw-semibold small mb-1">End Date</label>
+                            <input type="date" id="leakageEndDate" class="form-control form-control-sm" />
+                        </div>
+                        <div class="col-md-auto">
+                            <button type="button" class="btn btn-primary btn-sm" onclick="loadLeakageData()">
+                                <i class="bi bi-funnel me-1"></i>Apply
+                            </button>
+                        </div>
                     </div>
-                }
+                </div>
+                <!-- Leakage Results -->
+                <div id="leakageResults">
+                    @await Html.PartialAsync("_LeakagePartial", Model.TopLeakages)
+                </div>
             </div>
         </div>
     </div>
@@ -403,5 +406,40 @@
         document.getElementById('overview-tab').addEventListener('shown.bs.tab', function () {
             chartInstances.forEach(function (c) { c.resize(); });
         });
+
+        // Leakage filter toggle
+        function toggleLeakageFilters() {
+            var type = document.getElementById('leakageFilterType').value;
+            document.getElementById('leakageMonthInput').style.display = type === 'Month' ? '' : 'none';
+            document.getElementById('leakageYearInput').style.display = type === 'Year' ? '' : 'none';
+            document.getElementById('leakageStartDateInput').style.display = type === 'DateRange' ? '' : 'none';
+            document.getElementById('leakageEndDateInput').style.display = type === 'DateRange' ? '' : 'none';
+        }
+
+        // Load leakage data via AJAX
+        function loadLeakageData() {
+            var type = document.getElementById('leakageFilterType').value;
+            var params = new URLSearchParams();
+            params.append('filterType', type);
+
+            if (type === 'Month') {
+                params.append('selectedMonth', document.getElementById('leakageMonth').value);
+            } else if (type === 'Year') {
+                params.append('selectedYear', document.getElementById('leakageYear').value);
+            } else if (type === 'DateRange') {
+                var start = document.getElementById('leakageStartDate').value;
+                var end = document.getElementById('leakageEndDate').value;
+                if (start) params.append('startDate', start);
+                if (end) params.append('endDate', end);
+            }
+
+            var resultsDiv = document.getElementById('leakageResults');
+            resultsDiv.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+
+            fetch('@Url.Action("GetLeakageData", "Dashboard")?' + params.toString())
+                .then(function (response) { return response.text(); })
+                .then(function (html) { resultsDiv.innerHTML = html; })
+                .catch(function () { resultsDiv.innerHTML = '<div class="text-center text-danger py-4">Failed to load data. Please try again.</div>'; });
+        }
     </script>
 }

@@ -3,6 +3,24 @@
     var totalPages = (int)ViewData["TotalPages"]!;
     var hasPreviousPage = (bool)ViewData["HasPreviousPage"]!;
     var hasNextPage = (bool)ViewData["HasNextPage"]!;
+
+    // Build query string preserving filter params
+    var filterType = ViewData["FilterType"]?.ToString();
+    var selectedMonth = ViewData["SelectedMonth"]?.ToString();
+    var selectedYear = ViewData["SelectedYear"]?.ToString();
+    var startDate = ViewData["StartDate"]?.ToString();
+    var endDate = ViewData["EndDate"]?.ToString();
+
+    string BuildPageUrl(int page)
+    {
+        var queryParams = new List<string> { $"page={page}" };
+        if (!string.IsNullOrEmpty(filterType)) queryParams.Add($"filterType={filterType}");
+        if (!string.IsNullOrEmpty(selectedMonth)) queryParams.Add($"selectedMonth={selectedMonth}");
+        if (!string.IsNullOrEmpty(selectedYear)) queryParams.Add($"selectedYear={selectedYear}");
+        if (!string.IsNullOrEmpty(startDate)) queryParams.Add($"startDate={startDate}");
+        if (!string.IsNullOrEmpty(endDate)) queryParams.Add($"endDate={endDate}");
+        return "?" + string.Join("&", queryParams);
+    }
 }
 
 @if (totalPages > 1)
@@ -10,16 +28,16 @@
     <nav aria-label="Page navigation" class="mt-3">
         <ul class="pagination justify-content-center">
             <li class="page-item @(hasPreviousPage ? "" : "disabled")">
-                <a class="page-link" asp-route-page="@(pageIndex - 1)">Previous</a>
+                <a class="page-link" href="@BuildPageUrl(pageIndex - 1)">Previous</a>
             </li>
             @for (int i = 1; i <= totalPages; i++)
             {
                 <li class="page-item @(i == pageIndex ? "active" : "")">
-                    <a class="page-link" asp-route-page="@i">@i</a>
+                    <a class="page-link" href="@BuildPageUrl(i)">@i</a>
                 </li>
             }
             <li class="page-item @(hasNextPage ? "" : "disabled")">
-                <a class="page-link" asp-route-page="@(pageIndex + 1)">Next</a>
+                <a class="page-link" href="@BuildPageUrl(pageIndex + 1)">Next</a>
             </li>
         </ul>
     </nav>

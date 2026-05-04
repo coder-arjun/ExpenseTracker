@@ -14,6 +14,61 @@
     </a>
 </div>
 
+<!-- Filter Bar -->
+<div class="filter-bar mb-4">
+    <form method="get" asp-action="Index" class="row g-3 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label fw-semibold">Filter By</label>
+            <select name="filterType" id="filterType" class="form-select" onchange="toggleFilterInputs()">
+                <option value="">All</option>
+                <option value="Month" selected="@(ViewData["FilterType"]?.ToString() == "Month" ? "selected" : null)">Month</option>
+                <option value="Year" selected="@(ViewData["FilterType"]?.ToString() == "Year" ? "selected" : null)">Year</option>
+                <option value="DateRange" selected="@(ViewData["FilterType"]?.ToString() == "DateRange" ? "selected" : null)">Date Range</option>
+            </select>
+        </div>
+        <div class="col-md-2" id="monthInput" style="display:none;">
+            <label class="form-label fw-semibold">Month</label>
+            <input type="month" name="selectedMonth" class="form-control" value="@ViewData["SelectedMonth"]" />
+        </div>
+        <div class="col-md-2" id="yearInput" style="display:none;">
+            <label class="form-label fw-semibold">Year</label>
+            <input type="number" name="selectedYear" class="form-control" min="2020" max="2030" value="@ViewData["SelectedYear"]" />
+        </div>
+        <div class="col-md-2" id="startDateInput" style="display:none;">
+            <label class="form-label fw-semibold">Start Date</label>
+            <input type="date" name="startDate" class="form-control" value="@ViewData["StartDate"]" />
+        </div>
+        <div class="col-md-2" id="endDateInput" style="display:none;">
+            <label class="form-label fw-semibold">End Date</label>
+            <input type="date" name="endDate" class="form-control" value="@ViewData["EndDate"]" />
+        </div>
+        <div class="col-md-auto">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-funnel me-1"></i>Apply
+            </button>
+            @if (!string.IsNullOrEmpty(ViewData["FilterType"]?.ToString()))
+            {
+                <a asp-action="Index" class="btn btn-outline-secondary ms-1">
+                    <i class="bi bi-x-circle me-1"></i>Clear
+                </a>
+            }
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        function toggleFilterInputs() {
+            var type = document.getElementById('filterType').value;
+            document.getElementById('monthInput').style.display = type === 'Month' ? '' : 'none';
+            document.getElementById('yearInput').style.display = type === 'Year' ? '' : 'none';
+            document.getElementById('startDateInput').style.display = type === 'DateRange' ? '' : 'none';
+            document.getElementById('endDateInput').style.display = type === 'DateRange' ? '' : 'none';
+        }
+        toggleFilterInputs();
+    </script>
+}
+
 @if (!Model.Any())
 {
     <div class="card">

@@ -21,12 +21,45 @@ namespace ExpenseTracker.Controllers
         }
 
         // GET: Expenses
-        public async Task<IActionResult> Index(int page = 1)
+        public async Task<IActionResult> Index(int page = 1, string? filterType = null, string? selectedMonth = null, int? selectedYear = null, DateTime? startDate = null, DateTime? endDate = null)
         {
             var userId = _userManager.GetUserId(User);
             var query = _context.Expenses
-                .Where(e => e.UserId == userId)
-                .OrderByDescending(e => e.Date);
+                .Where(e => e.UserId == userId);
+
+            // Apply filters
+            if (!string.IsNullOrEmpty(filterType))
+            {
+                switch (filterType)
+                {
+                    case "Month":
+                        if (!string.IsNullOrEmpty(selectedMonth))
+                            query = query.Where(e => e.Month == selectedMonth);
+                        break;
+                    case "Year":
+                        if (selectedYear.HasValue)
+                        {
+                            var yearPrefix = selectedYear.Value.ToString();
+                            query = query.Where(e => e.Month.StartsWith(yearPrefix));
+                        }
+                        break;
+                    case "DateRange":
+                        if (startDate.HasValue)
+                            query = query.Where(e => e.Date >= startDate.Value);
+                        if (endDate.HasValue)
+                            query = query.Where(e => e.Date <= endDate.Value);
+                        break;
+                }
+            }
+
+            // Pass filter values to view for form persistence and pagination
+            ViewData["FilterType"] = filterType;
+            ViewData["SelectedMonth"] = selectedMonth;
+            ViewData["SelectedYear"] = selectedYear;
+            ViewData["StartDate"] = startDate?.ToString("yyyy-MM-dd");
+            ViewData["EndDate"] = endDate?.ToString("yyyy-MM-dd");
+
+            query = query.OrderByDescending(e => e.Date);
             return View(await PaginatedList<Expense>.CreateAsync(query, page));
         }
 

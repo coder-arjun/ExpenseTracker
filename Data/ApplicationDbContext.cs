@@ -22,6 +22,7 @@ namespace ExpenseTracker.Data
             builder.Entity<Saving>().HasIndex(s=>new { s.UserId, s.YearMonth });
             builder.Entity<Income>().HasIndex(i => new { i.UserId, i.YearMonth });
             builder.Entity<Budget>().HasIndex(b => new { b.UserId, b.YearMonth, b.Category }).IsUnique();
+            builder.Entity<ApplicationUser>().HasIndex(u => u.DisplayUserId).IsUnique();
         }
     }
 }

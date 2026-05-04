@@ -201,5 +201,57 @@ namespace ExpenseTracker.Controllers
 
             return View(model);
         }
+
+        [HttpGet]
+        public async Task<IActionResult> GetLeakageData(string? filterType, string? selectedMonth, int? selectedYear, DateTime? startDate, DateTime? endDate)
+        {
+            var userId = _userManager.GetUserId(User);
+            filterType ??= "Year";
+
+            if (filterType == "Month" && string.IsNullOrEmpty(selectedMonth))
+                selectedMonth = DateTime.Now.ToString("yyyy-MM");
+
+            if (filterType == "Year" && !selectedYear.HasValue)
+                selectedYear = DateTime.Now.Year;
+
+            IQueryable<Expense> expenseQuery = _context.Expenses.Where(e => e.UserId == userId);
+
+            switch (filterType)
+            {
+                case "Month":
+                    expenseQuery = expenseQuery.Where(e => e.Month == selectedMonth);
+                    break;
+                case "Year":
+                    var yearPrefix = selectedYear.ToString();
+                    expenseQuery = expenseQuery.Where(e => e.Month.StartsWith(yearPrefix!));
+                    break;
+                case "DateRange":
+                    if (startDate.HasValue)
+                        expenseQuery = expenseQuery.Where(e => e.Date >= startDate.Value);
+                    if (endDate.HasValue)
+                        expenseQuery = expenseQuery.Where(e => e.Date <= endDate.Value);
+                    break;
+            }
+
+            var totalExpense = await expenseQuery.SumAsync(e => (decimal?)e.Amount) ?? 0;
+
+            var expensesByCategory = await expenseQuery
+                .GroupBy(e => e.Category)
+                .Select(g => new { Category = g.Key, Total = g.Sum(e => e.Amount) })
+                .ToDictionaryAsync(g => g.Category.ToString(), g => g.Total);
+
+            var topLeakages = expensesByCategory
+                .OrderByDescending(kvp => kvp.Value)
+                .Take(5)
+                .Select(kvp => new MoneyLeakage
+                {
+                    Category = kvp.Key,
+                    Amount = kvp.Value,
+                    Percentage = totalExpense > 0 ? Math.Round(kvp.Value / totalExpense * 100, 1) : 0
+                })
+                .ToList();
+
+            return PartialView("_LeakagePartial", topLeakages);
+        }
     }
 }

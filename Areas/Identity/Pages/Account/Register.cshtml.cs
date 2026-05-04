@@ -72,6 +72,11 @@ namespace ExpenseTracker.Areas.Identity.Pages.Account
         /// </summary>
         public class InputModel
         {
+            [Required]
+            [StringLength(30, ErrorMessage = "User ID must be between {2} and {1} characters.", MinimumLength = 3)]
+            [RegularExpression(@"^[a-zA-Z0-9_]+$", ErrorMessage = "User ID can only contain letters, numbers, and underscores.")]
+            [Display(Name = "User ID")]
+            public string UserId { get; set; }
             /// <summary>
             ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
             ///     directly from your code. This API may change or be removed in future releases.
@@ -115,7 +120,7 @@ namespace ExpenseTracker.Areas.Identity.Pages.Account
             if (ModelState.IsValid)
             {
                 var user = CreateUser();
-
+                user.DisplayUserId = Input.UserId;
                 await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
                 await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
                 var result = await _userManager.CreateAsync(user, Input.Password);

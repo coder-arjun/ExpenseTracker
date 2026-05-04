@@ -3,6 +3,9 @@ using ExpenseTracker.Models.Domain;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using System.Security.Claims;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +18,8 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 })
 .AddEntityFrameworkStores<ApplicationDbContext>();
 
+builder.Services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, AppClaimsPrincipalFactory>();
+
 // Add services to the container.
 builder.Services.AddControllersWithViews(options =>
 {
@@ -25,9 +30,16 @@ builder.Services.AddControllersWithViews(options =>
     options.Filters.Add(new Microsoft.AspNetCore.Mvc.Authorization.AuthorizeFilter(policy));
 });
 
-// Persist data-protection keys to disk so auth cookies survive app restarts.
-// Required for "Remember me" to work across restarts.
+// Data-protection keys: written to disk but cleared on every app start.
+// This ensures all previous auth cookies are invalidated on restart (forces re-login),
+// while still allowing "Remember me" to persist cookies across browser sessions
+// within a single app run.
 var keysDir = Path.Combine(builder.Environment.ContentRootPath, "keys");
+if (Directory.Exists(keysDir))
+{
+    foreach (var file in Directory.GetFiles(keysDir))
+        File.Delete(file);
+}
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(keysDir))
     .SetApplicationName("ExpenseTracker");
@@ -87,5 +99,18 @@ app.MapControllerRoute(
     .WithStaticAssets();
 app.MapRazorPages();
 
-
 app.Run();
+
+// Custom claims factory to add DisplayUserId as a claim
+public class AppClaimsPrincipalFactory : UserClaimsPrincipalFactory<ApplicationUser>
+{
+    public AppClaimsPrincipalFactory(UserManager<ApplicationUser> userManager, IOptions<IdentityOptions> optionsAccessor)
+        : base(userManager, optionsAccessor) { }
+
+    protected override async Task<ClaimsIdentity> GenerateClaimsAsync(ApplicationUser user)
+    {
+        var identity = await base.GenerateClaimsAsync(user);
+        identity.AddClaim(new Claim("DisplayUserId", user.DisplayUserId ?? ""));
+        return identity;
+    }
+}

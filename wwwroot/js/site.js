@@ -11,4 +11,19 @@ document.addEventListener('DOMContentLoaded', function () {
             }, 500);
         }, 5000);
     });
+
+    // Theme toggle
+    var toggle = document.getElementById('themeToggle');
+    if (toggle) {
+        toggle.addEventListener('click', function () {
+            var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            if (isDark) {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+    }
 });
