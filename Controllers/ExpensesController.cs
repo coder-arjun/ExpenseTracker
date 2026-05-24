@@ -21,11 +21,15 @@ namespace ExpenseTracker.Controllers
         }
 
         // GET: Expenses
-        public async Task<IActionResult> Index(int page = 1, string? filterType = null, string? selectedMonth = null, int? selectedYear = null, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<IActionResult> Index(int page = 1, string? filterType = null, string? selectedMonth = null, int? selectedYear = null, DateTime? startDate = null, DateTime? endDate = null, ExpenseCategory? selectedCategory = null)
         {
             var userId = _userManager.GetUserId(User);
             var query = _context.Expenses
                 .Where(e => e.UserId == userId);
+
+            // Category filter (applies independently of the date filters)
+            if (selectedCategory.HasValue)
+                query = query.Where(e => e.Category == selectedCategory.Value);
 
             // Apply filters
             if (!string.IsNullOrEmpty(filterType))
@@ -58,6 +62,7 @@ namespace ExpenseTracker.Controllers
             ViewData["SelectedYear"] = selectedYear;
             ViewData["StartDate"] = startDate?.ToString("yyyy-MM-dd");
             ViewData["EndDate"] = endDate?.ToString("yyyy-MM-dd");
+            ViewData["SelectedCategory"] = selectedCategory;
 
             query = query.OrderByDescending(e => e.Date);
             return View(await PaginatedList<Expense>.CreateAsync(query, page));

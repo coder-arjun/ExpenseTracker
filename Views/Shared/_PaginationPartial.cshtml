@@ -10,6 +10,7 @@
     var selectedYear = ViewData["SelectedYear"]?.ToString();
     var startDate = ViewData["StartDate"]?.ToString();
     var endDate = ViewData["EndDate"]?.ToString();
+    var selectedCategory = ViewData["SelectedCategory"]?.ToString();
 
     string BuildPageUrl(int page)
     {
@@ -19,6 +20,7 @@
         if (!string.IsNullOrEmpty(selectedYear)) queryParams.Add($"selectedYear={selectedYear}");
         if (!string.IsNullOrEmpty(startDate)) queryParams.Add($"startDate={startDate}");
         if (!string.IsNullOrEmpty(endDate)) queryParams.Add($"endDate={endDate}");
+        if (!string.IsNullOrEmpty(selectedCategory)) queryParams.Add($"selectedCategory={selectedCategory}");
         return "?" + string.Join("&", queryParams);
     }
 }
