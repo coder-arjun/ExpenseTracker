@@ -20,7 +20,7 @@
                     <dt class="col-sm-4">Description</dt>
                     <dd class="col-sm-8">@Model.Description</dd>
                     <dt class="col-sm-4">Category</dt>
-                    <dd class="col-sm-8"><span class="badge bg-secondary">@Model.Category</span></dd>
+                    <dd class="col-sm-8"><span class="badge bg-secondary">@(Model.Category?.Name ?? "—")</span></dd>
                     <dt class="col-sm-4">Month</dt>
                     <dd class="col-sm-8">@Model.Month</dd>
                 </dl>

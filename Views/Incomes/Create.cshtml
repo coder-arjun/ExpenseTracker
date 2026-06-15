@@ -1,10 +1,10 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
 @model ExpenseTracker.Models.Domain.Income
 
 @{
     ViewData["Title"] = "Add Income";
-}
-@{
     string currentYearMonth = DateTime.Now.ToString("yyyy-MM");
+    var categories = (SelectList)ViewData["Categories"]!;
 }
 
 <div class="create-page-header illus-income">
@@ -32,6 +32,16 @@
                         <label asp-for="Source" class="form-label"></label>
                         <input asp-for="Source" class="form-control" />
                         <span asp-validation-for="Source" class="text-danger"></span>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label asp-for="CategoryId" class="form-label"></label>
+                        <select asp-for="CategoryId" class="form-select" asp-items="@categories">
+                            <option value="">-- Select Category (optional) --</option>
+                        </select>
+                        <span asp-validation-for="CategoryId" class="text-danger"></span>
+                        <div class="form-text">
+                            Don't see what you need? <a asp-controller="Categories" asp-action="Create" asp-route-type="Income">Add a new category</a>.
+                        </div>
                     </div>
                     <div class="form-group mb-3">
                         <label asp-for="YearMonth" class="form-label">Month (yyyy-MM)</label>

@@ -4,6 +4,7 @@ using ExpenseTracker.Models.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
 namespace ExpenseTracker.Controllers
@@ -21,11 +22,16 @@ namespace ExpenseTracker.Controllers
         }
 
         // GET: Incomes
-        public async Task<IActionResult> Index(int page = 1, string? filterType = null, string? selectedMonth = null, int? selectedYear = null, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<IActionResult> Index(int page = 1, string? filterType = null, string? selectedMonth = null, int? selectedYear = null, DateTime? startDate = null, DateTime? endDate = null, int? selectedCategory = null)
         {
             var userId = _userManager.GetUserId(User);
             var query = _context.Incomes
+                .Include(i => i.Category)
                 .Where(i => i.UserId == userId);
+
+            // Category filter (applies independently of the date filters)
+            if (selectedCategory.HasValue)
+                query = query.Where(i => i.CategoryId == selectedCategory.Value);
 
             // Apply filters
             if (!string.IsNullOrEmpty(filterType))
@@ -52,12 +58,23 @@ namespace ExpenseTracker.Controllers
                 }
             }
 
+            // Total over the full filtered set (before paging)
+            var filteredTotal = await query.SumAsync(i => (decimal?)i.Amount) ?? 0;
+            var filteredCount = await query.CountAsync();
+
             // Pass filter values to view for form persistence and pagination
             ViewData["FilterType"] = filterType;
             ViewData["SelectedMonth"] = selectedMonth;
             ViewData["SelectedYear"] = selectedYear;
             ViewData["StartDate"] = startDate?.ToString("yyyy-MM-dd");
             ViewData["EndDate"] = endDate?.ToString("yyyy-MM-dd");
+            ViewData["SelectedCategory"] = selectedCategory;
+            ViewData["FilteredTotal"] = filteredTotal;
+            ViewData["FilteredCount"] = filteredCount;
+            ViewData["Categories"] = await GetCategoryOptionsAsync(userId, selectedCategory);
+            ViewData["SelectedCategoryName"] = selectedCategory.HasValue
+                ? await _context.Categories.Where(c => c.Id == selectedCategory.Value && c.UserId == userId).Select(c => c.Name).FirstOrDefaultAsync()
+                : null;
 
             query = query.OrderByDescending(i => i.Date);
             return View(await PaginatedList<Income>.CreateAsync(query, page));
@@ -70,6 +87,7 @@ namespace ExpenseTracker.Controllers
 
             var userId = _userManager.GetUserId(User);
             var income = await _context.Incomes
+                .Include(i => i.Category)
                 .FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
             if (income == null) return NotFound();
 
@@ -77,18 +95,26 @@ namespace ExpenseTracker.Controllers
         }
 
         // GET: Incomes/Create
-        public IActionResult Create()
+        public async Task<IActionResult> Create()
         {
+            var userId = _userManager.GetUserId(User);
+            ViewData["Categories"] = await GetCategoryOptionsAsync(userId, null);
             return View();
         }
 
         // POST: Incomes/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Amount,Date,Source,YearMonth")] Income income)
+        public async Task<IActionResult> Create([Bind("Amount,Date,Source,CategoryId,YearMonth")] Income income)
         {
-            income.UserId = _userManager.GetUserId(User)!;
+            var userId = _userManager.GetUserId(User)!;
+            income.UserId = userId;
             ClearServerFieldErrors();
+
+            // CategoryId is optional for income (nullable). Only validate ownership if supplied.
+            if (income.CategoryId.HasValue)
+                await ValidateCategoryOwnershipAsync(income.CategoryId.Value, CategoryType.Income, userId, nameof(Income.CategoryId));
+
             if (ModelState.IsValid)
             {
                 _context.Add(income);
@@ -98,6 +124,7 @@ namespace ExpenseTracker.Controllers
             }
             TempData["ErrorMessage"] = string.Join(" ", ModelState.Values
                 .SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+            ViewData["Categories"] = await GetCategoryOptionsAsync(userId, income.CategoryId);
             return View(income);
         }
 
@@ -111,18 +138,23 @@ namespace ExpenseTracker.Controllers
                 .FirstOrDefaultAsync(i => i.Id == id && i.UserId == userId);
             if (income == null) return NotFound();
 
+            ViewData["Categories"] = await GetCategoryOptionsAsync(userId, income.CategoryId);
             return View(income);
         }
 
         // POST: Incomes/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Amount,Date,Source,YearMonth")] Income income)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Amount,Date,Source,CategoryId,YearMonth")] Income income)
         {
             if (id != income.Id) return NotFound();
 
-            income.UserId = _userManager.GetUserId(User)!;
+            var userId = _userManager.GetUserId(User)!;
+            income.UserId = userId;
             ClearServerFieldErrors();
+
+            if (income.CategoryId.HasValue)
+                await ValidateCategoryOwnershipAsync(income.CategoryId.Value, CategoryType.Income, userId, nameof(Income.CategoryId));
 
             if (ModelState.IsValid)
             {
@@ -143,6 +175,7 @@ namespace ExpenseTracker.Controllers
             }
             TempData["ErrorMessage"] = string.Join(" ", ModelState.Values
                 .SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
+            ViewData["Categories"] = await GetCategoryOptionsAsync(userId, income.CategoryId);
             return View(income);
         }
 
@@ -153,6 +186,7 @@ namespace ExpenseTracker.Controllers
 
             var userId = _userManager.GetUserId(User);
             var income = await _context.Incomes
+                .Include(i => i.Category)
                 .FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
             if (income == null) return NotFound();
 
@@ -177,12 +211,30 @@ namespace ExpenseTracker.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        private async Task<SelectList> GetCategoryOptionsAsync(string? userId, int? selected)
+        {
+            var cats = await _context.Categories
+                .Where(c => c.UserId == userId && c.Type == CategoryType.Income)
+                .OrderBy(c => c.Name)
+                .Select(c => new { c.Id, c.Name })
+                .ToListAsync();
+            return new SelectList(cats, "Id", "Name", selected);
+        }
+
+        private async Task ValidateCategoryOwnershipAsync(int categoryId, CategoryType type, string userId, string fieldKey)
+        {
+            var ok = await _context.Categories.AnyAsync(c =>
+                c.Id == categoryId && c.UserId == userId && c.Type == type);
+            if (!ok)
+                ModelState.AddModelError(fieldKey, "Selected category is invalid.");
+        }
+
         private void ClearServerFieldErrors()
         {
-            // Remove all ModelState entries for fields set server-side, regardless of key prefix
             var keysToRemove = ModelState.Keys
                 .Where(k => k.Contains("UserId", StringComparison.OrdinalIgnoreCase)
-                         || k.Contains("User", StringComparison.OrdinalIgnoreCase))
+                         || k.Contains("User", StringComparison.OrdinalIgnoreCase)
+                         || k.Equals("Category", StringComparison.OrdinalIgnoreCase))
                 .ToList();
             foreach (var key in keysToRemove)
                 ModelState.Remove(key);

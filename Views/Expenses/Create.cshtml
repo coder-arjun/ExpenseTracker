@@ -1,10 +1,11 @@
-@using ExpenseTracker.Models.Domain
+@using Microsoft.AspNetCore.Mvc.Rendering
 @model ExpenseTracker.Models.Domain.Expense
 
 @{
     ViewData["Title"] = "Add Expense";
+    string currentYearMonth = DateTime.Now.ToString("yyyy-MM");
+    var categories = (SelectList)ViewData["Categories"]!;
 }
-@{string currentYearMonth = DateTime.Now.ToString("yyyy-MM");}
 
 <div class="create-page-header illus-expense">
     <i class="bi bi-cash-stack header-icon"></i>
@@ -33,11 +34,14 @@
                         <span asp-validation-for="Description" class="text-danger"></span>
                     </div>
                     <div class="form-group mb-3">
-                        <label asp-for="Category" class="form-label"></label>
-                        <select asp-for="Category" class="form-select"
-                                asp-items="Html.GetEnumSelectList<ExpenseCategory>()">
+                        <label asp-for="CategoryId" class="form-label"></label>
+                        <select asp-for="CategoryId" class="form-select" asp-items="@categories">
+                            <option value="">-- Select Category --</option>
                         </select>
-                        <span asp-validation-for="Category" class="text-danger"></span>
+                        <span asp-validation-for="CategoryId" class="text-danger"></span>
+                        <div class="form-text">
+                            Don't see what you need? <a asp-controller="Categories" asp-action="Create" asp-route-type="Expense">Add a new category</a>.
+                        </div>
                     </div>
                     <div class="form-group mb-3">
                         <label asp-for="Month" class="form-label">Month (yyyy-MM)</label>

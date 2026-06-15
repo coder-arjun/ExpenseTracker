@@ -1,8 +1,9 @@
-@using ExpenseTracker.Models.Domain
+@using Microsoft.AspNetCore.Mvc.Rendering
 @model ExpenseTracker.Models.Domain.Expense
 
 @{
     ViewData["Title"] = "Edit Expense";
+    var categories = (SelectList)ViewData["Categories"]!;
 }
 
 <div class="page-header">
@@ -32,11 +33,11 @@
                         <span asp-validation-for="Description" class="text-danger"></span>
                     </div>
                     <div class="form-group mb-3">
-                        <label asp-for="Category" class="form-label"></label>
-                        <select asp-for="Category" class="form-select"
-                                asp-items="Html.GetEnumSelectList<ExpenseCategory>()">
+                        <label asp-for="CategoryId" class="form-label"></label>
+                        <select asp-for="CategoryId" class="form-select" asp-items="@categories">
+                            <option value="">-- Select Category --</option>
                         </select>
-                        <span asp-validation-for="Category" class="text-danger"></span>
+                        <span asp-validation-for="CategoryId" class="text-danger"></span>
                     </div>
                     <div class="form-group mb-3">
                         <label asp-for="Month" class="form-label">Month (yyyy-MM)</label>

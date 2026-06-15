@@ -16,6 +16,12 @@ namespace ExpenseTracker.Models.Domain
         [Required]
         public string Source { get; set; } = string.Empty;
 
+        // FK to user-scoped Category master. Nullable so legacy income rows
+        // (created before the category master existed) and uncategorised income remain valid.
+        [Display(Name = "Category")]
+        public int? CategoryId { get; set; }
+        public Category? Category { get; set; }
+
         public string? UserId { get; set; }
 
         [Required]

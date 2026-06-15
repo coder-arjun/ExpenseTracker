@@ -1,10 +1,9 @@
-@using ExpenseTracker.Models.Domain
 @model ExpenseTracker.Models.PaginatedList<ExpenseTracker.Models.Domain.Budget>
 
 @{
     ViewData["Title"] = "Budgets";
     var yearMonth = ViewData["YearMonth"] as string ?? DateTime.Now.ToString("yyyy-MM");
-    var expenses = ViewData["Expenses"] as Dictionary<ExpenseCategory, decimal> ?? new();
+    var expenses = ViewData["Expenses"] as Dictionary<int, decimal> ?? new();
     var totalSpent = (decimal)(ViewData["TotalSpent"] ?? 0m);
 }
 
@@ -60,10 +59,10 @@ else
     <div class="row g-4 mb-4">
         @foreach (var budget in Model)
         {
-            var label = budget.Category?.ToString() ?? "Overall";
-            var spent = budget.Category.HasValue && expenses.ContainsKey(budget.Category.Value)
-                ? expenses[budget.Category.Value]
-                : (!budget.Category.HasValue ? totalSpent : 0m);
+            var label = budget.Category?.Name ?? "Overall";
+            var spent = budget.CategoryId.HasValue && expenses.ContainsKey(budget.CategoryId.Value)
+                ? expenses[budget.CategoryId.Value]
+                : (!budget.CategoryId.HasValue ? totalSpent : 0m);
             var pct = budget.Amount > 0 ? Math.Round(spent / budget.Amount * 100, 1) : 0;
             var remaining = budget.Amount - spent;
 

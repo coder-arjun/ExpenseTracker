@@ -1,0 +1,106 @@
+@using ExpenseTracker.Models.Domain
+@model ExpenseTracker.Models.PaginatedList<ExpenseTracker.Models.Domain.Category>
+
+@{
+    ViewData["Title"] = "Categories";
+    var typeFilter = ViewData["TypeFilter"] as CategoryType?;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="page-header mb-0">
+        <h1><i class="bi bi-tags me-2"></i>Categories</h1>
+        <p>Manage Expense and Income categories</p>
+    </div>
+    <div>
+        <a asp-action="Create" asp-route-type="@(typeFilter ?? CategoryType.Expense)" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>Add Category
+        </a>
+    </div>
+</div>
+
+<!-- Type Filter -->
+<div class="filter-bar mb-4">
+    <form method="get" asp-action="Index" class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label fw-semibold">Type</label>
+            <select name="type" class="form-select">
+                <option value="">All</option>
+                @foreach (var t in Enum.GetValues<CategoryType>())
+                {
+                    <option value="@t" selected="@(typeFilter == t ? "selected" : null)">@t</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-auto">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-funnel me-1"></i>Apply
+            </button>
+            @if (typeFilter.HasValue)
+            {
+                <a asp-action="Index" class="btn btn-outline-secondary ms-1">
+                    <i class="bi bi-x-circle me-1"></i>Clear
+                </a>
+            }
+        </div>
+    </form>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="card">
+        <div class="empty-state">
+            <i class="bi bi-inbox"></i>
+            <p>No categories found. Add your first category to get started.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@item.Name</td>
+                            <td>
+                                @if (item.Type == CategoryType.Expense)
+                                {
+                                    <span class="badge bg-danger-subtle text-danger">Expense</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success-subtle text-success">Income</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@{
+    ViewData["PageIndex"] = Model.PageIndex;
+    ViewData["TotalPages"] = Model.TotalPages;
+    ViewData["HasPreviousPage"] = Model.HasPreviousPage;
+    ViewData["HasNextPage"] = Model.HasNextPage;
+}
+<partial name="_PaginationPartial" />

@@ -1,5 +1,3 @@
-﻿using ExpenseTracker.Models.Domain;
-
 namespace ExpenseTracker.Models.ViewModel
 {
     public class BudgetStatusViewModel
@@ -10,6 +8,6 @@ namespace ExpenseTracker.Models.ViewModel
         public decimal ActualSpent { get; set; }
         public decimal Remaining => BudgetAmount - ActualSpent;
         public decimal PercentageUsed => BudgetAmount > 0 ? Math.Round((ActualSpent / BudgetAmount) * 100, 1) : 0;
-        public ExpenseCategory? Category { get; set; }
+        public int? CategoryId { get; set; }
     }
 }

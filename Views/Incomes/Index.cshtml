@@ -1,7 +1,16 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
 @model ExpenseTracker.Models.PaginatedList<ExpenseTracker.Models.Domain.Income>
 
 @{
     ViewData["Title"] = "Incomes";
+    var selectedCategory = ViewData["SelectedCategory"] as int?;
+    var selectedCategoryName = ViewData["SelectedCategoryName"] as string;
+    var filteredTotal = (decimal)(ViewData["FilteredTotal"] ?? 0m);
+    var filteredCount = (int)(ViewData["FilteredCount"] ?? 0);
+    var categories = (SelectList)ViewData["Categories"]!;
+    var totalLabel = !string.IsNullOrEmpty(selectedCategoryName)
+        ? $"Total {selectedCategoryName} income"
+        : "Total income (filtered)";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -34,6 +43,12 @@
             <label class="form-label fw-semibold">Year</label>
             <input type="number" name="selectedYear" class="form-control" min="2020" max="2030" value="@ViewData["SelectedYear"]" />
         </div>
+        <div class="col-md-2">
+            <label class="form-label fw-semibold">Category</label>
+            <select name="selectedCategory" class="form-select" asp-items="@categories">
+                <option value="">All Categories</option>
+            </select>
+        </div>
         <div class="col-md-2" id="startDateInput" style="display:none;">
             <label class="form-label fw-semibold">Start Date</label>
             <input type="date" name="startDate" class="form-control" value="@ViewData["StartDate"]" />
@@ -46,7 +61,7 @@
             <button type="submit" class="btn btn-primary">
                 <i class="bi bi-funnel me-1"></i>Apply
             </button>
-            @if (!string.IsNullOrEmpty(ViewData["FilterType"]?.ToString()))
+            @if (!string.IsNullOrEmpty(ViewData["FilterType"]?.ToString()) || selectedCategory.HasValue)
             {
                 <a asp-action="Index" class="btn btn-outline-secondary ms-1">
                     <i class="bi bi-x-circle me-1"></i>Clear
@@ -55,6 +70,20 @@
         </div>
     </form>
 </div>
+
+<!-- Total summary card -->
+@if (filteredCount > 0)
+{
+    <div class="card mb-4 border-start border-4 border-success">
+        <div class="card-body d-flex justify-content-between align-items-center py-2">
+            <div>
+                <div class="text-muted small">@totalLabel</div>
+                <div class="fs-4 fw-bold text-success">@filteredTotal.ToString("C")</div>
+            </div>
+            <div class="text-muted small">@filteredCount record(s)</div>
+        </div>
+    </div>
+}
 
 @section Scripts {
     <script>
@@ -88,6 +117,7 @@ else
                         <th>Date</th>
                         <th>Amount</th>
                         <th>Source</th>
+                        <th>Category</th>
                         <th>Month</th>
                         <th>Actions</th>
                     </tr>
@@ -99,6 +129,7 @@ else
                             <td>@item.Date.ToString("yyyy-MM-dd")</td>
                             <td class="fw-semibold">@item.Amount.ToString("C")</td>
                             <td>@item.Source</td>
+                            <td><span class="badge bg-secondary">@(item.Category?.Name ?? "—")</span></td>
                             <td>@item.YearMonth</td>
                             <td>
                                 <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">

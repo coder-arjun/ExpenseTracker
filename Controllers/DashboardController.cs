@@ -34,7 +34,7 @@ namespace ExpenseTracker.Controllers
                 selectedYear = DateTime.Now.Year;
 
             // Build queries based on filter
-            IQueryable<Expense> expenseQuery = _context.Expenses.Where(e => e.UserId == userId);
+            IQueryable<Expense> expenseQuery = _context.Expenses.Include(e => e.Category).Where(e => e.UserId == userId);
             IQueryable<Income> incomeQuery = _context.Incomes.Where(i => i.UserId == userId);
             IQueryable<Saving> savingQuery = _context.Savings.Where(s => s.UserId == userId);
 
@@ -72,11 +72,14 @@ namespace ExpenseTracker.Controllers
             var totalExpense = await expenseQuery.SumAsync(e => (decimal?)e.Amount) ?? 0;
             var totalSaving = await savingQuery.SumAsync(s => (decimal?)s.Amount) ?? 0;
 
-            // Expenses by category
-            var expensesByCategory = await expenseQuery
-                .GroupBy(e => e.Category)
-                .Select(g => new { Category = g.Key, Total = g.Sum(e => e.Amount) })
-                .ToDictionaryAsync(g => g.Category.ToString(), g => g.Total);
+            // Expenses by category (by Category.Name from the master table)
+            var expensesByCategoryId = await expenseQuery
+                .GroupBy(e => new { e.CategoryId, e.Category!.Name })
+                .Select(g => new { g.Key.CategoryId, g.Key.Name, Total = g.Sum(e => e.Amount) })
+                .ToListAsync();
+
+            var expensesByCategory = expensesByCategoryId
+                .ToDictionary(g => g.Name ?? "Uncategorized", g => g.Total);
 
             // Monthly breakdowns
             var monthlyExpenses = await expenseQuery
@@ -105,7 +108,7 @@ namespace ExpenseTracker.Controllers
                 {
                     Date = e.Date,
                     Type = "Expense",
-                    Description = e.Description ?? e.Category.ToString(),
+                    Description = e.Description ?? (e.Category != null ? e.Category.Name : "Uncategorized"),
                     Amount = e.Amount
                 }).ToListAsync();
 
@@ -154,13 +157,17 @@ namespace ExpenseTracker.Controllers
             if (filterType == "Month" && !string.IsNullOrEmpty(selectedMonth))
             {
                 var budgets = await _context.Budgets
+                    .Include(b => b.Category)
                     .Where(b => b.UserId == userId && b.YearMonth == selectedMonth)
                     .ToListAsync();
 
+                // Build a CategoryId → spent lookup so we don't depend on category name lookup again
+                var spentByCategoryId = expensesByCategoryId.ToDictionary(g => g.CategoryId, g => g.Total);
+
                 foreach (var budget in budgets)
                 {
-                    var spent = budget.Category.HasValue
-                        ? (expensesByCategory.TryGetValue(budget.Category.Value.ToString(), out var catTotal) ? catTotal : 0)
+                    var spent = budget.CategoryId.HasValue
+                        ? (spentByCategoryId.TryGetValue(budget.CategoryId.Value, out var catTotal) ? catTotal : 0)
                         : totalExpense;
                     var pct = budget.Amount > 0 ? Math.Round(spent / budget.Amount * 100, 1) : 0;
 
@@ -169,10 +176,10 @@ namespace ExpenseTracker.Controllers
                         budgetAlerts.Add(new BudgetStatusViewModel
                         {
                             Id = budget.Id,
-                            CategoryName = budget.Category?.ToString() ?? "Overall",
+                            CategoryName = budget.Category?.Name ?? "Overall",
                             BudgetAmount = budget.Amount,
                             ActualSpent = spent,
-                            Category = budget.Category
+                            CategoryId = budget.CategoryId
                         });
                     }
                 }
@@ -214,7 +221,7 @@ namespace ExpenseTracker.Controllers
             if (filterType == "Year" && !selectedYear.HasValue)
                 selectedYear = DateTime.Now.Year;
 
-            IQueryable<Expense> expenseQuery = _context.Expenses.Where(e => e.UserId == userId);
+            IQueryable<Expense> expenseQuery = _context.Expenses.Include(e => e.Category).Where(e => e.UserId == userId);
 
             switch (filterType)
             {
@@ -236,9 +243,9 @@ namespace ExpenseTracker.Controllers
             var totalExpense = await expenseQuery.SumAsync(e => (decimal?)e.Amount) ?? 0;
 
             var expensesByCategory = await expenseQuery
-                .GroupBy(e => e.Category)
-                .Select(g => new { Category = g.Key, Total = g.Sum(e => e.Amount) })
-                .ToDictionaryAsync(g => g.Category.ToString(), g => g.Total);
+                .GroupBy(e => new { e.CategoryId, Name = e.Category!.Name })
+                .Select(g => new { g.Key.Name, Total = g.Sum(e => e.Amount) })
+                .ToDictionaryAsync(g => g.Name ?? "Uncategorized", g => g.Total);
 
             var topLeakages = expensesByCategory
                 .OrderByDescending(kvp => kvp.Value)

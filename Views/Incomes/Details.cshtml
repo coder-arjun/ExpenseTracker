@@ -19,6 +19,8 @@
                     <dd class="col-sm-8">@Model.Date.ToString("yyyy-MM-dd")</dd>
                     <dt class="col-sm-4">Source</dt>
                     <dd class="col-sm-8">@Model.Source</dd>
+                    <dt class="col-sm-4">Category</dt>
+                    <dd class="col-sm-8"><span class="badge bg-secondary">@(Model.Category?.Name ?? "—")</span></dd>
                     <dt class="col-sm-4">Month</dt>
                     <dd class="col-sm-8">@Model.YearMonth</dd>
                 </dl>

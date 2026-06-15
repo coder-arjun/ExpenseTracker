@@ -1,8 +1,9 @@
-﻿using ExpenseTracker.Data;
+using ExpenseTracker.Data;
 using ExpenseTracker.Models;
 using ExpenseTracker.Models.Domain;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
 namespace ExpenseTracker.Controllers
@@ -23,15 +24,19 @@ namespace ExpenseTracker.Controllers
             var userId = _userManager.GetUserId(User);
             yearMonth ??= DateTime.Now.ToString("yyyy-MM");
 
-            var query = _context.Budgets.Where(b => b.UserId == userId && b.YearMonth == yearMonth)
-                .OrderBy(c => c.Category);
+            var query = _context.Budgets
+                .Include(b => b.Category)
+                .Where(b => b.UserId == userId && b.YearMonth == yearMonth)
+                .OrderBy(c => c.CategoryId);
 
             var budgets = await PaginatedList<Budget>.CreateAsync(query, page);
+
+            // Sum expenses per category for this month so the cards can display "spent vs budgeted".
             var expenses = await _context.Expenses
                   .Where(e => e.UserId == userId && e.Month == yearMonth)
-                  .GroupBy(e => e.Category)
-                  .Select(g => new { Category = g.Key, Total = g.Sum(e => e.Amount) })
-                  .ToDictionaryAsync(g => g.Category, g => g.Total);
+                  .GroupBy(e => e.CategoryId)
+                  .Select(g => new { CategoryId = g.Key, Total = g.Sum(e => e.Amount) })
+                  .ToDictionaryAsync(g => g.CategoryId, g => g.Total);
 
             var totalSpent = await _context.Expenses
                 .Where(e => e.UserId == userId && e.Month == yearMonth)
@@ -44,32 +49,47 @@ namespace ExpenseTracker.Controllers
             return View(budgets);
         }
 
-        public IActionResult Create(string? yearMonth)
+        public async Task<IActionResult> Create(string? yearMonth)
         {
+            var userId = _userManager.GetUserId(User);
             ViewData["YearMonth"] = yearMonth ?? DateTime.Now.ToString("yyyy-MM");
+            ViewData["Categories"] = await GetCategoryOptionsAsync(userId, null);
             return View();
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Amount,Category,YearMonth")] Budget budget)
+        public async Task<IActionResult> Create([Bind("Amount,CategoryId,YearMonth")] Budget budget)
         {
-            budget.UserId = _userManager.GetUserId(User)!;
+            var userId = _userManager.GetUserId(User)!;
+            budget.UserId = userId;
             ClearServerFieldErrors();
+
+            // Null CategoryId means "Overall" budget — allowed. Otherwise validate ownership.
+            if (budget.CategoryId.HasValue)
+            {
+                var ok = await _context.Categories.AnyAsync(c =>
+                    c.Id == budget.CategoryId.Value && c.UserId == userId && c.Type == CategoryType.Expense);
+                if (!ok)
+                    ModelState.AddModelError(nameof(Budget.CategoryId), "Selected category is invalid.");
+            }
 
             if (ModelState.IsValid)
             {
-                // Check for duplicate
+                // Duplicate check (also enforced by unique index)
                 var exists = await _context.Budgets.AnyAsync(b =>
                     b.UserId == budget.UserId &&
                     b.YearMonth == budget.YearMonth &&
-                    b.Category == budget.Category);
+                    b.CategoryId == budget.CategoryId);
 
                 if (exists)
                 {
-                    var label = budget.Category?.ToString() ?? "Overall";
+                    var label = budget.CategoryId.HasValue
+                        ? await _context.Categories.Where(c => c.Id == budget.CategoryId.Value).Select(c => c.Name).FirstOrDefaultAsync() ?? "Selected"
+                        : "Overall";
                     TempData["ErrorMessage"] = $"A budget for '{label}' already exists for {budget.YearMonth}.";
                     ViewData["YearMonth"] = budget.YearMonth;
+                    ViewData["Categories"] = await GetCategoryOptionsAsync(userId, budget.CategoryId);
                     return View(budget);
                 }
 
@@ -82,6 +102,7 @@ namespace ExpenseTracker.Controllers
             TempData["ErrorMessage"] = string.Join(" ", ModelState.Values
                 .SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
             ViewData["YearMonth"] = budget.YearMonth;
+            ViewData["Categories"] = await GetCategoryOptionsAsync(userId, budget.CategoryId);
             return View(budget);
         }
 
@@ -91,6 +112,7 @@ namespace ExpenseTracker.Controllers
 
             var userId = _userManager.GetUserId(User);
             var budget = await _context.Budgets
+                .Include(b => b.Category)
                 .FirstOrDefaultAsync(b => b.Id == id && b.UserId == userId);
             if (budget == null) return NotFound();
 
@@ -105,6 +127,7 @@ namespace ExpenseTracker.Controllers
 
             var userId = _userManager.GetUserId(User);
             var existing = await _context.Budgets
+                .Include(b => b.Category)
                 .FirstOrDefaultAsync(b => b.Id == id && b.UserId == userId);
             if (existing == null) return NotFound();
 
@@ -132,6 +155,7 @@ namespace ExpenseTracker.Controllers
 
             var userId = _userManager.GetUserId(User);
             var budget = await _context.Budgets
+                .Include(b => b.Category)
                 .FirstOrDefaultAsync(b => b.Id == id && b.UserId == userId);
             if (budget == null) return NotFound();
 
@@ -175,20 +199,20 @@ namespace ExpenseTracker.Controllers
                 return RedirectToAction(nameof(Index), new { yearMonth });
             }
 
-            var existingCategories = await _context.Budgets
+            var existingCategoryIds = await _context.Budgets
                 .Where(b => b.UserId == userId && b.YearMonth == yearMonth)
-                .Select(b => b.Category)
+                .Select(b => b.CategoryId)
                 .ToListAsync();
 
             var copied = 0;
             foreach (var prev in previousBudgets)
             {
-                if (!existingCategories.Contains(prev.Category))
+                if (!existingCategoryIds.Contains(prev.CategoryId))
                 {
                     _context.Budgets.Add(new Budget
                     {
                         Amount = prev.Amount,
-                        Category = prev.Category,
+                        CategoryId = prev.CategoryId,
                         YearMonth = yearMonth,
                         UserId = userId
                     });
@@ -208,11 +232,22 @@ namespace ExpenseTracker.Controllers
             return RedirectToAction(nameof(Index), new { yearMonth });
         }
 
+        private async Task<SelectList> GetCategoryOptionsAsync(string? userId, int? selected)
+        {
+            var cats = await _context.Categories
+                .Where(c => c.UserId == userId && c.Type == CategoryType.Expense)
+                .OrderBy(c => c.Name)
+                .Select(c => new { c.Id, c.Name })
+                .ToListAsync();
+            return new SelectList(cats, "Id", "Name", selected);
+        }
+
         private void ClearServerFieldErrors()
         {
             var keysToRemove = ModelState.Keys
                 .Where(k => k.Contains("UserId", StringComparison.OrdinalIgnoreCase)
-                         || k.Contains("User", StringComparison.OrdinalIgnoreCase))
+                         || k.Contains("User", StringComparison.OrdinalIgnoreCase)
+                         || k.Equals("Category", StringComparison.OrdinalIgnoreCase))
                 .ToList();
             foreach (var key in keysToRemove)
                 ModelState.Remove(key);
