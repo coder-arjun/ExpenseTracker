@@ -22,6 +22,11 @@ namespace ExpenseTracker.Models.Domain
         public int? CategoryId { get; set; }
         public Category? Category { get; set; }
 
+        // Optional — which wallet/account the money landed in.
+        [Display(Name = "Account")]
+        public int? AccountId { get; set; }
+        public Account? Account { get; set; }
+
         public string? UserId { get; set; }
 
         [Required]

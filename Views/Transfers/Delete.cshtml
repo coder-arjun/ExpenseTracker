@@ -1,0 +1,24 @@
+@model ExpenseTracker.Models.Domain.Transfer
+
+@{ ViewData["Title"] = "Delete Transfer"; }
+
+<div class="page-header">
+    <h1><i class="bi bi-trash me-2"></i>Delete Transfer</h1>
+    <p><a asp-action="Index" class="text-decoration-none">Transfers</a> / Delete</p>
+</div>
+
+<div class="row"><div class="col-md-6"><div class="card"><div class="card-body">
+    <p class="text-muted">Remove this transfer? The balances on both accounts will be recalculated.</p>
+    <dl class="row mb-3">
+        <dt class="col-sm-4">Date</dt><dd class="col-sm-8">@Model.Date.ToString("yyyy-MM-dd")</dd>
+        <dt class="col-sm-4">From</dt><dd class="col-sm-8">@Model.FromAccount?.Name</dd>
+        <dt class="col-sm-4">To</dt><dd class="col-sm-8">@Model.ToAccount?.Name</dd>
+        <dt class="col-sm-4">Amount</dt><dd class="col-sm-8">@Model.Amount.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</dd>
+        <dt class="col-sm-4">Note</dt><dd class="col-sm-8">@Model.Description</dd>
+    </dl>
+    <form asp-action="Delete">
+        <input type="hidden" asp-for="Id" />
+        <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Delete</button>
+        <a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
+    </form>
+</div></div></div></div>

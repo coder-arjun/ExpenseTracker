@@ -1,0 +1,49 @@
+@{
+    ViewData["Title"] = "You're all set";
+}
+
+<div class="onboarding-wrap">
+    <div class="onboarding-progress" aria-label="Step 3 of 3">
+        <div class="onboarding-dot done"></div>
+        <div class="onboarding-line done"></div>
+        <div class="onboarding-dot done"></div>
+        <div class="onboarding-line done"></div>
+        <div class="onboarding-dot active"></div>
+    </div>
+
+    <div class="onboarding-card text-center">
+        <div class="onboarding-emoji onboarding-emoji-big" aria-hidden="true">🎉</div>
+        <h1>You're all set</h1>
+        <p class="lead text-muted">Your dashboard updates the moment you log an expense — try it from the Quick-Add button (<kbd>N</kbd>) or the menu.</p>
+
+        <div class="row g-3 mt-4">
+            <div class="col-md-4">
+                <div class="onboarding-tip">
+                    <i class="bi bi-tags onboarding-tip-icon"></i>
+                    <h6>Custom categories</h6>
+                    <p class="text-muted small mb-0">Add categories like <em>Weekend Trip</em> or <em>Side Hustle</em> as your life evolves.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="onboarding-tip">
+                    <i class="bi bi-speedometer onboarding-tip-icon"></i>
+                    <h6>Budgets per category</h6>
+                    <p class="text-muted small mb-0">Set monthly limits. You'll see warnings at 80% and 100%.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="onboarding-tip">
+                    <i class="bi bi-lightbulb onboarding-tip-icon"></i>
+                    <h6>Local insights</h6>
+                    <p class="text-muted small mb-0">After a month of data, Insights tells you where money's leaking — all computed on this server.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="onboarding-actions mt-4">
+            <a asp-controller="Dashboard" asp-action="Index" class="btn btn-primary btn-lg">
+                <i class="bi bi-house-door me-1"></i>Go to Dashboard
+            </a>
+        </div>
+    </div>
+</div>

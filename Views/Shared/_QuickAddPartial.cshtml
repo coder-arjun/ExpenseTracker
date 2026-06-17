@@ -1,0 +1,31 @@
+@*
+    Quick-add FAB + smart-entry sheet.
+    Visible only to authenticated users (gated by _Layout). The chips list
+    and POST endpoint live in /QuickAdd. Single text input parses
+    "1850 groceries food" → amount=1850, desc="groceries", cat="Food".
+*@
+@* Token used by the JS POST in quick-add.js *@
+@Html.AntiForgeryToken()
+
+<button id="qaFab" class="qa-fab" type="button"
+        aria-label="Quick add expense (press N)" title="Quick add expense (N)">
+    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+</button>
+
+<div id="qaSheet" class="qa-sheet" role="dialog" aria-modal="true" aria-labelledby="qaTitle" aria-hidden="true">
+    <div class="qa-sheet-card">
+        <div id="qaTitle" class="qa-sheet-title">Quick add expense</div>
+        <div class="qa-sheet-hint">Try: <code>1850 groceries food</code> — amount first, category last.</div>
+        <input id="qaInput" class="qa-sheet-input" type="text"
+               autocomplete="off" autocapitalize="off" spellcheck="false"
+               placeholder="e.g. 1850 groceries food" />
+        <div id="qaChips" class="qa-chips" aria-label="Your expense categories"></div>
+        <div id="qaPreview" class="qa-preview" aria-live="polite">Start typing to see a preview…</div>
+        <div class="qa-actions">
+            <button type="button" class="btn btn-link text-secondary" id="qaCancel">Cancel</button>
+            <button type="button" class="btn btn-primary" id="qaSubmit">
+                <i class="bi bi-check-lg me-1"></i>Add
+            </button>
+        </div>
+    </div>
+</div>

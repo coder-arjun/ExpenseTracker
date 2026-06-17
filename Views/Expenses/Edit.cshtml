@@ -4,6 +4,7 @@
 @{
     ViewData["Title"] = "Edit Expense";
     var categories = (SelectList)ViewData["Categories"]!;
+    var accounts = ViewData["Accounts"] as SelectList;
 }
 
 <div class="page-header">
@@ -14,12 +15,14 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-body">
-                <form asp-action="Edit">
+                <form asp-action="Edit" enctype="multipart/form-data">
                     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
                     <input type="hidden" asp-for="Id" />
                     <div class="form-group mb-3">
                         <label asp-for="Amount" class="form-label"></label>
-                        <input asp-for="Amount" class="form-control" />
+                        <div class="input-currency">
+                            <input asp-for="Amount" class="form-control text-tabular" inputmode="decimal" aria-required="true" />
+                        </div>
                         <span asp-validation-for="Amount" class="text-danger"></span>
                     </div>
                     <div class="form-group mb-3">
@@ -39,10 +42,28 @@
                         </select>
                         <span asp-validation-for="CategoryId" class="text-danger"></span>
                     </div>
+                    @if (accounts != null && accounts.Any())
+                    {
+                        <div class="form-group mb-3">
+                            <label asp-for="AccountId" class="form-label"></label>
+                            <select asp-for="AccountId" class="form-select" asp-items="@accounts">
+                                <option value="">— none —</option>
+                            </select>
+                            <span asp-validation-for="AccountId" class="text-danger"></span>
+                        </div>
+                    }
                     <div class="form-group mb-3">
                         <label asp-for="Month" class="form-label">Month (yyyy-MM)</label>
                         <input asp-for="Month" class="form-control" placeholder="2026-03" />
                         <span asp-validation-for="Month" class="text-danger"></span>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="receipt" class="form-label">Add another receipt <span class="text-muted">(optional)</span></label>
+                        <input type="file" name="receipt" id="receipt" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf" />
+                        @if (ViewData.ModelState["receipt"]?.Errors.Any() == true)
+                        {
+                            <div class="text-danger">@ViewData.ModelState["receipt"]!.Errors.First().ErrorMessage</div>
+                        }
                     </div>
                     <div class="form-group">
                         <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>

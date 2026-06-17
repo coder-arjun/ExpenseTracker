@@ -1,0 +1,37 @@
+@*
+    Server-rendered toasts. Reads the four TempData flash keys the rest of the
+    app already writes to. The JS picks them up and animates them in the
+    same toast host as client-side toasts.
+*@
+@functions {
+    private static string[] FlashKeys => new[] { "SuccessMessage", "ErrorMessage", "WarningMessage", "InfoMessage" };
+    private static string Kind(string key) => key switch
+    {
+        "SuccessMessage" => "success",
+        "ErrorMessage"   => "error",
+        "WarningMessage" => "warn",
+        _                => "info"
+    };
+}
+
+@{
+    var hasAny = FlashKeys.Any(k => TempData[k] is string s && !string.IsNullOrEmpty(s));
+}
+@if (hasAny)
+{
+    <script type="application/json" id="serverToasts">
+    {
+      "messages": [
+        @{ var first = true; }
+        @foreach (var k in FlashKeys)
+        {
+            if (TempData[k] is string msg && !string.IsNullOrEmpty(msg))
+            {
+                @(first ? "" : ","); first = false;
+                <text>{ "kind": "@Kind(k)", "text": @Html.Raw(System.Text.Json.JsonSerializer.Serialize(msg)) }</text>
+            }
+        }
+      ]
+    }
+    </script>
+}

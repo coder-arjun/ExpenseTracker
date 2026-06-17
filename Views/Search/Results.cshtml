@@ -1,0 +1,88 @@
+@{
+    ViewData["Title"] = "Search";
+    var q = ViewData["Query"] as string ?? "";
+    var nav = (List<object>)(ViewData["Nav"] ?? new List<object>());
+    var cats = (List<object>)(ViewData["Categories"] ?? new List<object>());
+    var expenses = (List<object>)(ViewData["Expenses"] ?? new List<object>());
+}
+
+<div class="page-header mb-4">
+    <h1><i class="bi bi-search me-2"></i>Search</h1>
+    @if (!string.IsNullOrEmpty(q))
+    {
+        <p>Results for <strong>"@q"</strong></p>
+    }
+</div>
+
+<form method="get" asp-action="Results" class="mb-4">
+    <div class="input-group">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="search" name="q" value="@q" class="form-control form-control-lg"
+               placeholder="Search expenses, categories or pages…" autofocus autocomplete="off" />
+        <button class="btn btn-primary" type="submit">Search</button>
+    </div>
+</form>
+
+@if (string.IsNullOrEmpty(q))
+{
+    <div class="card"><div class="empty-state">
+        <i class="bi bi-search"></i>
+        <p>Type something above to search across your expenses, categories and pages.</p>
+    </div></div>
+}
+else if (nav.Count == 0 && cats.Count == 0 && expenses.Count == 0)
+{
+    <div class="card"><div class="empty-state">
+        <i class="bi bi-emoji-frown"></i>
+        <p>Nothing matched <strong>"@q"</strong>. Try a shorter or different term.</p>
+    </div></div>
+}
+else
+{
+    @if (nav.Count > 0)
+    {
+        <div class="card mb-3"><div class="card-body">
+            <h6 class="text-uppercase text-muted small fw-bold mb-3">Navigation</h6>
+            <div class="list-group list-group-flush">
+                @foreach (dynamic n in nav)
+                {
+                    <a href="@n.url" class="list-group-item list-group-item-action d-flex align-items-center">
+                        <i class="bi bi-@n.icon me-2 text-primary"></i>@n.label
+                    </a>
+                }
+            </div>
+        </div></div>
+    }
+
+    @if (cats.Count > 0)
+    {
+        <div class="card mb-3"><div class="card-body">
+            <h6 class="text-uppercase text-muted small fw-bold mb-3">Categories</h6>
+            <div class="list-group list-group-flush">
+                @foreach (dynamic c in cats)
+                {
+                    <a href="@c.url" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-tag me-2"></i>@c.name</span>
+                        <span class="badge bg-secondary-subtle text-secondary">@c.type</span>
+                    </a>
+                }
+            </div>
+        </div></div>
+    }
+
+    @if (expenses.Count > 0)
+    {
+        <div class="card mb-3"><div class="card-body">
+            <h6 class="text-uppercase text-muted small fw-bold mb-3">Expenses</h6>
+            <div class="list-group list-group-flush">
+                @foreach (dynamic e in expenses)
+                {
+                    <a href="@e.url" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-cash me-2"></i>@(e.description ?? "(no description)")</span>
+                        <span class="text-muted small">@e.amount &middot; @e.month</span>
+                    </a>
+                }
+            </div>
+        </div></div>
+    }
+}

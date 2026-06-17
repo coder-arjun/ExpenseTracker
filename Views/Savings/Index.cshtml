@@ -9,9 +9,28 @@
         <h1><i class="bi bi-piggy-bank me-2"></i>Savings</h1>
         <p>Manage and track all your savings</p>
     </div>
-    <a asp-action="Create" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-1"></i>Add Saving
-    </a>
+    <div>
+        <div class="btn-group me-1">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download me-1"></i>Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="xlsx">
+                    <i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i>Excel (.xlsx)
+                </a></li>
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="pdf">
+                    <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF
+                </a></li>
+                <li><hr class="dropdown-divider" /></li>
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="csv">
+                    <i class="bi bi-filetype-csv me-2 text-secondary"></i>CSV (plain text)
+                </a></li>
+            </ul>
+        </div>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>Add Saving
+        </a>
+    </div>
 </div>
 
 @if (!Model.Any())

@@ -4,13 +4,52 @@
     ViewData["Title"] = "Dashboard";
 }
 
+@{
+    var kpiNetWorth = (decimal)(ViewData["KpiNetWorth"] ?? 0m);
+    var kpiSpend = (decimal)(ViewData["KpiMonthSpend"] ?? 0m);
+    var kpiSavings = (decimal)(ViewData["KpiSavingsRate"] ?? 0m);
+    var kpiGoals = (int)(ViewData["KpiActiveGoals"] ?? 0);
+}
+
 <div class="page-header">
     <h1><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
     <p>Your financial overview at a glance</p>
 </div>
 
+@* ── Hero KPI strip (v2) ── *@
+<div class="kpi-strip" role="region" aria-label="Key financial indicators">
+    <div class="kpi-tile balance" data-fade-in>
+        <div class="kpi-tile-label">Net Worth</div>
+        <div class="kpi-tile-value">
+            <span data-countup="@kpiNetWorth" data-countup-format="currency" aria-label="@kpiNetWorth.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN")) net worth">@kpiNetWorth.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</span>
+        </div>
+        <div class="kpi-tile-sub">across all accounts</div>
+    </div>
+    <div class="kpi-tile expense" data-fade-in>
+        <div class="kpi-tile-label">@(Model.FilterType == "Month" ? "Month" : Model.FilterType == "Year" ? "Year" : "Period") Spend</div>
+        <div class="kpi-tile-value">
+            <span data-countup="@kpiSpend" data-countup-format="currency">@kpiSpend.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</span>
+        </div>
+        <div class="kpi-tile-sub">total expenses</div>
+    </div>
+    <div class="kpi-tile income" data-fade-in>
+        <div class="kpi-tile-label">Savings Rate</div>
+        <div class="kpi-tile-value">
+            <span data-countup="@kpiSavings" data-countup-format="percent">@kpiSavings%</span>
+        </div>
+        <div class="kpi-tile-sub">income minus expenses</div>
+    </div>
+    <div class="kpi-tile goal" data-fade-in>
+        <div class="kpi-tile-label">Active Goals</div>
+        <div class="kpi-tile-value">
+            <span data-countup="@kpiGoals">@kpiGoals</span>
+        </div>
+        <div class="kpi-tile-sub"><a asp-controller="Goals" asp-action="Index" class="text-decoration-none">view all →</a></div>
+    </div>
+</div>
+
 <!-- Filter Bar -->
-<div class="filter-bar">
+<div class="filter-bar sticky-filter">
     <form method="get" asp-action="Index" class="row g-3 align-items-end">
         <div class="col-md-2">
             <label class="form-label fw-semibold">Filter By</label>
@@ -128,27 +167,129 @@
     <!-- Overview Tab -->
     <div class="tab-pane fade show active" id="overview-pane" role="tabpanel" aria-labelledby="overview-tab">
         <div class="row g-4">
+            @{
+                // ── Accessible chart summaries used as canvas aria-labels ──
+                var catTotal = Model.ExpensesByCategory.Values.Sum();
+                string categoryAriaLabel;
+                if (Model.ExpensesByCategory.Count == 0)
+                {
+                    categoryAriaLabel = "Expenses by category chart: no data available.";
+                }
+                else
+                {
+                    var topCat = Model.ExpensesByCategory.OrderByDescending(kv => kv.Value).First();
+                    var topPct = catTotal > 0 ? Math.Round(topCat.Value / catTotal * 100m) : 0;
+                    categoryAriaLabel =
+                        $"Doughnut chart: expenses by category, {Model.ExpensesByCategory.Count} categories totalling " +
+                        $"{catTotal.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))}. " +
+                        $"Largest is {topCat.Key} at {topPct}%. Full data available as a table below.";
+                }
+                var comparisonAriaLabel =
+                    $"Income versus expenses chart. Income: {Model.TotalIncome.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))}. " +
+                    $"Expenses: {Model.TotalExpense.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))}. " +
+                    $"Net: {(Model.TotalIncome - Model.TotalExpense).ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))}. " +
+                    $"Full data available as a table below.";
+            }
+
             <div class="col-md-6">
                 <div class="card shadow-sm">
                     <div class="card-header fw-semibold">
-                        <i class="bi bi-pie-chart me-1"></i>Expenses by Category
+                        <i class="bi bi-pie-chart me-1" aria-hidden="true"></i>Expenses by Category
                     </div>
                     <div class="card-body">
                         <div class="chart-container">
-                            <canvas id="categoryChart"></canvas>
+                            <canvas id="categoryChart" role="img" aria-label="@categoryAriaLabel"
+                                    aria-describedby="categoryChartTable"></canvas>
                         </div>
+                        <details class="chart-fallback mt-2" id="categoryChartTable">
+                            <summary><i class="bi bi-table me-1" aria-hidden="true"></i>View data as table</summary>
+                            @if (Model.ExpensesByCategory.Count == 0)
+                            {
+                                <p class="text-muted small mt-2 mb-0">No expense data for this period.</p>
+                            }
+                            else
+                            {
+                                <table class="table table-sm mt-2 mb-0">
+                                    <caption class="sr-only-v2">Expenses by category, percent of total in parentheses</caption>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Category</th>
+                                            <th scope="col" class="text-end">Amount</th>
+                                            <th scope="col" class="text-end">Share</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var kv in Model.ExpensesByCategory.OrderByDescending(x => x.Value))
+                                        {
+                                            var pct = catTotal > 0 ? Math.Round(kv.Value / catTotal * 100m, 1) : 0;
+                                            <tr>
+                                                <td>@kv.Key</td>
+                                                <td class="text-end text-tabular">@kv.Value.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</td>
+                                                <td class="text-end text-tabular">@pct%</td>
+                                            </tr>
+                                        }
+                                        <tr class="fw-semibold">
+                                            <td>Total</td>
+                                            <td class="text-end text-tabular">@catTotal.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</td>
+                                            <td class="text-end text-tabular">100%</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            }
+                        </details>
                     </div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="card shadow-sm">
                     <div class="card-header fw-semibold">
-                        <i class="bi bi-bar-chart me-1"></i>Income vs Expenses
+                        <i class="bi bi-bar-chart me-1" aria-hidden="true"></i>Income vs Expenses
                     </div>
                     <div class="card-body">
                         <div class="chart-container">
-                            <canvas id="comparisonChart"></canvas>
+                            <canvas id="comparisonChart" role="img" aria-label="@comparisonAriaLabel"
+                                    aria-describedby="comparisonChartTable"></canvas>
                         </div>
+                        <details class="chart-fallback mt-2" id="comparisonChartTable">
+                            <summary><i class="bi bi-table me-1" aria-hidden="true"></i>View data as table</summary>
+                            @{
+                                var months = Model.MonthlyIncomes.Keys
+                                    .Concat(Model.MonthlyExpenses.Keys)
+                                    .Distinct().OrderBy(m => m).ToList();
+                            }
+                            @if (months.Count == 0)
+                            {
+                                <p class="text-muted small mt-2 mb-0">No data for this period.</p>
+                            }
+                            else
+                            {
+                                <table class="table table-sm mt-2 mb-0">
+                                    <caption class="sr-only-v2">Monthly income versus expenses</caption>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Month</th>
+                                            <th scope="col" class="text-end">Income</th>
+                                            <th scope="col" class="text-end">Expenses</th>
+                                            <th scope="col" class="text-end">Net</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var m in months)
+                                        {
+                                            var inc = Model.MonthlyIncomes.TryGetValue(m, out var i) ? i : 0;
+                                            var exp = Model.MonthlyExpenses.TryGetValue(m, out var e) ? e : 0;
+                                            var net = inc - exp;
+                                            <tr>
+                                                <td>@m</td>
+                                                <td class="text-end text-tabular t-income">@inc.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</td>
+                                                <td class="text-end text-tabular t-expense">@exp.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</td>
+                                                <td class="text-end text-tabular @(net >= 0 ? "t-income" : "t-expense")">@net.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                        </details>
                     </div>
                 </div>
             </div>
@@ -325,10 +466,107 @@
         // Chart instances for resize on tab switch
         var chartInstances = [];
 
+        // ─── Accessible-chart helpers ───────────────────────────────────
+        // Pattern generator: each colour gets a *distinct shape* overlay so
+        // colour-blind users can still tell categories apart at a glance.
+        // (Replaces the need for the chartjs-plugin-patternomaly external dep.)
+        var PATTERN_KINDS = ['diagonal', 'reverse-diagonal', 'dots', 'cross',
+                             'horizontal', 'vertical', 'zigzag', 'chevron'];
+        function makePattern(color, idx) {
+            var size = 16;
+            var off = document.createElement('canvas');
+            off.width = size; off.height = size;
+            var ctx = off.getContext('2d');
+            ctx.fillStyle = color;
+            ctx.fillRect(0, 0, size, size);
+            ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+            ctx.fillStyle   = 'rgba(255,255,255,0.65)';
+            ctx.lineWidth = 1.6;
+            var kind = PATTERN_KINDS[idx % PATTERN_KINDS.length];
+            ctx.beginPath();
+            switch (kind) {
+                case 'diagonal':
+                    for (var x = -size; x < size * 2; x += 5) { ctx.moveTo(x, 0); ctx.lineTo(x + size, size); }
+                    break;
+                case 'reverse-diagonal':
+                    for (var x2 = -size; x2 < size * 2; x2 += 5) { ctx.moveTo(x2, size); ctx.lineTo(x2 + size, 0); }
+                    break;
+                case 'dots':
+                    for (var y = 3; y < size; y += 6) {
+                        for (var x3 = 3; x3 < size; x3 += 6) {
+                            ctx.beginPath(); ctx.arc(x3, y, 1.4, 0, Math.PI * 2); ctx.fill();
+                        }
+                    }
+                    return ctx.createPattern(off, 'repeat');
+                case 'cross':
+                    for (var xc = 0; xc <= size; xc += 6) { ctx.moveTo(xc, 0); ctx.lineTo(xc, size); }
+                    for (var yc = 0; yc <= size; yc += 6) { ctx.moveTo(0, yc); ctx.lineTo(size, yc); }
+                    break;
+                case 'horizontal':
+                    for (var yh = 2; yh < size; yh += 4) { ctx.moveTo(0, yh); ctx.lineTo(size, yh); }
+                    break;
+                case 'vertical':
+                    for (var xv = 2; xv < size; xv += 4) { ctx.moveTo(xv, 0); ctx.lineTo(xv, size); }
+                    break;
+                case 'zigzag':
+                    ctx.moveTo(0, size / 2);
+                    for (var xz = 0; xz < size; xz += 4) { ctx.lineTo(xz + 2, 0); ctx.lineTo(xz + 4, size / 2); }
+                    break;
+                case 'chevron':
+                    for (var yk = 0; yk < size; yk += 5) {
+                        ctx.moveTo(0, yk); ctx.lineTo(size / 2, yk + 3); ctx.lineTo(size, yk);
+                    }
+                    break;
+            }
+            ctx.stroke();
+            return ctx.createPattern(off, 'repeat');
+        }
+
+        // Tiny inline plugin: draw a percentage label on each slice/bar
+        // whose share is ≥ 5%. White text with a subtle shadow for legibility.
+        var directLabelsPlugin = {
+            id: 'directLabels',
+            afterDatasetsDraw: function (chart) {
+                var ctx = chart.ctx;
+                var type = chart.config.type;
+                ctx.save();
+                ctx.font = '600 11px Inter, system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                chart.data.datasets.forEach(function (ds, dsi) {
+                    var meta = chart.getDatasetMeta(dsi);
+                    if (meta.hidden) return;
+                    var values = ds.data || [];
+                    var datasetTotal = values.reduce(function (a, b) { return a + (b || 0); }, 0);
+                    meta.data.forEach(function (el, i) {
+                        var v = values[i] || 0;
+                        if (datasetTotal <= 0) return;
+                        var share = v / datasetTotal;
+                        // Skip tiny slivers — labels would overlap and clutter
+                        if (share < 0.05) return;
+                        var label = (type === 'doughnut' || type === 'pie')
+                            ? Math.round(share * 100) + '%'
+                            : null;
+                        if (!label) return;
+                        var pos = (typeof el.tooltipPosition === 'function')
+                            ? el.tooltipPosition() : { x: el.x, y: el.y };
+                        ctx.shadowColor = 'rgba(0,0,0,0.55)';
+                        ctx.shadowBlur = 3;
+                        ctx.fillStyle = '#fff';
+                        ctx.fillText(label, pos.x, pos.y);
+                        ctx.shadowBlur = 0;
+                    });
+                });
+                ctx.restore();
+            }
+        };
+        Chart.register(directLabelsPlugin);
+
         // Category doughnut chart
         var catLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ExpensesByCategory.Keys.ToArray()));
         var catValues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ExpensesByCategory.Values.ToArray()));
         var catColors = ['#DC2626', '#2563EB', '#16A34A', '#D97706', '#7C3AED', '#71717A', '#0891B2', '#DB2777', '#EA580C', '#4F46E5'];
+        var catPatterns = catColors.map(function (c, i) { return makePattern(c, i); });
 
         if (catLabels.length > 0) {
             chartInstances.push(new Chart(document.getElementById('categoryChart'), {
@@ -337,14 +575,40 @@
                     labels: catLabels,
                     datasets: [{
                         data: catValues,
-                        backgroundColor: catColors.slice(0, catLabels.length),
-                        borderWidth: 2
+                        // Patterns for the slice fill — colour-blind safe shapes;
+                        // hoverBackgroundColor falls back to flat colour so the
+                        // hovered slice "lights up" recognisably.
+                        backgroundColor: catPatterns.slice(0, catLabels.length),
+                        hoverBackgroundColor: catColors.slice(0, catLabels.length),
+                        borderWidth: 2,
+                        borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-surface') || '#fff'
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } }
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            // Make legend swatches show the FLAT colour (so users
+                            // can still read the legend) while slices carry both
+                            // colour AND pattern.
+                            labels: {
+                                generateLabels: function (chart) {
+                                    var data = chart.data;
+                                    return data.labels.map(function (label, i) {
+                                        return {
+                                            text: label,
+                                            fillStyle: catColors[i % catColors.length],
+                                            strokeStyle: catColors[i % catColors.length],
+                                            lineWidth: 0,
+                                            index: i
+                                        };
+                                    });
+                                }
+                            }
+                        }
+                    }
                 }
             }));
         }
@@ -364,6 +628,12 @@
         var filterType = '@Model.FilterType';
         var compChartType = (filterType === 'Month') ? 'doughnut' : 'bar';
 
+        // Income vs Expense patterns: income = diagonal, expense = reverse-diagonal.
+        // Two strongly-distinct shapes so the comparison stays legible even at the
+        // common red-green confusion that ~5% of users have.
+        var incomePattern  = makePattern('#16A34A', 0);   // diagonal
+        var expensePattern = makePattern('#DC2626', 1);   // reverse-diagonal
+
         if (allMonths.length > 0) {
             if (compChartType === 'bar') {
                 chartInstances.push(new Chart(document.getElementById('comparisonChart'), {
@@ -371,14 +641,26 @@
                     data: {
                         labels: allMonths,
                         datasets: [
-                            { label: 'Income', data: incomeValues, backgroundColor: '#16A34A' },
-                            { label: 'Expenses', data: expenseValues, backgroundColor: '#DC2626' }
+                            { label: 'Income',   data: incomeValues,  backgroundColor: incomePattern,  hoverBackgroundColor: '#16A34A' },
+                            { label: 'Expenses', data: expenseValues, backgroundColor: expensePattern, hoverBackgroundColor: '#DC2626' }
                         ]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    generateLabels: function () {
+                                        return [
+                                            { text: 'Income',   fillStyle: '#16A34A', strokeStyle: '#16A34A', lineWidth: 0, datasetIndex: 0 },
+                                            { text: 'Expenses', fillStyle: '#DC2626', strokeStyle: '#DC2626', lineWidth: 0, datasetIndex: 1 }
+                                        ];
+                                    }
+                                }
+                            }
+                        },
                         scales: { y: { beginAtZero: true } }
                     }
                 }));
@@ -389,14 +671,28 @@
                         labels: ['Income', 'Expenses'],
                         datasets: [{
                             data: [@Model.TotalIncome, @Model.TotalExpense],
-                            backgroundColor: ['#16A34A', '#DC2626'],
-                            borderWidth: 2
+                            backgroundColor: [incomePattern, expensePattern],
+                            hoverBackgroundColor: ['#16A34A', '#DC2626'],
+                            borderWidth: 2,
+                            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-surface') || '#fff'
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } }
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    generateLabels: function () {
+                                        return [
+                                            { text: 'Income',   fillStyle: '#16A34A', strokeStyle: '#16A34A', lineWidth: 0, index: 0 },
+                                            { text: 'Expenses', fillStyle: '#DC2626', strokeStyle: '#DC2626', lineWidth: 0, index: 1 }
+                                        ];
+                                    }
+                                }
+                            }
+                        }
                     }
                 }));
             }

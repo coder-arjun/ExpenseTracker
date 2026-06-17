@@ -7,6 +7,10 @@ using Microsoft.Extensions.Options;
 using System.Security.Claims;
 
 
+// QuestPDF requires an explicit license declaration. Community is the free tier
+// suitable for personal projects and companies under $1M annual revenue.
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -19,6 +23,10 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>();
 
 builder.Services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, AppClaimsPrincipalFactory>();
+builder.Services.AddScoped<ExpenseTracker.Services.FinancialAnalyzer>();
+builder.Services.AddScoped<ExpenseTracker.Services.AccountBalanceService>();
+builder.Services.AddScoped<ExpenseTracker.Services.RecurringProcessor>();
+builder.Services.AddSingleton<ExpenseTracker.Services.AttachmentStorage>();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews(options =>
@@ -30,16 +38,13 @@ builder.Services.AddControllersWithViews(options =>
     options.Filters.Add(new Microsoft.AspNetCore.Mvc.Authorization.AuthorizeFilter(policy));
 });
 
-// Data-protection keys: written to disk but cleared on every app start.
-// This ensures all previous auth cookies are invalidated on restart (forces re-login),
-// while still allowing "Remember me" to persist cookies across browser sessions
-// within a single app run.
+// Data-protection keys: persisted to disk and NEVER wiped on startup.
+// The keys encrypt the auth cookie — if we delete them, every previously
+// issued cookie (including "Remember me" cookies) becomes garbage on the
+// next request and the user is silently logged out. Persisting the keys
+// is what lets Remember Me survive app restarts.
 var keysDir = Path.Combine(builder.Environment.ContentRootPath, "keys");
-if (Directory.Exists(keysDir))
-{
-    foreach (var file in Directory.GetFiles(keysDir))
-        File.Delete(file);
-}
+Directory.CreateDirectory(keysDir);
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(keysDir))
     .SetApplicationName("ExpenseTracker");
@@ -48,26 +53,22 @@ builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Identity/Account/Login";
     options.LogoutPath = "/Identity/Account/Logout";
-    options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+
+    // 30-day ticket lifetime. The cookie auth handler interprets this
+    // differently based on whether the sign-in was persistent:
+    //   • isPersistent = true  → cookie Expires header is set to now + 30 days
+    //                            (browser stores it persistently across closes)
+    //   • isPersistent = false → no Expires (session cookie, browser drops on close)
+    // No OnSigningIn override needed — the default behaviour is exactly right
+    // once ExpireTimeSpan is set to a sensible value.
+    options.ExpireTimeSpan = TimeSpan.FromDays(30);
     options.SlidingExpiration = true;
+
     options.Cookie.HttpOnly = true;
     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
     options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.MaxAge = null;  // session cookie by default — cleared on browser close
     options.Cookie.IsEssential = true;
     options.Cookie.Name = ".ExpenseTracker.Auth";
-
-    // When "Remember me" is checked, make the cookie persistent (30 days).
-    // Default (unchecked) stays a session cookie — browser close = logged out.
-    options.Events.OnSigningIn = context =>
-    {
-        if (context.Properties.IsPersistent)
-        {
-            context.CookieOptions.MaxAge = TimeSpan.FromDays(30);
-            context.Properties.ExpiresUtc = DateTimeOffset.UtcNow.AddDays(30);
-        }
-        return Task.CompletedTask;
-    };
 });
 
 // Re-validate security stamp every 5 minutes (catches password changes, etc.)
@@ -78,6 +79,24 @@ builder.Services.Configure<SecurityStampValidatorOptions>(options =>
 
 var app = builder.Build();
 
+// ----- CLI mode: `dotnet run -- analyze <userId> <yyyy-MM>` -----
+// Renders the Insights Markdown for one user/period to stdout without
+// starting the web host. Useful for offline verification and debugging.
+if (args.Length >= 3 && args[0] == "analyze")
+{
+    using var scope = app.Services.CreateScope();
+    var analyzer = scope.ServiceProvider.GetRequiredService<ExpenseTracker.Services.FinancialAnalyzer>();
+
+    // args[2] == "mtd" → month-to-date for current calendar month.
+    var (period, asOf) = args[2] == "mtd"
+        ? (DateTime.Now.ToString("yyyy-MM"), (DateTime?)DateTime.Now)
+        : (args[2], (DateTime?)null);
+
+    var snap = await analyzer.BuildSnapshotAsync(args[1], period, asOf);
+    Console.WriteLine(ExpenseTracker.Services.InsightsRenderer.Render(snap));
+    return;
+}
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -86,7 +105,19 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+// Serve static files with the correct MIME for .webmanifest so the PWA
+// manifest validates in Chrome/Edge devtools.
+var staticFileOptions = new Microsoft.AspNetCore.Builder.StaticFileOptions
+{
+    ContentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider
+    {
+        Mappings =
+        {
+            [".webmanifest"] = "application/manifest+json",
+        }
+    }
+};
+app.UseStaticFiles(staticFileOptions);
 app.UseRouting();
 app.UseAuthentication();
 

@@ -1,0 +1,21 @@
+{
+  "name": "ExpenseTracker — Personal Finance",
+  "short_name": "ExpenseTracker",
+  "description": "Privacy-first personal expense tracking. All analysis runs on your device.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FAFAFA",
+  "theme_color": "#0066FF",
+  "lang": "en-IN",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Dashboard", "short_name": "Dashboard", "url": "/Dashboard", "description": "View this month's overview" },
+    { "name": "Add Expense", "short_name": "Add", "url": "/Expenses/Create", "description": "Quickly log a new expense" },
+    { "name": "Insights", "short_name": "Insights", "url": "/Insights", "description": "Where your money is leaking" }
+  ]
+}

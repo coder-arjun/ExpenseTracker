@@ -18,14 +18,42 @@
         <h1><i class="bi bi-graph-up-arrow me-2"></i>Incomes</h1>
         <p>Manage and track all your income sources</p>
     </div>
-    <a asp-action="Create" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-1"></i>Add Income
-    </a>
+    <div>
+        <div class="btn-group me-1">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download me-1"></i>Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="xlsx"
+                       asp-route-filterType="@ViewData["FilterType"]" asp-route-selectedMonth="@ViewData["SelectedMonth"]"
+                       asp-route-selectedYear="@ViewData["SelectedYear"]" asp-route-startDate="@ViewData["StartDate"]"
+                       asp-route-endDate="@ViewData["EndDate"]" asp-route-selectedCategory="@(selectedCategory?.ToString())">
+                    <i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i>Excel (.xlsx)
+                </a></li>
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="pdf"
+                       asp-route-filterType="@ViewData["FilterType"]" asp-route-selectedMonth="@ViewData["SelectedMonth"]"
+                       asp-route-selectedYear="@ViewData["SelectedYear"]" asp-route-startDate="@ViewData["StartDate"]"
+                       asp-route-endDate="@ViewData["EndDate"]" asp-route-selectedCategory="@(selectedCategory?.ToString())">
+                    <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF
+                </a></li>
+                <li><hr class="dropdown-divider" /></li>
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="csv"
+                       asp-route-filterType="@ViewData["FilterType"]" asp-route-selectedMonth="@ViewData["SelectedMonth"]"
+                       asp-route-selectedYear="@ViewData["SelectedYear"]" asp-route-startDate="@ViewData["StartDate"]"
+                       asp-route-endDate="@ViewData["EndDate"]" asp-route-selectedCategory="@(selectedCategory?.ToString())">
+                    <i class="bi bi-filetype-csv me-2 text-secondary"></i>CSV (plain text)
+                </a></li>
+            </ul>
+        </div>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>Add Income
+        </a>
+    </div>
 </div>
 
 <!-- Filter Bar -->
-<div class="filter-bar mb-4">
-    <form method="get" asp-action="Index" class="row g-3 align-items-end">
+<div class="filter-bar sticky-filter mb-4">
+    <form method="get" asp-action="Index" class="row g-3 align-items-end" data-persist-key="incomes">
         <div class="col-md-2">
             <label class="form-label fw-semibold">Filter By</label>
             <select name="filterType" id="filterType" class="form-select" onchange="toggleFilterInputs()">
@@ -86,6 +114,7 @@
 }
 
 @section Scripts {
+    <script src="~/js/persistent-filters.js" asp-append-version="true"></script>
     <script>
         function toggleFilterInputs() {
             var type = document.getElementById('filterType').value;
@@ -111,11 +140,11 @@ else
 {
     <div class="card">
         <div class="card-body p-0">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover table-stack table-sticky mb-0 data-table">
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Amount</th>
+                        <th class="text-end">Amount</th>
                         <th>Source</th>
                         <th>Category</th>
                         <th>Month</th>
@@ -126,20 +155,20 @@ else
                     @foreach (var item in Model)
                     {
                         <tr>
-                            <td>@item.Date.ToString("yyyy-MM-dd")</td>
-                            <td class="fw-semibold">@item.Amount.ToString("C")</td>
-                            <td>@item.Source</td>
-                            <td><span class="badge bg-secondary">@(item.Category?.Name ?? "—")</span></td>
-                            <td>@item.YearMonth</td>
-                            <td>
-                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-pencil"></i>
+                            <td data-label="Date">@item.Date.ToString("yyyy-MM-dd")</td>
+                            <td data-label="Amount" class="text-end fw-semibold text-tabular t-income">@item.Amount.ToString("C")</td>
+                            <td data-label="Source">@item.Source</td>
+                            <td data-label="Category"><span class="badge bg-secondary">@(item.Category?.Name ?? "—")</span></td>
+                            <td data-label="Month">@item.YearMonth</td>
+                            <td data-label="Actions">
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" aria-label="Edit">
+                                    <i class="bi bi-pencil" aria-hidden="true"></i>
                                 </a>
-                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info">
-                                    <i class="bi bi-eye"></i>
+                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info" aria-label="View details">
+                                    <i class="bi bi-eye" aria-hidden="true"></i>
                                 </a>
-                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">
-                                    <i class="bi bi-trash"></i>
+                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger" aria-label="Delete">
+                                    <i class="bi bi-trash" aria-hidden="true"></i>
                                 </a>
                             </td>
                         </tr>

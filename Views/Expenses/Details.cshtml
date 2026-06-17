@@ -23,9 +23,41 @@
                     <dd class="col-sm-8"><span class="badge bg-secondary">@(Model.Category?.Name ?? "—")</span></dd>
                     <dt class="col-sm-4">Month</dt>
                     <dd class="col-sm-8">@Model.Month</dd>
+                    @if (Model.Account != null)
+                    {
+                        <dt class="col-sm-4">Account</dt>
+                        <dd class="col-sm-8">@Model.Account.Name</dd>
+                    }
                 </dl>
             </div>
         </div>
+
+        @if (Model.Attachments != null && Model.Attachments.Any())
+        {
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="mb-3"><i class="bi bi-paperclip me-1"></i>Receipts</h6>
+                    <ul class="list-unstyled mb-0">
+                    @foreach (var a in Model.Attachments)
+                    {
+                        var sizeKb = (a.SizeBytes / 1024.0).ToString("F0");
+                        <li class="d-flex justify-content-between align-items-center py-1">
+                            <a asp-controller="Attachments" asp-action="Download" asp-route-id="@a.Id" target="_blank">
+                                <i class="bi bi-file-earmark me-1"></i>@a.FileName
+                            </a>
+                            <span class="text-muted small">@sizeKb KB · @a.UploadedAt.ToString("yyyy-MM-dd")</span>
+                            <form asp-controller="Attachments" asp-action="Delete" asp-route-id="@a.Id" method="post" class="d-inline ms-2">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </li>
+                    }
+                    </ul>
+                </div>
+            </div>
+        }
     </div>
 </div>
 <div class="mt-3">

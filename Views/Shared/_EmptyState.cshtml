@@ -1,0 +1,32 @@
+@*
+    Standard empty-state component.
+    Pass a small bag via ViewData:
+      ViewData["EmptyIcon"]   — bi-* class fragment (default "inbox")
+      ViewData["EmptyTitle"]  — bold headline
+      ViewData["EmptyBody"]   — explanatory text
+      ViewData["EmptyCtaText"]/ViewData["EmptyCtaUrl"] — optional primary action
+*@
+@{
+    var icon = (ViewData["EmptyIcon"] as string) ?? "inbox";
+    var title = (ViewData["EmptyTitle"] as string) ?? "Nothing here yet";
+    var body  = (ViewData["EmptyBody"] as string) ?? "";
+    var ctaText = ViewData["EmptyCtaText"] as string;
+    var ctaUrl  = ViewData["EmptyCtaUrl"]  as string;
+}
+
+<div class="card empty-state-v2">
+    <div>
+        <div class="es-icon"><i class="bi bi-@icon" aria-hidden="true"></i></div>
+        <h2 class="es-title">@title</h2>
+        @if (!string.IsNullOrEmpty(body))
+        {
+            <p class="es-body">@body</p>
+        }
+        @if (!string.IsNullOrEmpty(ctaText) && !string.IsNullOrEmpty(ctaUrl))
+        {
+            <a href="@ctaUrl" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>@ctaText
+            </a>
+        }
+    </div>
+</div>

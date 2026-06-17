@@ -5,6 +5,7 @@
     ViewData["Title"] = "Add Income";
     string currentYearMonth = DateTime.Now.ToString("yyyy-MM");
     var categories = (SelectList)ViewData["Categories"]!;
+    var accounts = ViewData["Accounts"] as SelectList;
 }
 
 <div class="create-page-header illus-income">
@@ -20,7 +21,9 @@
                     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
                     <div class="form-group mb-3">
                         <label asp-for="Amount" class="form-label"></label>
-                        <input asp-for="Amount" class="form-control" />
+                        <div class="input-currency">
+                            <input asp-for="Amount" class="form-control text-tabular" inputmode="decimal" aria-required="true" />
+                        </div>
                         <span asp-validation-for="Amount" class="text-danger"></span>
                     </div>
                     <div class="form-group mb-3">
@@ -43,6 +46,17 @@
                             Don't see what you need? <a asp-controller="Categories" asp-action="Create" asp-route-type="Income">Add a new category</a>.
                         </div>
                     </div>
+                    @if (accounts != null && accounts.Any())
+                    {
+                        <div class="form-group mb-3">
+                            <label asp-for="AccountId" class="form-label"></label>
+                            <select asp-for="AccountId" class="form-select" asp-items="@accounts">
+                                <option value="">— none —</option>
+                            </select>
+                            <span asp-validation-for="AccountId" class="text-danger"></span>
+                            <div class="form-text">Optional. Which wallet/account this lands in.</div>
+                        </div>
+                    }
                     <div class="form-group mb-3">
                         <label asp-for="YearMonth" class="form-label">Month (yyyy-MM)</label>
                         <input asp-for="YearMonth" class="form-control" value="@currentYearMonth" placeholder="2026-03" />

@@ -1,0 +1,39 @@
+@model ExpenseTracker.Models.Domain.Goal
+
+@{ ViewData["Title"] = "New Goal"; }
+
+<div class="page-header">
+    <h1><i class="bi bi-bullseye me-2"></i>New Goal</h1>
+    <p><a asp-action="Index" class="text-decoration-none">Goals</a> / New</p>
+</div>
+
+<div class="row"><div class="col-md-6"><div class="card"><div class="card-body">
+    <form asp-action="Create">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div class="form-group mb-3">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name" class="form-control" maxlength="100" placeholder="e.g. Emergency fund" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+        <div class="form-group mb-3">
+            <label asp-for="TargetAmount" class="form-label">Target (₹)</label>
+            <input asp-for="TargetAmount" class="form-control" type="number" step="0.01" placeholder="e.g. 100000" />
+            <span asp-validation-for="TargetAmount" class="text-danger"></span>
+        </div>
+        <div class="form-group mb-3">
+            <label asp-for="Deadline" class="form-label">Deadline <span class="text-muted">(optional)</span></label>
+            <input asp-for="Deadline" type="date" class="form-control" />
+            <span asp-validation-for="Deadline" class="text-danger"></span>
+        </div>
+        <div class="form-group mb-3">
+            <label asp-for="Description" class="form-label">Why this matters <span class="text-muted">(optional)</span></label>
+            <textarea asp-for="Description" class="form-control" rows="2" maxlength="500"></textarea>
+        </div>
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create</button>
+            <a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
+        </div>
+    </form>
+</div></div></div></div>
+
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

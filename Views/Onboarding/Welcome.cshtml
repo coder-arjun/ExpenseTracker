@@ -1,0 +1,59 @@
+@{
+    ViewData["Title"] = "Welcome";
+    var expenseCats = (List<string>)ViewData["ExpenseCats"]!;
+    var incomeCats = (List<string>)ViewData["IncomeCats"]!;
+}
+
+<div class="onboarding-wrap">
+    <div class="onboarding-progress" aria-label="Step 1 of 3">
+        <div class="onboarding-dot active"></div>
+        <div class="onboarding-line"></div>
+        <div class="onboarding-dot"></div>
+        <div class="onboarding-line"></div>
+        <div class="onboarding-dot"></div>
+    </div>
+
+    <div class="onboarding-card">
+        <div class="onboarding-emoji" aria-hidden="true">👋</div>
+        <h1>Welcome to ExpenseTracker</h1>
+        <p class="lead text-muted">
+            A privacy-first way to manage your money. Everything you log stays on the server <em>you</em> control —
+            no third parties, no ad-tech, no AI looking at your data.
+        </p>
+
+        <div class="onboarding-section">
+            <h5><i class="bi bi-tags me-2"></i>Your starting categories</h5>
+            <p class="text-muted">We've pre-loaded a sensible set. You can rename, delete, or add more anytime from the Categories page.</p>
+
+            <div class="onboarding-pillset">
+                <span class="onboarding-pill-label">Expense</span>
+                @foreach (var c in expenseCats)
+                {
+                    <span class="onboarding-pill onboarding-pill-expense">@c</span>
+                }
+            </div>
+            <div class="onboarding-pillset">
+                <span class="onboarding-pill-label">Income</span>
+                @foreach (var c in incomeCats)
+                {
+                    <span class="onboarding-pill onboarding-pill-income">@c</span>
+                }
+            </div>
+        </div>
+
+        <div class="onboarding-section">
+            <h5><i class="bi bi-lightning-charge me-2"></i>Two power moves</h5>
+            <ul class="onboarding-list">
+                <li><kbd>N</kbd> opens a <strong>quick-add sheet</strong> — type <code>1850 groceries food</code> and you're done.</li>
+                <li><kbd>Ctrl</kbd>+<kbd>K</kbd> opens the <strong>command palette</strong> — search any expense, category, or page instantly.</li>
+            </ul>
+        </div>
+
+        <div class="onboarding-actions">
+            <a asp-action="FirstExpense" class="btn btn-primary btn-lg">
+                Add my first expense <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+            <a asp-controller="Dashboard" asp-action="Index" class="btn btn-link text-muted">Skip for now</a>
+        </div>
+    </div>
+</div>

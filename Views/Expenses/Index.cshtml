@@ -18,14 +18,42 @@
         <h1><i class="bi bi-cash-stack me-2"></i>Expenses</h1>
         <p>Manage and track all your expenses</p>
     </div>
-    <a asp-action="Create" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-1"></i>Add Expense
-    </a>
+    <div>
+        <div class="btn-group me-1">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download me-1"></i>Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="xlsx"
+                       asp-route-filterType="@ViewData["FilterType"]" asp-route-selectedMonth="@ViewData["SelectedMonth"]"
+                       asp-route-selectedYear="@ViewData["SelectedYear"]" asp-route-startDate="@ViewData["StartDate"]"
+                       asp-route-endDate="@ViewData["EndDate"]" asp-route-selectedCategory="@(selectedCategory?.ToString())">
+                    <i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i>Excel (.xlsx)
+                </a></li>
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="pdf"
+                       asp-route-filterType="@ViewData["FilterType"]" asp-route-selectedMonth="@ViewData["SelectedMonth"]"
+                       asp-route-selectedYear="@ViewData["SelectedYear"]" asp-route-startDate="@ViewData["StartDate"]"
+                       asp-route-endDate="@ViewData["EndDate"]" asp-route-selectedCategory="@(selectedCategory?.ToString())">
+                    <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF
+                </a></li>
+                <li><hr class="dropdown-divider" /></li>
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="csv"
+                       asp-route-filterType="@ViewData["FilterType"]" asp-route-selectedMonth="@ViewData["SelectedMonth"]"
+                       asp-route-selectedYear="@ViewData["SelectedYear"]" asp-route-startDate="@ViewData["StartDate"]"
+                       asp-route-endDate="@ViewData["EndDate"]" asp-route-selectedCategory="@(selectedCategory?.ToString())">
+                    <i class="bi bi-filetype-csv me-2 text-secondary"></i>CSV (plain text)
+                </a></li>
+            </ul>
+        </div>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>Add Expense
+        </a>
+    </div>
 </div>
 
 <!-- Filter Bar -->
-<div class="filter-bar mb-4">
-    <form method="get" asp-action="Index" class="row g-3 align-items-end">
+<div class="filter-bar sticky-filter mb-4">
+    <form method="get" asp-action="Index" class="row g-3 align-items-end" data-persist-key="expenses">
         <div class="col-md-2">
             <label class="form-label fw-semibold">Filter By</label>
             <select name="filterType" id="filterType" class="form-select" onchange="toggleFilterInputs()">
@@ -86,6 +114,7 @@
 }
 
 @section Scripts {
+    <script src="~/js/persistent-filters.js" asp-append-version="true"></script>
     <script>
         function toggleFilterInputs() {
             var type = document.getElementById('filterType').value;
@@ -95,58 +124,119 @@
             document.getElementById('endDateInput').style.display = type === 'DateRange' ? '' : 'none';
         }
         toggleFilterInputs();
+
+        // Bulk-select wiring
+        (function () {
+            var all = document.getElementById('bulkSelectAll');
+            var rows = document.querySelectorAll('.bulk-row');
+            var bar = document.getElementById('bulkBar');
+            var count = document.getElementById('bulkCount');
+            var del = document.getElementById('bulkDeleteBtn');
+            var clear = document.getElementById('bulkClear');
+            var form = document.getElementById('bulkForm');
+            if (!all || rows.length === 0) return;
+
+            function refresh() {
+                var selected = Array.from(rows).filter(function (r) { return r.checked; });
+                count.textContent = selected.length;
+                bar.classList.toggle('show', selected.length > 0);
+                all.indeterminate = selected.length > 0 && selected.length < rows.length;
+                all.checked = selected.length === rows.length;
+            }
+            all.addEventListener('change', function () {
+                rows.forEach(function (r) { r.checked = all.checked; });
+                refresh();
+            });
+            rows.forEach(function (r) { r.addEventListener('change', refresh); });
+            clear.addEventListener('click', function () {
+                rows.forEach(function (r) { r.checked = false; });
+                refresh();
+            });
+            del.addEventListener('click', function () {
+                if (!confirm('Delete ' + count.textContent + ' expense(s)? This cannot be undone.')) return;
+                form.submit();
+            });
+        })();
     </script>
 }
 
 @if (!Model.Any())
 {
-    <div class="card">
-        <div class="empty-state">
-            <i class="bi bi-inbox"></i>
-            <p>No expenses found. Add your first expense to get started.</p>
-        </div>
-    </div>
+    ViewData["EmptyIcon"]    = "cash-stack";
+    ViewData["EmptyTitle"]   = "No expenses match this view";
+    ViewData["EmptyBody"]    = "Add your first expense or change the filter above.";
+    ViewData["EmptyCtaText"] = "Add Expense";
+    ViewData["EmptyCtaUrl"]  = Url.Action("Create");
+    <partial name="_EmptyState" />
 }
 else
 {
-    <div class="card">
-        <div class="card-body p-0">
-            <table class="table table-hover mb-0">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Amount</th>
-                        <th>Description</th>
-                        <th>Category</th>
-                        <th>Month</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var item in Model)
-                    {
+    <form id="bulkForm" asp-action="BulkDelete" method="post">
+        @Html.AntiForgeryToken()
+        <div class="card">
+            <div class="card-body p-0">
+                <table class="table table-hover table-stack table-sticky mb-0 data-table">
+                    <thead>
                         <tr>
-                            <td>@item.Date.ToString("yyyy-MM-dd")</td>
-                            <td class="fw-semibold">@item.Amount.ToString("C")</td>
-                            <td>@item.Description</td>
-                            <td><span class="badge bg-secondary">@(item.Category?.Name ?? "—")</span></td>
-                            <td>@item.Month</td>
-                            <td>
-                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                            </td>
+                            <th style="width:36px;">
+                                <input type="checkbox" id="bulkSelectAll" class="form-check-input" aria-label="Select all rows" />
+                            </th>
+                            <th>Date</th>
+                            <th class="text-end">Amount</th>
+                            <th>Description</th>
+                            <th>Category</th>
+                            <th>Month</th>
+                            <th>Actions</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td data-label="Select">
+                                    <input type="checkbox" class="form-check-input bulk-row" name="ids" value="@item.Id" aria-label="Select expense" />
+                                </td>
+                                <td data-label="Date">@item.Date.ToString("yyyy-MM-dd")</td>
+                                <td data-label="Amount" class="text-end fw-semibold text-tabular">@item.Amount.ToString("C")</td>
+                                <td data-label="Description">@item.Description</td>
+                                <td data-label="Category"><span class="badge bg-secondary">@(item.Category?.Name ?? "—")</span></td>
+                                <td data-label="Month">@item.Month</td>
+                                <td data-label="Actions">
+                                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" aria-label="Edit">
+                                        <i class="bi bi-pencil" aria-hidden="true"></i>
+                                    </a>
+                                    <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info" aria-label="View details">
+                                        <i class="bi bi-eye" aria-hidden="true"></i>
+                                    </a>
+                                    <span class="inline-confirm">
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-inline-confirm aria-label="Delete">
+                                            <i class="bi bi-trash" aria-hidden="true"></i>
+                                        </button>
+                                        <span class="inline-confirm-bubble">
+                                            <div class="inline-confirm-text">Delete this expense?</div>
+                                            <form asp-action="Delete" asp-route-id="@item.Id" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                                <button type="button" class="btn btn-sm btn-link inline-confirm-cancel">Cancel</button>
+                                            </form>
+                                        </span>
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
+    </form>
+
+    <div id="bulkBar" class="bulk-bar" role="region" aria-live="polite" aria-label="Selection actions">
+        <span class="bulk-count" id="bulkCount">0</span>
+        <span>selected</span>
+        <button type="button" class="btn btn-sm btn-danger" id="bulkDeleteBtn">
+            <i class="bi bi-trash me-1"></i>Delete
+        </button>
+        <button type="button" class="btn-close" id="bulkClear" aria-label="Clear selection"></button>
     </div>
 }
 

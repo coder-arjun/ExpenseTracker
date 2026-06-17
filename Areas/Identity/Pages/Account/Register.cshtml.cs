@@ -157,6 +157,10 @@ namespace ExpenseTracker.Areas.Identity.Pages.Account
                     else
                     {
                         await _signInManager.SignInAsync(user, isPersistent: false);
+                        // Brand-new accounts go through the onboarding wizard;
+                        // everyone else (with a returnUrl) keeps their original target.
+                        if (string.IsNullOrEmpty(Request.Query["returnUrl"]))
+                            return RedirectToAction("Welcome", "Onboarding");
                         return LocalRedirect(returnUrl);
                     }
                 }

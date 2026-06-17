@@ -1,0 +1,22 @@
+@model ExpenseTracker.Models.Domain.Goal
+
+@{ ViewData["Title"] = "Delete Goal"; }
+
+<div class="page-header">
+    <h1><i class="bi bi-trash me-2"></i>Delete Goal</h1>
+    <p><a asp-action="Index" class="text-decoration-none">Goals</a> / Delete</p>
+</div>
+
+<div class="row"><div class="col-md-6"><div class="card"><div class="card-body">
+    <p class="text-muted">Delete this goal and all its contribution history?</p>
+    <dl class="row mb-3">
+        <dt class="col-sm-4">Name</dt><dd class="col-sm-8">@Model.Name</dd>
+        <dt class="col-sm-4">Target</dt><dd class="col-sm-8">@Model.TargetAmount.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</dd>
+        <dt class="col-sm-4">Deadline</dt><dd class="col-sm-8">@(Model.Deadline?.ToString("yyyy-MM-dd") ?? "—")</dd>
+    </dl>
+    <form asp-action="Delete">
+        <input type="hidden" asp-for="Id" />
+        <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Delete</button>
+        <a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
+    </form>
+</div></div></div></div>

@@ -16,8 +16,17 @@ namespace ExpenseTracker.Models.Domain
         public required int CategoryId { get; set; }
         public Category? Category { get; set; }
 
+        // Optional — which wallet/account the money came out of. Nullable so existing
+        // expenses (created before the Accounts feature) remain valid.
+        [Display(Name = "Account")]
+        public int? AccountId { get; set; }
+        public Account? Account { get; set; }
+
         public string? UserId { get; set; }
         public required string Month { get; set; }
         public ApplicationUser? User { get; set; } = default!;
+
+        // Receipts attached to this expense (zero or more).
+        public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
     }
 }

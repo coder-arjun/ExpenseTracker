@@ -1,0 +1,21 @@
+@*
+    Cmd/Ctrl-K command palette. Modal mounted globally; results fetched from
+    /Search?q=<term>. Keyboard navigable (↑ ↓ ↵, Esc).
+*@
+<div id="cmdkOverlay" class="cmdk-overlay" role="dialog" aria-modal="true" aria-labelledby="cmdkLabel" aria-hidden="true">
+    <div class="cmdk-card">
+        <label id="cmdkLabel" class="visually-hidden">Search across expenses, categories and navigation</label>
+        <div class="cmdk-input-wrap">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <input id="cmdkInput" class="cmdk-input" type="search"
+                   placeholder="Search expenses, categories, pages…"
+                   autocomplete="off" autocapitalize="off" spellcheck="false" />
+        </div>
+        <div id="cmdkResults" class="cmdk-results" role="listbox" aria-label="Search results"></div>
+        <div class="cmdk-footer">
+            <span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span>
+            <span><kbd>↵</kbd> open</span>
+            <span><kbd>Esc</kbd> close</span>
+        </div>
+    </div>
+</div>

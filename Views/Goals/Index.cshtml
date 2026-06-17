@@ -1,0 +1,102 @@
+@using ExpenseTracker.Models.Domain
+@model IEnumerable<ExpenseTracker.Models.Domain.Goal>
+
+@{
+    ViewData["Title"] = "Goals";
+    var progress = (Dictionary<int, decimal>)ViewData["Progress"]!;
+    var statusFilter = ViewData["StatusFilter"] as GoalStatus?;
+    var INR = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="page-header mb-0">
+        <h1><i class="bi bi-bullseye me-2"></i>Goals</h1>
+        <p>Saving targets — track progress toward what matters.</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Goal</a>
+</div>
+
+<div class="filter-bar mb-4">
+    <form method="get" class="d-flex gap-2 align-items-end">
+        <div>
+            <label class="form-label fw-semibold">Show</label>
+            <select name="status" class="form-select">
+                <option value="">All</option>
+                @foreach (var s in Enum.GetValues<GoalStatus>())
+                {
+                    <option value="@s" selected="@(statusFilter == s ? "selected" : null)">@s</option>
+                }
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Apply</button>
+    </form>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="card"><div class="empty-state">
+        <i class="bi bi-bullseye"></i>
+        <p>No goals yet. Set one — "Goa trip ₹40,000 by December" — and start contributing.</p>
+    </div></div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var g in Model)
+        {
+            var current = progress.TryGetValue(g.Id, out var p) ? p : 0;
+            var pct = g.TargetAmount > 0 ? Math.Min(100, Math.Round(current / g.TargetAmount * 100m, 1)) : 0;
+            var bar = pct >= 100 ? "bg-success" : pct >= 70 ? "bg-info" : "bg-primary";
+            var deadlineText = g.Deadline.HasValue ? g.Deadline.Value.ToString("yyyy-MM-dd") : "no deadline";
+            var daysLeft = g.Deadline.HasValue ? (g.Deadline.Value - DateTime.Today).Days : (int?)null;
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 @(g.Status == GoalStatus.Completed ? "border-success" : g.Status == GoalStatus.Abandoned ? "opacity-50" : "")">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">@g.Name</h5>
+                            @if (g.Status == GoalStatus.Completed)
+                            {
+                                <span class="badge bg-success">Completed</span>
+                            }
+                            else if (g.Status == GoalStatus.Abandoned)
+                            {
+                                <span class="badge bg-secondary">Abandoned</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(g.Description))
+                        {
+                            <div class="text-muted small mb-2">@g.Description</div>
+                        }
+                        <div class="d-flex justify-content-between mb-1 small">
+                            <span class="text-muted">@current.ToString("C0", INR)</span>
+                            <span class="text-muted">@g.TargetAmount.ToString("C0", INR)</span>
+                        </div>
+                        <div class="progress mb-2" style="height: 10px;">
+                            <div class="progress-bar @bar" role="progressbar" style="width: @pct%" aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="d-flex justify-content-between small">
+                            <span class="fw-semibold">@pct% reached</span>
+                            <span class="text-muted">
+                                <i class="bi bi-calendar3 me-1"></i>@deadlineText
+                                @if (daysLeft.HasValue && g.Status == GoalStatus.Active)
+                                {
+                                    <span class="@(daysLeft < 14 ? "text-danger" : daysLeft < 30 ? "text-warning" : "")">(@daysLeft d)</span>
+                                }
+                            </span>
+                        </div>
+                        <div class="mt-3 d-flex gap-1 flex-wrap">
+                            @if (g.Status == GoalStatus.Active)
+                            {
+                                <a asp-action="Contribute" asp-route-id="@g.Id" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-plus-lg"></i>Contribute
+                                </a>
+                            }
+                            <a asp-action="Edit" asp-route-id="@g.Id" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                            <a asp-action="Delete" asp-route-id="@g.Id" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

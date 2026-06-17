@@ -1,6 +1,7 @@
 using ExpenseTracker.Data;
 using ExpenseTracker.Models.Domain;
 using ExpenseTracker.Models.ViewModel;
+using ExpenseTracker.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -13,16 +14,27 @@ namespace ExpenseTracker.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly RecurringProcessor _recurring;
+        private readonly AccountBalanceService _balances;
 
-        public DashboardController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public DashboardController(ApplicationDbContext context, UserManager<ApplicationUser> userManager,
+                                   RecurringProcessor recurring, AccountBalanceService balances)
         {
             _context = context;
             _userManager = userManager;
+            _recurring = recurring;
+            _balances = balances;
         }
 
         public async Task<IActionResult> Index(string? filterType, string? selectedMonth, int? selectedYear, DateTime? startDate, DateTime? endDate)
         {
-            var userId = _userManager.GetUserId(User);
+            var userId = _userManager.GetUserId(User)!;
+
+            // Lazy auto-post: any recurring rules whose NextDueDate is on/before today get materialised.
+            // Cheap when there's nothing due (one indexed query).
+            try { await _recurring.ProcessForUserAsync(userId); }
+            catch { /* never block the dashboard on processor errors */ }
+
             filterType ??= "Year";
 
             // Default month to current
@@ -184,6 +196,18 @@ namespace ExpenseTracker.Controllers
                     }
                 }
             }
+
+            // ── Hero KPI strip data (new v2) ──
+            var allBalances = await _balances.GetBalancesAsync(userId);
+            var netWorth = allBalances.Values.Sum();
+            var activeGoalsCount = await _context.Goals
+                .Where(g => g.UserId == userId && g.Status == GoalStatus.Active)
+                .CountAsync();
+
+            ViewData["KpiNetWorth"]     = netWorth;
+            ViewData["KpiMonthSpend"]   = totalExpense;
+            ViewData["KpiSavingsRate"]  = totalIncome == 0 ? 0 : Math.Round((totalIncome - totalExpense) / totalIncome * 100m, 0);
+            ViewData["KpiActiveGoals"]  = activeGoalsCount;
 
             var model = new DashboardViewModel
             {

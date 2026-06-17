@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>You're offline — ExpenseTracker</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: Inter, -apple-system, Segoe UI, sans-serif; background: #FAFAFA; color: #09090B; }
+    @media (prefers-color-scheme: dark) {
+      html, body { background: #0A0A0B; color: #FAFAFA; }
+      .card { background: #141416; border-color: #27272A; }
+      .muted { color: #A1A1AA; }
+    }
+    .wrap { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+    .card { max-width: 460px; background: #fff; border: 1px solid #E4E4E7; border-radius: 16px; padding: 2.5rem 2rem; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+    .icon { font-size: 3rem; margin-bottom: 1rem; }
+    h1 { margin: 0 0 0.5rem; font-size: 1.4rem; }
+    p { margin: 0 0 1.25rem; line-height: 1.5; }
+    .muted { color: #71717A; font-size: 0.9rem; }
+    button { background: #0066FF; color: #fff; border: 0; padding: 0.75rem 1.4rem; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1rem; }
+    button:hover { background: #0052CC; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="icon" aria-hidden="true">📡</div>
+      <h1>You're offline</h1>
+      <p>ExpenseTracker can't reach the server right now. Your data is safe — it lives on the server, not in the cloud.</p>
+      <p class="muted">Once you're back online, this page will reload automatically.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </div>
+  </div>
+  <script>
+    // Auto-retry on regained connectivity
+    window.addEventListener('online', function () { location.reload(); });
+  </script>
+</body>
+</html>

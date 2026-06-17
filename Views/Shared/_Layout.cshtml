@@ -2,32 +2,50 @@
 <html lang="en">
 <head>
     <script>
-        // Apply saved theme immediately to prevent flash of wrong theme
+        // Apply saved theme immediately to prevent flash of wrong theme.
+        // Sets BOTH data-theme (custom) and data-bs-theme (Bootstrap 5.3 native)
+        // so Bootstrap components flip automatically without an override avalanche.
         (function () {
-            var t = localStorage.getItem('theme');
-            if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                document.documentElement.setAttribute('data-theme', 'dark');
-            }
+            var t = localStorage.getItem('theme'); // 'light' | 'dark' | null (= system)
+            var dark = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            var mode = dark ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', mode);
+            document.documentElement.setAttribute('data-bs-theme', mode);
+            document.documentElement.setAttribute('data-color-scheme', t || 'system');
         })();
     </script>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    @* Hisaab Modern: warm ivory in light, ink in dark — vermilion is the accent,
+       never the chrome colour (would feel alarmist on the OS title bar). *@
+    <meta name="theme-color" content="#FAF7F0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#11131A" media="(prefers-color-scheme: dark)" />
     <title>@ViewData["Title"] - ExpenseTracker</title>
     <script type="importmap"></script>
+    @* Self-hosted Inter is declared via @@font-face in site.css; system fonts
+       remain a fallback while Inter-*.woff2 files are absent from /wwwroot/fonts.
+       Keeping the Google Fonts <link> as belt-and-braces until you copy the files in. *@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    @* Hisaab Modern type stack:
+         body     = Inter (utility, already self-host fallback in site.css)
+         display  = Fraunces (humanist serif — the deliberate risk)
+         numerals = JetBrains Mono (tabular figures for money) *@
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/ExpenseTracker.styles.css" asp-append-version="true" />
+    <link rel="manifest" href="~/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="~/icons/icon.svg" />
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-light">
+        <nav class="navbar navbar-expand-sm navbar-light" aria-label="Primary">
             <div class="container-fluid">
                 <a class="navbar-brand fw-bold" asp-area="" asp-controller="Dashboard" asp-action="Index">
-                    <i class="bi bi-wallet2 me-2"></i>ExpenseTracker
+                    <i class="bi bi-wallet2 me-2" aria-hidden="true"></i>ExpenseTracker
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
@@ -39,35 +57,78 @@
                         {
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Expenses" asp-action="Index">
-                                    <i class="bi bi-cash-stack me-1"></i>Expenses
+                                    <i class="bi bi-cash-stack me-1" aria-hidden="true"></i>Expenses
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Incomes" asp-action="Index">
-                                    <i class="bi bi-graph-up-arrow me-1"></i>Incomes
+                                    <i class="bi bi-graph-up-arrow me-1" aria-hidden="true"></i>Incomes
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Savings" asp-action="Index">
-                                    <i class="bi bi-piggy-bank me-1"></i>Savings
+                                    <i class="bi bi-piggy-bank me-1" aria-hidden="true"></i>Savings
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Budget" asp-action="Index">
-                                    <i class="bi bi-speedometer me-1"></i>Budgets
+                                    <i class="bi bi-speedometer me-1" aria-hidden="true"></i>Budgets
                                 </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-controller="Categories" asp-action="Index">
-                                    <i class="bi bi-tags me-1"></i>Categories
+                                    <i class="bi bi-tags me-1" aria-hidden="true"></i>Categories
+                                </a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="moneyMenu" role="button"
+                                   data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-three-dots me-1" aria-hidden="true"></i>More
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="moneyMenu">
+                                    <li><a class="dropdown-item" asp-controller="Accounts" asp-action="Index">
+                                        <i class="bi bi-wallet2 me-2" aria-hidden="true"></i>Accounts
+                                    </a></li>
+                                    <li><a class="dropdown-item" asp-controller="Transfers" asp-action="Index">
+                                        <i class="bi bi-arrow-left-right me-2" aria-hidden="true"></i>Transfers
+                                    </a></li>
+                                    <li><a class="dropdown-item" asp-controller="Goals" asp-action="Index">
+                                        <i class="bi bi-bullseye me-2" aria-hidden="true"></i>Goals
+                                    </a></li>
+                                    <li><a class="dropdown-item" asp-controller="Recurring" asp-action="Index">
+                                        <i class="bi bi-arrow-repeat me-2" aria-hidden="true"></i>Recurring
+                                    </a></li>
+                                    <li><hr class="dropdown-divider" /></li>
+                                    <li>
+                                        <a class="dropdown-item" href="#" id="pwaInstallMenuItem" hidden>
+                                            <i class="bi bi-download me-2" aria-hidden="true"></i>Install app
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Insights" asp-action="Index">
+                                    <i class="bi bi-lightbulb me-1" aria-hidden="true"></i>Insights
                                 </a>
                             </li>
                         }
                     </ul>
                     <div class="d-flex align-items-center gap-2">
-                        <button class="theme-toggle" id="themeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode">
-                            <i class="bi bi-moon-fill"></i>
-                            <i class="bi bi-sun-fill"></i>
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <form class="navbar-search d-none d-md-flex" role="search"
+                                  asp-controller="Search" asp-action="Results" method="get">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+                                    <input type="search" name="q" class="form-control" placeholder="Search…"
+                                           aria-label="Search" autocomplete="off" />
+                                </div>
+                            </form>
+                        }
+                        <button class="theme-toggle" id="themeToggle" type="button"
+                                aria-pressed="false" aria-label="Switch to dark mode" title="Switch to dark mode">
+                            <i class="bi bi-moon-fill" aria-hidden="true"></i>
+                            <i class="bi bi-sun-fill" aria-hidden="true"></i>
                         </button>
                         <partial name="_LoginPartial" />
                     </div>
@@ -75,9 +136,13 @@
             </div>
         </nav>
     </header>
+    @* Toast host — top-center stack. Populated from server flash messages
+       (rendered by _ToastPartial below) AND from client JS (window.toast). *@
+    <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+
     <div class="container-xl">
-        <main role="main" class="pb-3 pt-4">
-            <partial name="_AlertPartial" />
+        <main id="main-content" role="main" class="pb-3 pt-4">
+            <partial name="_ToastPartial" />
             @RenderBody()
         </main>
     </div>
@@ -89,9 +154,56 @@
             </div>
         </div>
     </footer>
+
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <partial name="_QuickAddPartial" />
+        <partial name="_CommandPalettePartial" />
+    }
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <script src="~/js/quick-add.js" asp-append-version="true"></script>
+        <script src="~/js/command-palette.js" asp-append-version="true"></script>
+    }
+    <script>
+        // Register the service worker for PWA installability + offline shell.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/sw.js').catch(function (e) {
+                    console.warn('SW registration failed:', e);
+                });
+            });
+        }
+
+        // Surface the native install prompt as a "More → Install app" menu item.
+        // Hidden by default; only revealed when the browser fires beforeinstallprompt.
+        (function () {
+            var deferred = null;
+            var item = document.getElementById('pwaInstallMenuItem');
+            window.addEventListener('beforeinstallprompt', function (e) {
+                e.preventDefault();
+                deferred = e;
+                if (item) item.hidden = false;
+            });
+            if (item) {
+                item.addEventListener('click', async function (e) {
+                    e.preventDefault();
+                    if (!deferred) { item.hidden = true; return; }
+                    item.hidden = true;
+                    deferred.prompt();
+                    try { await deferred.userChoice; } catch (e2) { /* ignore */ }
+                    deferred = null;
+                });
+            }
+            window.addEventListener('appinstalled', function () {
+                if (item) item.hidden = true;
+            });
+        })();
+    </script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

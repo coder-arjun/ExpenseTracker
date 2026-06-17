@@ -19,8 +19,8 @@
 </div>
 
 <!-- Type Filter -->
-<div class="filter-bar mb-4">
-    <form method="get" asp-action="Index" class="row g-3 align-items-end">
+<div class="filter-bar sticky-filter mb-4">
+    <form method="get" asp-action="Index" class="row g-3 align-items-end" data-persist-key="categories">
         <div class="col-md-3">
             <label class="form-label fw-semibold">Type</label>
             <select name="type" class="form-select">
@@ -104,3 +104,7 @@ else
     ViewData["HasNextPage"] = Model.HasNextPage;
 }
 <partial name="_PaginationPartial" />
+
+@section Scripts {
+    <script src="~/js/persistent-filters.js" asp-append-version="true"></script>
+}

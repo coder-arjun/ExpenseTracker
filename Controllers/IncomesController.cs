@@ -1,6 +1,7 @@
 using ExpenseTracker.Data;
 using ExpenseTracker.Models;
 using ExpenseTracker.Models.Domain;
+using ExpenseTracker.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -80,6 +81,91 @@ namespace ExpenseTracker.Controllers
             return View(await PaginatedList<Income>.CreateAsync(query, page));
         }
 
+        // GET: Incomes/Export?format=csv|xlsx|pdf
+        public async Task<IActionResult> Export(string? format = "csv",
+                                                string? filterType = null, string? selectedMonth = null,
+                                                int? selectedYear = null, DateTime? startDate = null,
+                                                DateTime? endDate = null, int? selectedCategory = null)
+        {
+            var userId = _userManager.GetUserId(User);
+            var q = _context.Incomes
+                .Include(i => i.Category)
+                .Include(i => i.Account)
+                .Where(i => i.UserId == userId);
+
+            if (selectedCategory.HasValue) q = q.Where(i => i.CategoryId == selectedCategory.Value);
+            if (!string.IsNullOrEmpty(filterType))
+            {
+                switch (filterType)
+                {
+                    case "Month":
+                        if (!string.IsNullOrEmpty(selectedMonth)) q = q.Where(i => i.YearMonth == selectedMonth);
+                        break;
+                    case "Year":
+                        if (selectedYear.HasValue)
+                        {
+                            var prefix = selectedYear.Value.ToString();
+                            q = q.Where(i => i.YearMonth.StartsWith(prefix));
+                        }
+                        break;
+                    case "DateRange":
+                        if (startDate.HasValue) q = q.Where(i => i.Date >= startDate.Value);
+                        if (endDate.HasValue) q = q.Where(i => i.Date <= endDate.Value);
+                        break;
+                }
+            }
+
+            var rows = await q.OrderByDescending(i => i.Date).ToListAsync();
+            var period = filterType switch
+            {
+                "Month"     => $"Month: {selectedMonth}",
+                "Year"      => $"Year: {selectedYear}",
+                "DateRange" => $"{startDate:yyyy-MM-dd} → {endDate:yyyy-MM-dd}",
+                _           => "All time"
+            };
+            var subtitle = $"{period} · {rows.Count} income{(rows.Count == 1 ? "" : "s")}";
+            var dateStamp = DateTime.Today.ToString("yyyy-MM-dd");
+
+            switch ((format ?? "csv").ToLowerInvariant())
+            {
+                case "xlsx":
+                    var xlsx = ExcelExporter.Build<Income>("Income Report", subtitle, rows, new[]
+                    {
+                        new ExcelExporter.Column<Income>("Date",     i => i.Date),
+                        new ExcelExporter.Column<Income>("Amount",   i => i.Amount, IsCurrency: true),
+                        new ExcelExporter.Column<Income>("Source",   i => i.Source),
+                        new ExcelExporter.Column<Income>("Category", i => i.Category?.Name),
+                        new ExcelExporter.Column<Income>("Account",  i => i.Account?.Name),
+                        new ExcelExporter.Column<Income>("Month",    i => i.YearMonth),
+                    }, sheetName: "Incomes");
+                    return File(xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"incomes-{dateStamp}.xlsx");
+
+                case "pdf":
+                    var pdf = PdfExporter.Build<Income>("Income Report", subtitle, rows, new[]
+                    {
+                        new PdfExporter.Column<Income>("Date",     i => i.Date,                     RelativeWidth: 1.0f),
+                        new PdfExporter.Column<Income>("Amount",   i => i.Amount, IsCurrency: true, RelativeWidth: 1.2f),
+                        new PdfExporter.Column<Income>("Source",   i => i.Source,                   RelativeWidth: 2.0f),
+                        new PdfExporter.Column<Income>("Category", i => i.Category?.Name,           RelativeWidth: 1.4f),
+                        new PdfExporter.Column<Income>("Account",  i => i.Account?.Name,            RelativeWidth: 1.4f),
+                        new PdfExporter.Column<Income>("Month",    i => i.YearMonth,                RelativeWidth: 1.0f),
+                    });
+                    return File(pdf, "application/pdf", $"incomes-{dateStamp}.pdf");
+
+                default: // csv
+                    var csv = CsvExporter.Build<Income>(rows, new (string, Func<Income, object?>)[]
+                    {
+                        ("Date",     i => i.Date),
+                        ("Amount",   i => i.Amount),
+                        ("Source",   i => i.Source),
+                        ("Category", i => i.Category?.Name),
+                        ("Account",  i => i.Account?.Name),
+                        ("Month",    i => i.YearMonth),
+                    });
+                    return File(csv, "text/csv", $"incomes-{dateStamp}.csv");
+            }
+        }
+
         // GET: Incomes/Details/5
         public async Task<IActionResult> Details(int? id)
         {
@@ -99,13 +185,14 @@ namespace ExpenseTracker.Controllers
         {
             var userId = _userManager.GetUserId(User);
             ViewData["Categories"] = await GetCategoryOptionsAsync(userId, null);
+            ViewData["Accounts"] = await GetAccountOptionsAsync(userId, null);
             return View();
         }
 
         // POST: Incomes/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Amount,Date,Source,CategoryId,YearMonth")] Income income)
+        public async Task<IActionResult> Create([Bind("Amount,Date,Source,CategoryId,AccountId,YearMonth")] Income income)
         {
             var userId = _userManager.GetUserId(User)!;
             income.UserId = userId;
@@ -114,6 +201,8 @@ namespace ExpenseTracker.Controllers
             // CategoryId is optional for income (nullable). Only validate ownership if supplied.
             if (income.CategoryId.HasValue)
                 await ValidateCategoryOwnershipAsync(income.CategoryId.Value, CategoryType.Income, userId, nameof(Income.CategoryId));
+            if (income.AccountId.HasValue)
+                await ValidateAccountOwnershipAsync(income.AccountId.Value, userId, nameof(Income.AccountId));
 
             if (ModelState.IsValid)
             {
@@ -125,6 +214,7 @@ namespace ExpenseTracker.Controllers
             TempData["ErrorMessage"] = string.Join(" ", ModelState.Values
                 .SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
             ViewData["Categories"] = await GetCategoryOptionsAsync(userId, income.CategoryId);
+            ViewData["Accounts"] = await GetAccountOptionsAsync(userId, income.AccountId);
             return View(income);
         }
 
@@ -139,13 +229,14 @@ namespace ExpenseTracker.Controllers
             if (income == null) return NotFound();
 
             ViewData["Categories"] = await GetCategoryOptionsAsync(userId, income.CategoryId);
+            ViewData["Accounts"] = await GetAccountOptionsAsync(userId, income.AccountId);
             return View(income);
         }
 
         // POST: Incomes/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Amount,Date,Source,CategoryId,YearMonth")] Income income)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Amount,Date,Source,CategoryId,AccountId,YearMonth")] Income income)
         {
             if (id != income.Id) return NotFound();
 
@@ -155,6 +246,8 @@ namespace ExpenseTracker.Controllers
 
             if (income.CategoryId.HasValue)
                 await ValidateCategoryOwnershipAsync(income.CategoryId.Value, CategoryType.Income, userId, nameof(Income.CategoryId));
+            if (income.AccountId.HasValue)
+                await ValidateAccountOwnershipAsync(income.AccountId.Value, userId, nameof(Income.AccountId));
 
             if (ModelState.IsValid)
             {
@@ -176,6 +269,7 @@ namespace ExpenseTracker.Controllers
             TempData["ErrorMessage"] = string.Join(" ", ModelState.Values
                 .SelectMany(v => v.Errors).Select(e => e.ErrorMessage));
             ViewData["Categories"] = await GetCategoryOptionsAsync(userId, income.CategoryId);
+            ViewData["Accounts"] = await GetAccountOptionsAsync(userId, income.AccountId);
             return View(income);
         }
 
@@ -221,6 +315,22 @@ namespace ExpenseTracker.Controllers
             return new SelectList(cats, "Id", "Name", selected);
         }
 
+        private async Task<SelectList> GetAccountOptionsAsync(string? userId, int? selected)
+        {
+            var accs = await _context.Accounts
+                .Where(a => a.UserId == userId && a.IsActive)
+                .OrderBy(a => a.Name)
+                .Select(a => new { a.Id, a.Name })
+                .ToListAsync();
+            return new SelectList(accs, "Id", "Name", selected);
+        }
+
+        private async Task ValidateAccountOwnershipAsync(int accountId, string userId, string fieldKey)
+        {
+            var ok = await _context.Accounts.AnyAsync(a => a.Id == accountId && a.UserId == userId);
+            if (!ok) ModelState.AddModelError(fieldKey, "Selected account is invalid.");
+        }
+
         private async Task ValidateCategoryOwnershipAsync(int categoryId, CategoryType type, string userId, string fieldKey)
         {
             var ok = await _context.Categories.AnyAsync(c =>
@@ -234,7 +344,8 @@ namespace ExpenseTracker.Controllers
             var keysToRemove = ModelState.Keys
                 .Where(k => k.Contains("UserId", StringComparison.OrdinalIgnoreCase)
                          || k.Contains("User", StringComparison.OrdinalIgnoreCase)
-                         || k.Equals("Category", StringComparison.OrdinalIgnoreCase))
+                         || k.Equals("Category", StringComparison.OrdinalIgnoreCase)
+                         || k.Equals("Account", StringComparison.OrdinalIgnoreCase))
                 .ToList();
             foreach (var key in keysToRemove)
                 ModelState.Remove(key);

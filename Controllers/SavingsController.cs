@@ -1,6 +1,7 @@
 using ExpenseTracker.Data;
 using ExpenseTracker.Models;
 using ExpenseTracker.Models.Domain;
+using ExpenseTracker.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -28,6 +29,51 @@ namespace ExpenseTracker.Controllers
                 .Where(s => s.UserId == userId)
                 .OrderByDescending(s => s.Date);
             return View(await PaginatedList<Saving>.CreateAsync(query, page));
+        }
+
+        // GET: Savings/Export?format=csv|xlsx|pdf
+        public async Task<IActionResult> Export(string? format = "csv")
+        {
+            var userId = _userManager.GetUserId(User);
+            var rows = await _context.Savings
+                .Where(s => s.UserId == userId)
+                .OrderByDescending(s => s.Date)
+                .ToListAsync();
+            var subtitle = $"All time · {rows.Count} saving{(rows.Count == 1 ? "" : "s")}";
+            var dateStamp = DateTime.Today.ToString("yyyy-MM-dd");
+
+            switch ((format ?? "csv").ToLowerInvariant())
+            {
+                case "xlsx":
+                    var xlsx = ExcelExporter.Build<Saving>("Savings Report", subtitle, rows, new[]
+                    {
+                        new ExcelExporter.Column<Saving>("Date",   s => s.Date),
+                        new ExcelExporter.Column<Saving>("Amount", s => s.Amount, IsCurrency: true),
+                        new ExcelExporter.Column<Saving>("Note",   s => s.Note),
+                        new ExcelExporter.Column<Saving>("Month",  s => s.YearMonth),
+                    }, sheetName: "Savings");
+                    return File(xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"savings-{dateStamp}.xlsx");
+
+                case "pdf":
+                    var pdf = PdfExporter.Build<Saving>("Savings Report", subtitle, rows, new[]
+                    {
+                        new PdfExporter.Column<Saving>("Date",   s => s.Date,                     RelativeWidth: 1.0f),
+                        new PdfExporter.Column<Saving>("Amount", s => s.Amount, IsCurrency: true, RelativeWidth: 1.2f),
+                        new PdfExporter.Column<Saving>("Note",   s => s.Note,                     RelativeWidth: 3.0f),
+                        new PdfExporter.Column<Saving>("Month",  s => s.YearMonth,                RelativeWidth: 1.0f),
+                    });
+                    return File(pdf, "application/pdf", $"savings-{dateStamp}.pdf");
+
+                default: // csv
+                    var csv = CsvExporter.Build<Saving>(rows, new (string, Func<Saving, object?>)[]
+                    {
+                        ("Date",   s => s.Date),
+                        ("Amount", s => s.Amount),
+                        ("Note",   s => s.Note),
+                        ("Month",  s => s.YearMonth),
+                    });
+                    return File(csv, "text/csv", $"savings-{dateStamp}.csv");
+            }
         }
 
         // GET: Savings/Details/5
