@@ -8,11 +8,12 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="page-header mb-0">
+        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Account ledger</div>
         <h1><i class="bi bi-wallet2 me-2"></i>Accounts</h1>
-        <p>Cash, bank, credit card, UPI — track every money location.</p>
+        <p>CASH &middot; BANK &middot; CREDIT &middot; UPI &mdash; EVERY MONEY LOCATION</p>
     </div>
     <div>
-        <a asp-controller="Transfers" asp-action="Create" class="btn btn-outline-primary me-1">
+        <a asp-controller="Transfers" asp-action="Create" class="btn btn-outline-secondary me-1">
             <i class="bi bi-arrow-left-right me-1"></i>Transfer
         </a>
         <a asp-action="Create" class="btn btn-primary">
@@ -23,20 +24,25 @@
 
 @if (!Model.Any())
 {
-    <div class="card">
-        <div class="empty-state">
-            <i class="bi bi-wallet2"></i>
-            <p>No accounts yet. Add Cash, your bank, or your UPI wallet to start tracking balances.</p>
-        </div>
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-wallet2"></i></div>
+        <div class="es-title">No accounts yet</div>
+        <p class="es-body">Add Cash, your bank, or your UPI wallet to start tracking balances.</p>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>Add Account</a>
     </div>
 }
 else
 {
     var grandTotal = balances.Values.Sum();
-    <div class="card mb-3 border-start border-4 border-primary">
-        <div class="card-body py-2">
-            <div class="text-muted small">Total across active accounts</div>
-            <div class="fs-3 fw-bold">@grandTotal.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</div>
+    var grandClass = grandTotal < 0 ? "t-expense" : "t-balance";
+    var grandPrefix = grandTotal < 0 ? Html.Raw("&minus;") : Html.Raw("");
+    <div class="card mb-3">
+        <div class="card-body d-flex justify-content-between align-items-end py-3">
+            <div>
+                <div class="eyebrow mb-1">Total across active accounts</div>
+                <div class="ledger-total fs-3 text-tabular @grandClass d-inline-block pt-2 ps-1">@grandPrefix@Math.Abs(grandTotal).ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</div>
+            </div>
+            <div class="folio">@Model.Count() account@(Model.Count() == 1 ? "" : "s")</div>
         </div>
     </div>
 
@@ -53,6 +59,8 @@ else
                 AccountType.UPI    => "bi-phone",
                 _ => "bi-wallet2"
             };
+            var balClass = bal < 0 ? "t-expense" : "t-balance";
+            var balPrefix = bal < 0 ? Html.Raw("&minus;") : Html.Raw("");
             <div class="col-md-6 col-lg-4">
                 <div class="card h-100 @(a.IsActive ? "" : "opacity-50")">
                     <div class="card-body">
@@ -63,14 +71,14 @@ else
                                 <div class="small text-muted">@a.Type @(a.IsActive ? "" : "· Inactive")</div>
                             </div>
                             <div>
-                                <a asp-action="Edit" asp-route-id="@a.Id" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
-                                <a asp-action="Delete" asp-route-id="@a.Id" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                                <a asp-action="Edit" asp-route-id="@a.Id" class="btn btn-sm btn-outline-primary" aria-label="Edit"><i class="bi bi-pencil" aria-hidden="true"></i></a>
+                                <a asp-action="Delete" asp-route-id="@a.Id" class="btn btn-sm btn-outline-danger" aria-label="Delete"><i class="bi bi-trash" aria-hidden="true"></i></a>
                             </div>
                         </div>
-                        <div class="fs-4 fw-bold @(bal < 0 ? "text-danger" : "text-success")">
-                            @bal.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))
+                        <div class="fs-4 fw-bold text-tabular @balClass">
+                            @balPrefix@Math.Abs(bal).ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))
                         </div>
-                        <small class="text-muted">Opening: @a.OpeningBalance.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</small>
+                        <small class="folio">Opening: @a.OpeningBalance.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</small>
                     </div>
                 </div>
             </div>

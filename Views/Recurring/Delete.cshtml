@@ -1,24 +1,36 @@
 @model ExpenseTracker.Models.Domain.RecurringRule
 
-@{ ViewData["Title"] = "Delete Recurring Rule"; }
+@{
+    ViewData["Title"] = "Delete Recurring Rule";
+    var INR = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    var isExpense = Model.Type == ExpenseTracker.Models.Domain.RecurringType.Expense;
+    var amountClass = isExpense ? "t-expense" : "t-income";
+    var amountSign = isExpense ? "&minus;" : "+";
+}
 
 <div class="page-header">
+    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Standing orders</div>
     <h1><i class="bi bi-trash me-2"></i>Delete Recurring Rule</h1>
     <p><a asp-action="Index" class="text-decoration-none">Recurring</a> / Delete</p>
 </div>
 
-<div class="row"><div class="col-md-6"><div class="card"><div class="card-body">
-    <p class="text-muted">Already-posted transactions stay; future occurrences stop.</p>
-    <dl class="row mb-3">
-        <dt class="col-sm-4">Name</dt><dd class="col-sm-8">@Model.Name</dd>
-        <dt class="col-sm-4">Type</dt><dd class="col-sm-8">@Model.Type</dd>
-        <dt class="col-sm-4">Amount</dt><dd class="col-sm-8">@Model.Amount.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</dd>
-        <dt class="col-sm-4">Category/Source</dt><dd class="col-sm-8">@(Model.Category?.Name ?? Model.Source ?? "—")</dd>
-        <dt class="col-sm-4">Day of month</dt><dd class="col-sm-8">@Model.DayOfMonth</dd>
-    </dl>
-    <form asp-action="Delete">
-        <input type="hidden" asp-for="Id" />
-        <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Delete</button>
-        <a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
-    </form>
-</div></div></div></div>
+<div class="row"><div class="col-md-6">
+    <div class="delete-warning mb-3">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        Cancel this standing order? Already-posted transactions stay; future occurrences stop.
+    </div>
+    <div class="card"><div class="card-body">
+        <dl class="row mb-3">
+            <dt class="col-sm-4">Name</dt><dd class="col-sm-8">@Model.Name</dd>
+            <dt class="col-sm-4">Type</dt><dd class="col-sm-8">@Model.Type</dd>
+            <dt class="col-sm-4">Amount</dt><dd class="col-sm-8 text-tabular @amountClass">@Html.Raw(amountSign)@Model.Amount.ToString("C0", INR)</dd>
+            <dt class="col-sm-4">Category/Source</dt><dd class="col-sm-8">@(Model.Category?.Name ?? Model.Source ?? "—")</dd>
+            <dt class="col-sm-4">Day of month</dt><dd class="col-sm-8">@Model.DayOfMonth</dd>
+        </dl>
+        <form asp-action="Delete">
+            <input type="hidden" asp-for="Id" />
+            <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Delete</button>
+            <a asp-action="Index" class="btn btn-outline-secondary ms-2">Cancel</a>
+        </form>
+    </div></div>
+</div></div>

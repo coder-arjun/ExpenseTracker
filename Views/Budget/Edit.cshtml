@@ -6,6 +6,7 @@
 }
 
 <div class="page-header">
+    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Budget ledger</div>
     <h1><i class="bi bi-pencil me-2"></i>Edit Budget</h1>
     <p><a asp-action="Index" asp-route-yearMonth="@Model.YearMonth" class="text-decoration-none">Budgets</a> / Edit</p>
 </div>
@@ -26,12 +27,14 @@
                     </div>
                     <div class="form-group mb-3">
                         <label asp-for="Amount" class="form-label"></label>
-                        <input asp-for="Amount" class="form-control" />
+                        <div class="input-currency">
+                            <input asp-for="Amount" class="form-control" />
+                        </div>
                         <span asp-validation-for="Amount" class="text-danger"></span>
                     </div>
                     <div class="form-group">
                         <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
-                        <a asp-action="Index" asp-route-yearMonth="@Model.YearMonth" class="btn btn-secondary ms-2">Cancel</a>
+                        <a asp-action="Index" asp-route-yearMonth="@Model.YearMonth" class="btn btn-outline-secondary ms-2">Cancel</a>
                     </div>
                 </form>
             </div>

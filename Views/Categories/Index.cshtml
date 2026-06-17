@@ -8,8 +8,9 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="page-header mb-0">
-        <h1><i class="bi bi-tags me-2"></i>Categories</h1>
-        <p>Manage Expense and Income categories</p>
+        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Category master</div>
+        <h1>Categories</h1>
+        <p>MANAGE EXPENSE AND INCOME CATEGORIES</p>
     </div>
     <div>
         <a asp-action="Create" asp-route-type="@(typeFilter ?? CategoryType.Expense)" class="btn btn-primary">
@@ -47,18 +48,20 @@
 
 @if (!Model.Any())
 {
-    <div class="card">
-        <div class="empty-state">
-            <i class="bi bi-inbox"></i>
-            <p>No categories found. Add your first category to get started.</p>
-        </div>
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-tags"></i></div>
+        <div class="es-title">No categories found</div>
+        <p class="es-body">Add your first category to start organising your ledger.</p>
+        <a asp-action="Create" asp-route-type="@(typeFilter ?? CategoryType.Expense)" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>Add Category
+        </a>
     </div>
 }
 else
 {
     <div class="card">
         <div class="card-body p-0">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover table-stack mb-0 data-table">
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -70,8 +73,8 @@ else
                     @foreach (var item in Model)
                     {
                         <tr>
-                            <td class="fw-semibold">@item.Name</td>
-                            <td>
+                            <td data-label="Name" class="fw-semibold">@item.Name</td>
+                            <td data-label="Type">
                                 @if (item.Type == CategoryType.Expense)
                                 {
                                     <span class="badge bg-danger-subtle text-danger">Expense</span>
@@ -81,12 +84,12 @@ else
                                     <span class="badge bg-success-subtle text-success">Income</span>
                                 }
                             </td>
-                            <td>
-                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-pencil"></i>
+                            <td data-label="Actions">
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" aria-label="Edit">
+                                    <i class="bi bi-pencil" aria-hidden="true"></i>
                                 </a>
-                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">
-                                    <i class="bi bi-trash"></i>
+                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger" aria-label="Delete">
+                                    <i class="bi bi-trash" aria-hidden="true"></i>
                                 </a>
                             </td>
                         </tr>

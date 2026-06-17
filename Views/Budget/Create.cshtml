@@ -7,9 +7,10 @@
     var categories = (SelectList)ViewData["Categories"]!;
 }
 
-<div class="create-page-header illus-budget">
-    <i class="bi bi-bullseye header-icon"></i>
-    <h1>Add Budget</h1>
+<div class="page-header">
+    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Budget ledger</div>
+    <h1><i class="bi bi-bullseye me-2"></i>Add Budget</h1>
+    <p class="text-uppercase">Set a spending limit for the month</p>
 </div>
 
 <div class="row g-4 align-items-start">
@@ -20,7 +21,9 @@
                     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
                     <div class="form-group mb-3">
                         <label asp-for="Amount" class="form-label"></label>
-                        <input asp-for="Amount" class="form-control" />
+                        <div class="input-currency">
+                            <input asp-for="Amount" class="form-control" />
+                        </div>
                         <span asp-validation-for="Amount" class="text-danger"></span>
                     </div>
                     <div class="form-group mb-3">
@@ -37,7 +40,7 @@
                     </div>
                     <div class="form-group">
                         <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create</button>
-                        <a asp-action="Index" asp-route-yearMonth="@yearMonth" class="btn btn-secondary ms-2">Cancel</a>
+                        <a asp-action="Index" asp-route-yearMonth="@yearMonth" class="btn btn-outline-secondary ms-2">Cancel</a>
                     </div>
                 </form>
             </div>

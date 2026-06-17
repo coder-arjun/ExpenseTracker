@@ -10,8 +10,9 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="page-header mb-0">
+        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Saving goals</div>
         <h1><i class="bi bi-bullseye me-2"></i>Goals</h1>
-        <p>Saving targets — track progress toward what matters.</p>
+        <p>SAVING TARGETS &middot; TRACK PROGRESS TOWARD WHAT MATTERS</p>
     </div>
     <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Goal</a>
 </div>
@@ -34,10 +35,12 @@
 
 @if (!Model.Any())
 {
-    <div class="card"><div class="empty-state">
-        <i class="bi bi-bullseye"></i>
-        <p>No goals yet. Set one — "Goa trip ₹40,000 by December" — and start contributing.</p>
-    </div></div>
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-bullseye"></i></div>
+        <div class="es-title">No saving goals yet</div>
+        <p class="es-body">Set one — &ldquo;Goa trip &#8377;40,000 by December&rdquo; — and start contributing toward what matters.</p>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Goal</a>
+    </div>
 }
 else
 {
@@ -46,8 +49,8 @@ else
         {
             var current = progress.TryGetValue(g.Id, out var p) ? p : 0;
             var pct = g.TargetAmount > 0 ? Math.Min(100, Math.Round(current / g.TargetAmount * 100m, 1)) : 0;
-            var bar = pct >= 100 ? "bg-success" : pct >= 70 ? "bg-info" : "bg-primary";
-            var deadlineText = g.Deadline.HasValue ? g.Deadline.Value.ToString("yyyy-MM-dd") : "no deadline";
+            var bar = pct >= 100 ? "bg-success" : pct >= 70 ? "bg-warning" : "bg-success";
+            var deadlineText = g.Deadline.HasValue ? g.Deadline.Value.ToString("dd MMM yyyy") : "no deadline";
             var daysLeft = g.Deadline.HasValue ? (g.Deadline.Value - DateTime.Today).Days : (int?)null;
             <div class="col-md-6 col-lg-4">
                 <div class="card h-100 @(g.Status == GoalStatus.Completed ? "border-success" : g.Status == GoalStatus.Abandoned ? "opacity-50" : "")">
@@ -68,19 +71,19 @@ else
                             <div class="text-muted small mb-2">@g.Description</div>
                         }
                         <div class="d-flex justify-content-between mb-1 small">
-                            <span class="text-muted">@current.ToString("C0", INR)</span>
-                            <span class="text-muted">@g.TargetAmount.ToString("C0", INR)</span>
+                            <span class="text-tabular t-balance fw-semibold">@current.ToString("C0", INR)</span>
+                            <span class="text-tabular t-balance text-muted">@g.TargetAmount.ToString("C0", INR)</span>
                         </div>
                         <div class="progress mb-2" style="height: 10px;">
                             <div class="progress-bar @bar" role="progressbar" style="width: @pct%" aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
                         <div class="d-flex justify-content-between small">
-                            <span class="fw-semibold">@pct% reached</span>
+                            <span class="fw-semibold text-tabular">@pct% reached</span>
                             <span class="text-muted">
-                                <i class="bi bi-calendar3 me-1"></i>@deadlineText
+                                <i class="bi bi-calendar3 me-1"></i><span class="folio">@deadlineText</span>
                                 @if (daysLeft.HasValue && g.Status == GoalStatus.Active)
                                 {
-                                    <span class="@(daysLeft < 14 ? "text-danger" : daysLeft < 30 ? "text-warning" : "")">(@daysLeft d)</span>
+                                    <span class="text-tabular @(daysLeft < 14 ? "text-danger" : daysLeft < 30 ? "text-warning" : "")">(@daysLeft d)</span>
                                 }
                             </span>
                         </div>
@@ -88,7 +91,7 @@ else
                             @if (g.Status == GoalStatus.Active)
                             {
                                 <a asp-action="Contribute" asp-route-id="@g.Id" class="btn btn-sm btn-primary">
-                                    <i class="bi bi-plus-lg"></i>Contribute
+                                    <i class="bi bi-plus-lg me-1"></i>Contribute
                                 </a>
                             }
                             <a asp-action="Edit" asp-route-id="@g.Id" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>

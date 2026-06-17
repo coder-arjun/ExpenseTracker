@@ -15,7 +15,11 @@
 
     <div class="onboarding-card">
         <div class="onboarding-emoji" aria-hidden="true">👋</div>
-        <h1>Welcome to ExpenseTracker</h1>
+        <div class="page-header">
+            <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Open the ledger</div>
+            <h1>Welcome to Finoma</h1>
+            <p>Your money, double-entry clean</p>
+        </div>
         <p class="lead text-muted">
             A privacy-first way to manage your money. Everything you log stays on the server <em>you</em> control —
             no third parties, no ad-tech, no AI looking at your data.
@@ -53,7 +57,7 @@
             <a asp-action="FirstExpense" class="btn btn-primary btn-lg">
                 Add my first expense <i class="bi bi-arrow-right ms-1"></i>
             </a>
-            <a asp-controller="Dashboard" asp-action="Index" class="btn btn-link text-muted">Skip for now</a>
+            <a asp-controller="Dashboard" asp-action="Index" class="btn btn-outline-secondary btn-lg">Skip for now</a>
         </div>
     </div>
 </div>

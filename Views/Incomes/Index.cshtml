@@ -15,6 +15,7 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="page-header mb-0">
+        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Income ledger</div>
         <h1><i class="bi bi-graph-up-arrow me-2"></i>Incomes</h1>
         <p>Manage and track all your income sources</p>
     </div>
@@ -102,13 +103,13 @@
 <!-- Total summary card -->
 @if (filteredCount > 0)
 {
-    <div class="card mb-4 border-start border-4 border-success">
-        <div class="card-body d-flex justify-content-between align-items-center py-2">
+    <div class="card mb-4">
+        <div class="card-body d-flex justify-content-between align-items-end py-3">
             <div>
-                <div class="text-muted small">@totalLabel</div>
-                <div class="fs-4 fw-bold text-success">@filteredTotal.ToString("C")</div>
+                <div class="eyebrow mb-1">@totalLabel</div>
+                <div class="ledger-total fs-3 t-income d-inline-block pt-2 ps-1">+@filteredTotal.ToString("C")</div>
             </div>
-            <div class="text-muted small">@filteredCount record(s)</div>
+            <div class="folio">@filteredCount entr@(filteredCount == 1 ? "y" : "ies")</div>
         </div>
     </div>
 }
@@ -129,11 +130,11 @@
 
 @if (!Model.Any())
 {
-    <div class="card">
-        <div class="empty-state">
-            <i class="bi bi-inbox"></i>
-            <p>No income records found. Add your first income to get started.</p>
-        </div>
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-graph-up-arrow"></i></div>
+        <div class="es-title">No income recorded yet</div>
+        <p class="es-body">Add your first income or change the filter above to start tracking your earnings.</p>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>Add Income</a>
     </div>
 }
 else
@@ -155,8 +156,8 @@ else
                     @foreach (var item in Model)
                     {
                         <tr>
-                            <td data-label="Date">@item.Date.ToString("yyyy-MM-dd")</td>
-                            <td data-label="Amount" class="text-end fw-semibold text-tabular t-income">@item.Amount.ToString("C")</td>
+                            <td data-label="Date" class="folio">@item.Date.ToString("dd MMM yyyy")</td>
+                            <td data-label="Amount" class="text-end fw-semibold text-tabular t-income">+@item.Amount.ToString("C")</td>
                             <td data-label="Source">@item.Source</td>
                             <td data-label="Category"><span class="badge bg-secondary">@(item.Category?.Name ?? "—")</span></td>
                             <td data-label="Month">@item.YearMonth</td>

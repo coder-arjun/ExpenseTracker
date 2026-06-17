@@ -5,6 +5,7 @@
 }
 
 <div class="page-header">
+    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Income ledger</div>
     <h1><i class="bi bi-eye me-2"></i>Income Details</h1>
     <p><a asp-action="Index" class="text-decoration-none">Incomes</a> / Details</p>
 </div>
@@ -14,15 +15,15 @@
             <div class="card-body">
                 <dl class="row mb-0">
                     <dt class="col-sm-4">Amount</dt>
-                    <dd class="col-sm-8">@Model.Amount.ToString("C")</dd>
+                    <dd class="col-sm-8 text-tabular t-income">+@Model.Amount.ToString("C")</dd>
                     <dt class="col-sm-4">Date</dt>
-                    <dd class="col-sm-8">@Model.Date.ToString("yyyy-MM-dd")</dd>
+                    <dd class="col-sm-8 folio">@Model.Date.ToString("dd MMM yyyy")</dd>
                     <dt class="col-sm-4">Source</dt>
                     <dd class="col-sm-8">@Model.Source</dd>
                     <dt class="col-sm-4">Category</dt>
                     <dd class="col-sm-8"><span class="badge bg-secondary">@(Model.Category?.Name ?? "—")</span></dd>
                     <dt class="col-sm-4">Month</dt>
-                    <dd class="col-sm-8">@Model.YearMonth</dd>
+                    <dd class="col-sm-8 text-tabular">@Model.YearMonth</dd>
                 </dl>
             </div>
         </div>
@@ -30,5 +31,5 @@
 </div>
 <div class="mt-3">
     <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary"><i class="bi bi-pencil me-1"></i>Edit</a>
-    <a asp-action="Index" class="btn btn-secondary ms-2">Back to List</a>
+    <a asp-action="Index" class="btn btn-outline-secondary ms-2">Back to List</a>
 </div>

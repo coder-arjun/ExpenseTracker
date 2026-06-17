@@ -6,8 +6,9 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="page-header mb-0">
+        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Savings ledger</div>
         <h1><i class="bi bi-piggy-bank me-2"></i>Savings</h1>
-        <p>Manage and track all your savings</p>
+        <p>MANAGE AND TRACK ALL YOUR SAVINGS</p>
     </div>
     <div>
         <div class="btn-group me-1">
@@ -35,22 +36,22 @@
 
 @if (!Model.Any())
 {
-    <div class="card">
-        <div class="empty-state">
-            <i class="bi bi-inbox"></i>
-            <p>No savings found. Start saving today!</p>
-        </div>
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-piggy-bank"></i></div>
+        <div class="es-title">No savings recorded yet</div>
+        <p class="es-body">Start saving today &mdash; every entry builds toward a stronger tomorrow.</p>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>Add Saving</a>
     </div>
 }
 else
 {
     <div class="card">
         <div class="card-body p-0">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover table-stack mb-0">
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Amount</th>
+                        <th class="text-end">Amount</th>
                         <th>Note</th>
                         <th>Month</th>
                         <th>Actions</th>
@@ -60,19 +61,19 @@ else
                     @foreach (var item in Model)
                     {
                         <tr>
-                            <td>@item.Date.ToString("yyyy-MM-dd")</td>
-                            <td class="fw-semibold">@item.Amount.ToString("C")</td>
-                            <td>@item.Note</td>
-                            <td>@item.YearMonth</td>
-                            <td>
-                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-pencil"></i>
+                            <td data-label="Date" class="folio">@item.Date.ToString("dd MMM yyyy")</td>
+                            <td data-label="Amount" class="text-end fw-semibold text-tabular t-balance">@item.Amount.ToString("C")</td>
+                            <td data-label="Note">@item.Note</td>
+                            <td data-label="Month">@item.YearMonth</td>
+                            <td data-label="Actions">
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" aria-label="Edit">
+                                    <i class="bi bi-pencil" aria-hidden="true"></i>
                                 </a>
-                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info">
-                                    <i class="bi bi-eye"></i>
+                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info" aria-label="View details">
+                                    <i class="bi bi-eye" aria-hidden="true"></i>
                                 </a>
-                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">
-                                    <i class="bi bi-trash"></i>
+                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger" aria-label="Delete">
+                                    <i class="bi bi-trash" aria-hidden="true"></i>
                                 </a>
                             </td>
                         </tr>

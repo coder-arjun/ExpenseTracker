@@ -27,28 +27,29 @@
         </div>
         <!-- Right form panel -->
         <div class="login-form-panel">
+            <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Open an account</div>
             <div class="login-heading">Create Account</div>
             <div class="login-subheading">Fill in your details to get started</div>
             <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post">
                 <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
                 <div class="form-floating mb-3 login-field">
                     <input asp-for="Input.UserId" class="form-control" aria-required="true" placeholder="userid" />
-                    <label asp-for="Input.UserId">User ID</label>
+                    <label asp-for="Input.UserId" class="form-label">User ID</label>
                     <span asp-validation-for="Input.UserId" class="text-danger"></span>
                 </div>
                 <div class="form-floating mb-3 login-field">
                     <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
-                    <label asp-for="Input.Email">Email</label>
+                    <label asp-for="Input.Email" class="form-label">Email</label>
                     <span asp-validation-for="Input.Email" class="text-danger"></span>
                 </div>
                 <div class="form-floating mb-3 login-field">
                     <input asp-for="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                    <label asp-for="Input.Password">Password</label>
+                    <label asp-for="Input.Password" class="form-label">Password</label>
                     <span asp-validation-for="Input.Password" class="text-danger"></span>
                 </div>
                 <div class="form-floating mb-3 login-field">
                     <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
-                    <label asp-for="Input.ConfirmPassword">Confirm Password</label>
+                    <label asp-for="Input.ConfirmPassword" class="form-label">Confirm Password</label>
                     <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
                 </div>
                 <div class="d-grid mb-3 login-field">

@@ -16,28 +16,26 @@
     </script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    @* Hisaab Modern: warm ivory in light, ink in dark — vermilion is the accent,
-       never the chrome colour (would feel alarmist on the OS title bar). *@
-    <meta name="theme-color" content="#FAF7F0" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#11131A" media="(prefers-color-scheme: dark)" />
-    <title>@ViewData["Title"] - ExpenseTracker</title>
+    @* The Ledger: warm paper in light, espresso ink in dark. Red is the
+       stamp/accent, never the chrome colour — so the OS title bar stays calm. *@
+    <meta name="theme-color" content="#F8F7F3" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14130E" media="(prefers-color-scheme: dark)" />
+    <title>@ViewData["Title"] - Finoma</title>
     <script type="importmap"></script>
-    @* Self-hosted Inter is declared via @@font-face in site.css; system fonts
-       remain a fallback while Inter-*.woff2 files are absent from /wwwroot/fonts.
-       Keeping the Google Fonts <link> as belt-and-braces until you copy the files in. *@
+    @* The Ledger type stack:
+         display  = Space Grotesk (mechanical grotesk; numerals rhyme with the figures)
+         body     = Inter (utility; self-hosted fallback declared in site.css)
+         figures  = IBM Plex Mono (tabular money columns) *@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    @* Hisaab Modern type stack:
-         body     = Inter (utility, already self-host fallback in site.css)
-         display  = Fraunces (humanist serif — the deliberate risk)
-         numerals = JetBrains Mono (tabular figures for money) *@
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/ExpenseTracker.styles.css" asp-append-version="true" />
     <link rel="manifest" href="~/manifest.webmanifest" />
-    <link rel="icon" type="image/svg+xml" href="~/icons/icon.svg" />
+    <link rel="icon" type="image/svg+xml" href="~/icons/icon.svg" asp-append-version="true" />
+    <link rel="icon" href="~/favicon.ico" sizes="any" asp-append-version="true" />
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -45,7 +43,7 @@
         <nav class="navbar navbar-expand-sm navbar-light" aria-label="Primary">
             <div class="container-fluid">
                 <a class="navbar-brand fw-bold" asp-area="" asp-controller="Dashboard" asp-action="Index">
-                    <i class="bi bi-wallet2 me-2" aria-hidden="true"></i>ExpenseTracker
+                    <i class="bi bi-wallet2 me-2" aria-hidden="true"></i>Finoma
                 </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
@@ -80,6 +78,11 @@
                                     <i class="bi bi-tags me-1" aria-hidden="true"></i>Categories
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-controller="Insights" asp-action="Index">
+                                    <i class="bi bi-lightbulb me-1" aria-hidden="true"></i>Insights
+                                </a>
+                            </li>
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="moneyMenu" role="button"
                                    data-bs-toggle="dropdown" aria-expanded="false">
@@ -105,11 +108,6 @@
                                         </a>
                                     </li>
                                 </ul>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Insights" asp-action="Index">
-                                    <i class="bi bi-lightbulb me-1" aria-hidden="true"></i>Insights
-                                </a>
                             </li>
                         }
                     </ul>
@@ -150,7 +148,7 @@
     <footer class="site-footer text-muted">
         <div class="container">
             <div class="d-flex justify-content-between align-items-center">
-                <span>&copy; 2026 ExpenseTracker</span>
+                <span>&copy; 2026 Finoma</span>
             </div>
         </div>
     </footer>

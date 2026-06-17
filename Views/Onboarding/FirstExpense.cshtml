@@ -16,7 +16,11 @@
 
     <div class="onboarding-card">
         <div class="onboarding-emoji" aria-hidden="true">💸</div>
-        <h1>Log your first expense</h1>
+        <div class="page-header">
+            <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> First entry</div>
+            <h1>Log your first expense</h1>
+            <p>Post your opening debit</p>
+        </div>
         <p class="lead text-muted">Even a small one. The point is to feel the muscle once — then daily logging becomes automatic.</p>
 
         <form asp-action="FirstExpense" method="post" class="onboarding-form">
@@ -24,17 +28,19 @@
 
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label asp-for="Amount" class="form-label fw-semibold">Amount (₹)</label>
-                    <input asp-for="Amount" class="form-control form-control-lg" placeholder="e.g. 250" autofocus />
+                    <label asp-for="Amount" class="form-label">Amount</label>
+                    <div class="input-currency">
+                        <input asp-for="Amount" class="form-control form-control-lg text-tabular" placeholder="e.g. 250" autofocus />
+                    </div>
                     <span asp-validation-for="Amount" class="text-danger"></span>
                 </div>
                 <div class="col-md-6">
-                    <label asp-for="Date" class="form-label fw-semibold">Date</label>
+                    <label asp-for="Date" class="form-label">Date</label>
                     <input asp-for="Date" type="date" class="form-control form-control-lg" />
                     <span asp-validation-for="Date" class="text-danger"></span>
                 </div>
                 <div class="col-md-6">
-                    <label asp-for="CategoryId" class="form-label fw-semibold">Category</label>
+                    <label asp-for="CategoryId" class="form-label">Category</label>
                     <select asp-for="CategoryId" class="form-select form-select-lg">
                         <option value="">— Select —</option>
                         @foreach (var c in cats)
@@ -45,7 +51,7 @@
                     <span asp-validation-for="CategoryId" class="text-danger"></span>
                 </div>
                 <div class="col-md-6">
-                    <label asp-for="Description" class="form-label fw-semibold">Description <span class="text-muted">(optional)</span></label>
+                    <label asp-for="Description" class="form-label">Description <span class="text-muted">(optional)</span></label>
                     <input asp-for="Description" class="form-control form-control-lg" placeholder="e.g. Morning coffee" />
                 </div>
             </div>
@@ -54,7 +60,7 @@
                 <button type="submit" class="btn btn-primary btn-lg">
                     Save and continue <i class="bi bi-arrow-right ms-1"></i>
                 </button>
-                <a asp-controller="Dashboard" asp-action="Index" class="btn btn-link text-muted">Skip — go to Dashboard</a>
+                <a asp-controller="Dashboard" asp-action="Index" class="btn btn-outline-secondary btn-lg">Skip — go to Dashboard</a>
             </div>
         </form>
     </div>

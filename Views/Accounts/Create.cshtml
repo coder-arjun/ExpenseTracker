@@ -4,6 +4,7 @@
 @{ ViewData["Title"] = "Add Account"; }
 
 <div class="page-header">
+    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> New account</div>
     <h1><i class="bi bi-wallet2 me-2"></i>Add Account</h1>
     <p><a asp-action="Index" class="text-decoration-none">Accounts</a> / New</p>
 </div>
@@ -27,8 +28,11 @@
         </div>
         <div class="form-group mb-3">
             <label asp-for="OpeningBalance" class="form-label"></label>
-            <input asp-for="OpeningBalance" class="form-control" type="number" step="0.01" />
+            <div class="input-currency">
+                <input asp-for="OpeningBalance" class="form-control text-tabular" type="number" step="0.01" inputmode="decimal" />
+            </div>
             <div class="form-text">What's in this account right now. Subsequent income/expense/transfers adjust it from here.</div>
+            <span asp-validation-for="OpeningBalance" class="text-danger"></span>
         </div>
         <div class="form-check mb-3">
             <input asp-for="IsActive" class="form-check-input" />
@@ -36,7 +40,7 @@
         </div>
         <div class="form-group">
             <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create</button>
-            <a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
+            <a asp-action="Index" class="btn btn-outline-secondary ms-2">Cancel</a>
         </div>
     </form>
 </div></div></div></div>

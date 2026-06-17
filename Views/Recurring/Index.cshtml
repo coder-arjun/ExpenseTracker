@@ -7,8 +7,9 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="page-header mb-0">
+        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Standing orders</div>
         <h1><i class="bi bi-arrow-repeat me-2"></i>Recurring</h1>
-        <p>Scheduled transactions that auto-post on their due date.</p>
+        <p>SCHEDULED ENTRIES THAT AUTO-POST ON THEIR DUE DATE</p>
     </div>
     <div>
         <form asp-action="RunNow" method="post" class="d-inline">
@@ -25,42 +26,47 @@
 
 @if (!Model.Any())
 {
-    <div class="card"><div class="empty-state">
-        <i class="bi bi-arrow-repeat"></i>
-        <p>No recurring rules yet. Add one for your rent, EMI, salary, or subscriptions.</p>
-    </div></div>
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-arrow-repeat"></i></div>
+        <div class="es-title">No recurring rules yet</div>
+        <p class="es-body">Add a standing order for your rent, EMI, salary, or subscriptions and let the ledger post it on schedule.</p>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Rule</a>
+    </div>
 }
 else
 {
     <div class="card"><div class="card-body p-0">
-        <table class="table table-hover mb-0">
+        <table class="table table-hover table-stack mb-0">
             <thead><tr>
-                <th>Name</th><th>Type</th><th>Amount</th><th>Category / Source</th>
+                <th>Name</th><th>Type</th><th class="text-end">Amount</th><th>Category / Source</th>
                 <th>Account</th><th>Schedule</th><th>Next due</th><th>Status</th><th>Actions</th>
             </tr></thead>
             <tbody>
                 @foreach (var r in Model)
                 {
+                    var isExpense = r.Type == ExpenseTracker.Models.Domain.RecurringType.Expense;
+                    var amountClass = isExpense ? "t-expense" : "t-income";
+                    var amountSign = isExpense ? "&minus;" : "+";
                     <tr class="@(r.IsActive ? "" : "text-muted")">
-                        <td class="fw-semibold">@r.Name</td>
-                        <td>
-                            @if (r.Type == ExpenseTracker.Models.Domain.RecurringType.Expense)
+                        <td data-label="Name" class="fw-semibold">@r.Name</td>
+                        <td data-label="Type">
+                            @if (isExpense)
                             { <span class="badge bg-danger-subtle text-danger">Expense</span> }
                             else
                             { <span class="badge bg-success-subtle text-success">Income</span> }
                         </td>
-                        <td>@r.Amount.ToString("C0", INR)</td>
-                        <td>@(r.Category?.Name ?? r.Source ?? "—")</td>
-                        <td>@(r.Account?.Name ?? "—")</td>
-                        <td>Monthly · day @r.DayOfMonth</td>
-                        <td>@r.NextDueDate.ToString("yyyy-MM-dd")</td>
-                        <td>
+                        <td data-label="Amount" class="text-end fw-semibold text-tabular @amountClass">@Html.Raw(amountSign)@r.Amount.ToString("C0", INR)</td>
+                        <td data-label="Category / Source">@(r.Category?.Name ?? r.Source ?? "—")</td>
+                        <td data-label="Account">@(r.Account?.Name ?? "—")</td>
+                        <td data-label="Schedule">Monthly &middot; day @r.DayOfMonth</td>
+                        <td data-label="Next due" class="folio">@r.NextDueDate.ToString("dd MMM yyyy")</td>
+                        <td data-label="Status">
                             @if (r.IsActive)
                             { <span class="badge bg-success">Active</span> }
                             else
                             { <span class="badge bg-secondary">Paused</span> }
                         </td>
-                        <td>
+                        <td data-label="Actions">
                             <form asp-action="Toggle" asp-route-id="@r.Id" method="post" class="d-inline">
                                 @Html.AntiForgeryToken()
                                 <button type="submit" class="btn btn-sm btn-outline-secondary" title="@(r.IsActive ? "Pause" : "Resume")">

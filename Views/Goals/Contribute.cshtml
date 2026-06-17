@@ -7,17 +7,20 @@
 }
 
 <div class="page-header">
+    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Contribute</div>
     <h1><i class="bi bi-plus-circle me-2"></i>Contribute to Goal</h1>
-    <p><a asp-action="Index" class="text-decoration-none">Goals</a> / Contribute</p>
+    <p><a asp-action="Index" class="text-decoration-none">GOALS</a> / CONTRIBUTE</p>
 </div>
 
 <div class="row"><div class="col-md-6"><div class="card"><div class="card-body">
-    <p class="text-muted">Current total: <strong>@total.ToString("C0", INR)</strong></p>
+    <p class="text-muted mb-3">Current total: <span class="text-tabular t-balance fw-semibold">@total.ToString("C0", INR)</span></p>
     <form asp-action="Contribute" asp-route-id="@Model.GoalId">
         <div asp-validation-summary="ModelOnly" class="text-danger"></div>
         <div class="form-group mb-3">
-            <label asp-for="Amount" class="form-label">Amount (₹)</label>
-            <input asp-for="Amount" class="form-control" type="number" step="0.01" autofocus />
+            <label asp-for="Amount" class="form-label">Amount</label>
+            <div class="input-currency">
+                <input asp-for="Amount" class="form-control" type="number" step="0.01" autofocus />
+            </div>
             <span asp-validation-for="Amount" class="text-danger"></span>
         </div>
         <div class="form-group mb-3">
@@ -30,7 +33,7 @@
         </div>
         <div class="form-group">
             <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Add</button>
-            <a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
+            <a asp-action="Index" class="btn btn-outline-secondary ms-2">Cancel</a>
         </div>
     </form>
 </div></div></div></div>

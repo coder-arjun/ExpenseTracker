@@ -5,6 +5,7 @@
 }
 
 <div class="page-header">
+    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Amend saving</div>
     <h1><i class="bi bi-pencil me-2"></i>Edit Saving</h1>
     <p><a asp-action="Index" class="text-decoration-none">Savings</a> / Edit</p>
 </div>
@@ -17,7 +18,9 @@
                     <input type="hidden" asp-for="Id" />
                     <div class="form-group mb-3">
                         <label asp-for="Amount" class="form-label"></label>
-                        <input asp-for="Amount" class="form-control" />
+                        <div class="input-currency">
+                            <input asp-for="Amount" class="form-control" />
+                        </div>
                         <span asp-validation-for="Amount" class="text-danger"></span>
                     </div>
                     <div class="form-group mb-3">
@@ -37,7 +40,7 @@
                     </div>
                     <div class="form-group">
                         <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
-                        <a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
+                        <a asp-action="Index" class="btn btn-outline-secondary ms-2">Cancel</a>
                     </div>
                 </form>
             </div>

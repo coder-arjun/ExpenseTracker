@@ -4,39 +4,48 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div class="page-header mb-0">
+        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Account transfers</div>
         <h1><i class="bi bi-arrow-left-right me-2"></i>Transfers</h1>
-        <p>Move money between your accounts.</p>
+        <p>MOVE MONEY BETWEEN YOUR ACCOUNTS</p>
     </div>
     <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Transfer</a>
 </div>
 
 @if (!Model.Any())
 {
-    <div class="card"><div class="empty-state">
-        <i class="bi bi-inbox"></i>
-        <p>No transfers yet. Use this to move from your Cash to your Bank, etc.</p>
-    </div></div>
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-arrow-left-right"></i></div>
+        <div class="es-title">No transfers yet</div>
+        <p class="es-body">Use a transfer to move money from your Cash to your Bank, or between any two accounts.</p>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Transfer</a>
+    </div>
 }
 else
 {
     <div class="card"><div class="card-body p-0">
         <table class="table table-hover table-stack table-sticky mb-0 data-table">
             <thead><tr>
-                <th>Date</th><th>From</th><th></th><th>To</th><th>Amount</th><th>Note</th><th>Actions</th>
+                <th>Date</th>
+                <th>From</th>
+                <th></th>
+                <th>To</th>
+                <th class="text-end">Amount</th>
+                <th>Note</th>
+                <th>Actions</th>
             </tr></thead>
             <tbody>
                 @foreach (var t in Model)
                 {
                     <tr>
-                        <td>@t.Date.ToString("yyyy-MM-dd")</td>
-                        <td>@(t.FromAccount?.Name ?? "—")</td>
-                        <td class="text-muted"><i class="bi bi-arrow-right"></i></td>
-                        <td>@(t.ToAccount?.Name ?? "—")</td>
-                        <td class="fw-semibold">@t.Amount.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</td>
-                        <td>@t.Description</td>
-                        <td>
-                            <a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
-                            <a asp-action="Delete" asp-route-id="@t.Id" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+                        <td data-label="Date" class="folio">@t.Date.ToString("dd MMM yyyy")</td>
+                        <td data-label="From">@(t.FromAccount?.Name ?? "—")</td>
+                        <td data-label="" class="text-muted"><i class="bi bi-arrow-right"></i></td>
+                        <td data-label="To">@(t.ToAccount?.Name ?? "—")</td>
+                        <td data-label="Amount" class="text-end fw-semibold text-tabular t-balance">@t.Amount.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</td>
+                        <td data-label="Note">@t.Description</td>
+                        <td data-label="Actions">
+                            <a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-outline-primary" aria-label="Edit"><i class="bi bi-pencil" aria-hidden="true"></i></a>
+                            <a asp-action="Delete" asp-route-id="@t.Id" class="btn btn-sm btn-outline-danger" aria-label="Delete"><i class="bi bi-trash" aria-hidden="true"></i></a>
                         </td>
                     </tr>
                 }

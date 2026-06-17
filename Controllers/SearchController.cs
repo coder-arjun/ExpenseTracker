@@ -1,5 +1,6 @@
 using ExpenseTracker.Data;
 using ExpenseTracker.Models.Domain;
+using ExpenseTracker.Models.ViewModel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -69,26 +70,22 @@ namespace ExpenseTracker.Controllers
         public async Task<IActionResult> Results(string? q)
         {
             q = (q ?? "").Trim();
-            ViewData["Query"] = q;
+            var vm = new SearchResultsViewModel { Query = q };
             if (string.IsNullOrEmpty(q))
-            {
-                ViewData["Nav"] = new List<dynamic>();
-                ViewData["Categories"] = new List<dynamic>();
-                ViewData["Expenses"] = new List<dynamic>();
-                return View();
-            }
+                return View(vm);
 
             var data = await FindAsync(q);
-            ViewData["Nav"] = data.Nav.Cast<object>().ToList();
-            ViewData["Categories"] = data.Categories.Cast<object>().ToList();
-            ViewData["Expenses"] = data.Expenses.Cast<object>().ToList();
-            return View();
+            vm.Nav = data.Nav.Select(n => new SearchNavHit(n.label, n.url, n.icon)).ToList();
+            vm.Categories = data.Categories.Select(c => new SearchCategoryHit(c.name, c.type, c.url)).ToList();
+            vm.Expenses = data.Expenses.Select(e => new SearchExpenseHit(e.description, e.amount, e.month, e.url)).ToList();
+            return View(vm);
         }
 
         // Shared lookup used by both the JSON endpoint and the page view.
         private async Task<SearchResults> FindAsync(string q)
         {
             var userId = _userManager.GetUserId(User);
+            var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
 
             var nav = NavTargets
                 .Where(n => n.label.Contains(q, StringComparison.OrdinalIgnoreCase))
@@ -96,38 +93,38 @@ namespace ExpenseTracker.Controllers
                 .Select(n => (label: n.label, url: n.url, icon: n.icon))
                 .ToList();
 
-            var cats = await _context.Categories
+            // Project raw columns in SQL, then format/compose strings in memory.
+            // EF Core cannot translate ToString(format, CultureInfo) and throws on
+            // the captured CultureInfo constant — so formatting must happen after
+            // the query materialises.
+            var catsRaw = await _context.Categories
                 .Where(c => c.UserId == userId && EF.Functions.Like(c.Name, $"%{q}%"))
                 .OrderBy(c => c.Name)
                 .Take(10)
-                .Select(c => new
-                {
-                    name = c.Name,
-                    type = c.Type == CategoryType.Expense ? "Expense" : "Income",
-                    url = "/Categories/Edit/" + c.Id
-                })
+                .Select(c => new { c.Id, c.Name, c.Type })
                 .ToListAsync();
+            var cats = catsRaw
+                .Select(c => (
+                    name: c.Name,
+                    type: c.Type == CategoryType.Expense ? "Expense" : "Income",
+                    url: "/Categories/Edit/" + c.Id))
+                .ToList();
 
-            var expenses = await _context.Expenses
-                .Include(e => e.Category)
+            var expRaw = await _context.Expenses
                 .Where(e => e.UserId == userId && e.Description != null && EF.Functions.Like(e.Description!, $"%{q}%"))
                 .OrderByDescending(e => e.Date)
                 .Take(25)
-                .Select(e => new
-                {
-                    description = e.Description,
-                    amount = e.Amount.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN")),
-                    month = e.Month,
-                    url = "/Expenses/Details/" + e.Id
-                })
+                .Select(e => new { e.Id, e.Description, e.Amount, e.Month })
                 .ToListAsync();
+            var expenses = expRaw
+                .Select(e => (
+                    description: e.Description,
+                    amount: e.Amount.ToString("C0", inr),
+                    month: e.Month,
+                    url: "/Expenses/Details/" + e.Id))
+                .ToList();
 
-            return new SearchResults
-            {
-                Nav = nav,
-                Categories = cats.Select(c => (name: c.name, type: c.type, url: c.url)).ToList(),
-                Expenses = expenses.Select(e => (description: e.description, amount: e.amount, month: e.month, url: e.url)).ToList(),
-            };
+            return new SearchResults { Nav = nav, Categories = cats, Expenses = expenses };
         }
 
         private class SearchResults

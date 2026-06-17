@@ -11,40 +11,35 @@
     var kpiGoals = (int)(ViewData["KpiActiveGoals"] ?? 0);
 }
 
-<div class="page-header">
-    <h1><i class="bi bi-speedometer2 me-2"></i>Dashboard</h1>
-    <p>Your financial overview at a glance</p>
-</div>
+@{
+    var inrCulture = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    var periodSpendLabel = Model.FilterType == "Month" ? "This month · spend"
+                         : Model.FilterType == "Year" ? "This year · spend"
+                         : "This period · spend";
+}
 
-@* ── Hero KPI strip (v2) ── *@
-<div class="kpi-strip" role="region" aria-label="Key financial indicators">
-    <div class="kpi-tile balance" data-fade-in>
-        <div class="kpi-tile-label">Net Worth</div>
-        <div class="kpi-tile-value">
-            <span data-countup="@kpiNetWorth" data-countup-format="currency" aria-label="@kpiNetWorth.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN")) net worth">@kpiNetWorth.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</span>
+@* ── Statement masthead — the signature ── *@
+<div class="statement" role="region" aria-label="Financial statement summary">
+    <div class="statement-eyebrow"><span class="seal-dot">&#9679;</span> Statement &middot; The Reckoning</div>
+    <span class="statement-figure" data-countup="@kpiNetWorth" data-countup-format="currency"
+          aria-label="Net worth @kpiNetWorth.ToString("C0", inrCulture)">@kpiNetWorth.ToString("C0", inrCulture)</span>
+    <div class="statement-sub">Net worth across all accounts</div>
+    <div class="statement-meta">
+        <div class="sm-item">
+            <div class="sm-label">@periodSpendLabel</div>
+            <div class="sm-value t-expense"><span data-countup="@kpiSpend" data-countup-format="currency">@kpiSpend.ToString("C0", inrCulture)</span></div>
         </div>
-        <div class="kpi-tile-sub">across all accounts</div>
-    </div>
-    <div class="kpi-tile expense" data-fade-in>
-        <div class="kpi-tile-label">@(Model.FilterType == "Month" ? "Month" : Model.FilterType == "Year" ? "Year" : "Period") Spend</div>
-        <div class="kpi-tile-value">
-            <span data-countup="@kpiSpend" data-countup-format="currency">@kpiSpend.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</span>
+        <div class="sm-item">
+            <div class="sm-label">Savings rate</div>
+            <div class="sm-value t-goal"><span data-countup="@kpiSavings" data-countup-format="percent">@kpiSavings%</span></div>
         </div>
-        <div class="kpi-tile-sub">total expenses</div>
-    </div>
-    <div class="kpi-tile income" data-fade-in>
-        <div class="kpi-tile-label">Savings Rate</div>
-        <div class="kpi-tile-value">
-            <span data-countup="@kpiSavings" data-countup-format="percent">@kpiSavings%</span>
+        <div class="sm-item">
+            <div class="sm-label">Active goals</div>
+            <div class="sm-value"><span data-countup="@kpiGoals">@kpiGoals</span></div>
         </div>
-        <div class="kpi-tile-sub">income minus expenses</div>
-    </div>
-    <div class="kpi-tile goal" data-fade-in>
-        <div class="kpi-tile-label">Active Goals</div>
-        <div class="kpi-tile-value">
-            <span data-countup="@kpiGoals">@kpiGoals</span>
+        <div class="sm-item d-flex align-items-end">
+            <a asp-controller="Goals" asp-action="Index" class="text-decoration-none" style="color:var(--red);font-weight:600;font-size:0.85rem;">View goals &rarr;</a>
         </div>
-        <div class="kpi-tile-sub"><a asp-controller="Goals" asp-action="Index" class="text-decoration-none">view all →</a></div>
     </div>
 </div>
 
@@ -417,15 +412,15 @@
                             @foreach (var t in Model.RecentTransactions)
                             {
                                 <tr>
-                                    <td>@t.Date.ToString("yyyy-MM-dd")</td>
+                                    <td class="folio">@t.Date.ToString("dd MMM yyyy")</td>
                                     <td>
                                         @if (t.Type == "Income")
                                         {
-                                            <span class="badge badge-income">Income</span>
+                                            <span class="badge badge-income">Credit</span>
                                         }
                                         else if (t.Type == "Expense")
                                         {
-                                            <span class="badge badge-expense">Expense</span>
+                                            <span class="badge badge-expense">Debit</span>
                                         }
                                         else
                                         {
@@ -433,7 +428,7 @@
                                         }
                                     </td>
                                     <td>@t.Description</td>
-                                    <td class="text-end fw-semibold">@t.Amount.ToString("C")</td>
+                                    <td class="text-end fw-semibold text-tabular @(t.Type == "Income" ? "t-income" : t.Type == "Expense" ? "t-expense" : "t-balance")">@(t.Type == "Income" ? "+" : t.Type == "Expense" ? "−" : "")@t.Amount.ToString("C")</td>
                                 </tr>
                             }
                         }

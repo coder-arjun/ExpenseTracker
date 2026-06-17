@@ -1,88 +1,89 @@
+@model ExpenseTracker.Models.ViewModel.SearchResultsViewModel
 @{
     ViewData["Title"] = "Search";
-    var q = ViewData["Query"] as string ?? "";
-    var nav = (List<object>)(ViewData["Nav"] ?? new List<object>());
-    var cats = (List<object>)(ViewData["Categories"] ?? new List<object>());
-    var expenses = (List<object>)(ViewData["Expenses"] ?? new List<object>());
+    var q = Model.Query;
 }
 
 <div class="page-header mb-4">
-    <h1><i class="bi bi-search me-2"></i>Search</h1>
+    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Search the ledger</div>
+    <h1>Search</h1>
     @if (!string.IsNullOrEmpty(q))
     {
-        <p>Results for <strong>"@q"</strong></p>
+        <p>@Model.TotalCount result@(Model.TotalCount == 1 ? "" : "s") for &ldquo;@q&rdquo;</p>
     }
 </div>
 
 <form method="get" asp-action="Results" class="mb-4">
-    <div class="input-group">
+    <div class="input-group input-group-lg">
         <span class="input-group-text"><i class="bi bi-search"></i></span>
-        <input type="search" name="q" value="@q" class="form-control form-control-lg"
+        <input type="search" name="q" value="@q" class="form-control"
                placeholder="Search expenses, categories or pages…" autofocus autocomplete="off" />
-        <button class="btn btn-primary" type="submit">Search</button>
+        <button class="btn btn-primary px-4" type="submit">Search</button>
     </div>
 </form>
 
 @if (string.IsNullOrEmpty(q))
 {
-    <div class="card"><div class="empty-state">
-        <i class="bi bi-search"></i>
-        <p>Type something above to search across your expenses, categories and pages.</p>
-    </div></div>
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-search"></i></div>
+        <div class="es-title">Look something up</div>
+        <p class="es-body">Search across every expense, category and page in your ledger. Tip: press <kbd>/</kbd> anywhere to jump straight here.</p>
+    </div>
 }
-else if (nav.Count == 0 && cats.Count == 0 && expenses.Count == 0)
+else if (!Model.HasAny)
 {
-    <div class="card"><div class="empty-state">
-        <i class="bi bi-emoji-frown"></i>
-        <p>Nothing matched <strong>"@q"</strong>. Try a shorter or different term.</p>
-    </div></div>
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-emoji-frown"></i></div>
+        <div class="es-title">Nothing matched &ldquo;@q&rdquo;</div>
+        <p class="es-body">Try a shorter or different term.</p>
+    </div>
 }
 else
 {
-    @if (nav.Count > 0)
+    @if (Model.Nav.Count > 0)
     {
-        <div class="card mb-3"><div class="card-body">
-            <h6 class="text-uppercase text-muted small fw-bold mb-3">Navigation</h6>
+        <div class="card mb-3">
+            <div class="card-header">Navigation</div>
             <div class="list-group list-group-flush">
-                @foreach (dynamic n in nav)
+                @foreach (var n in Model.Nav)
                 {
-                    <a href="@n.url" class="list-group-item list-group-item-action d-flex align-items-center">
-                        <i class="bi bi-@n.icon me-2 text-primary"></i>@n.label
+                    <a href="@n.Url" class="list-group-item list-group-item-action d-flex align-items-center">
+                        <i class="bi bi-@n.Icon me-2 text-danger"></i>@n.Label
                     </a>
                 }
             </div>
-        </div></div>
+        </div>
     }
 
-    @if (cats.Count > 0)
+    @if (Model.Categories.Count > 0)
     {
-        <div class="card mb-3"><div class="card-body">
-            <h6 class="text-uppercase text-muted small fw-bold mb-3">Categories</h6>
+        <div class="card mb-3">
+            <div class="card-header">Categories</div>
             <div class="list-group list-group-flush">
-                @foreach (dynamic c in cats)
+                @foreach (var c in Model.Categories)
                 {
-                    <a href="@c.url" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between">
-                        <span><i class="bi bi-tag me-2"></i>@c.name</span>
-                        <span class="badge bg-secondary-subtle text-secondary">@c.type</span>
+                    <a href="@c.Url" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-tag me-2"></i>@c.Name</span>
+                        <span class="badge bg-secondary">@c.Type</span>
                     </a>
                 }
             </div>
-        </div></div>
+        </div>
     }
 
-    @if (expenses.Count > 0)
+    @if (Model.Expenses.Count > 0)
     {
-        <div class="card mb-3"><div class="card-body">
-            <h6 class="text-uppercase text-muted small fw-bold mb-3">Expenses</h6>
+        <div class="card mb-3">
+            <div class="card-header">Expenses</div>
             <div class="list-group list-group-flush">
-                @foreach (dynamic e in expenses)
+                @foreach (var e in Model.Expenses)
                 {
-                    <a href="@e.url" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between">
-                        <span><i class="bi bi-cash me-2"></i>@(e.description ?? "(no description)")</span>
-                        <span class="text-muted small">@e.amount &middot; @e.month</span>
+                    <a href="@e.Url" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-cash me-2"></i>@(e.Description ?? "(no description)")</span>
+                        <span class="text-muted small text-tabular t-expense">&minus;@e.Amount &middot; @e.Month</span>
                     </a>
                 }
             </div>
-        </div></div>
+        </div>
     }
 }

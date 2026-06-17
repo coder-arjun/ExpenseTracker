@@ -17,8 +17,8 @@
                 <div class="d-flex justify-content-between mb-1">
                     <span class="fw-semibold">@leakage.Category</span>
                     <span>
-                        <span class="fw-bold">@leakage.Amount.ToString("C")</span>
-                        <span class="text-muted ms-1">(@leakage.Percentage%)</span>
+                        <span class="text-tabular t-expense fw-bold">&minus;@leakage.Amount.ToString("C")</span>
+                        <span class="text-tabular text-muted ms-1">(@leakage.Percentage%)</span>
                     </span>
                 </div>
                 <div class="progress" style="height: 8px;">
@@ -32,8 +32,9 @@
 }
 else
 {
-    <div class="text-center text-muted py-5">
-        <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-        <p class="mt-2 mb-0">No expenses found for the selected period.</p>
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-inbox"></i></div>
+        <div class="es-title">No leakage to report</div>
+        <p class="es-body">No expenses found for the selected period.</p>
     </div>
 }

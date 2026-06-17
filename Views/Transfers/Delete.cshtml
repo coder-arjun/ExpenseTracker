@@ -3,22 +3,27 @@
 @{ ViewData["Title"] = "Delete Transfer"; }
 
 <div class="page-header">
+    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Delete transfer</div>
     <h1><i class="bi bi-trash me-2"></i>Delete Transfer</h1>
     <p><a asp-action="Index" class="text-decoration-none">Transfers</a> / Delete</p>
 </div>
 
-<div class="row"><div class="col-md-6"><div class="card"><div class="card-body">
-    <p class="text-muted">Remove this transfer? The balances on both accounts will be recalculated.</p>
-    <dl class="row mb-3">
-        <dt class="col-sm-4">Date</dt><dd class="col-sm-8">@Model.Date.ToString("yyyy-MM-dd")</dd>
-        <dt class="col-sm-4">From</dt><dd class="col-sm-8">@Model.FromAccount?.Name</dd>
-        <dt class="col-sm-4">To</dt><dd class="col-sm-8">@Model.ToAccount?.Name</dd>
-        <dt class="col-sm-4">Amount</dt><dd class="col-sm-8">@Model.Amount.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</dd>
-        <dt class="col-sm-4">Note</dt><dd class="col-sm-8">@Model.Description</dd>
-    </dl>
-    <form asp-action="Delete">
-        <input type="hidden" asp-for="Id" />
-        <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Delete</button>
-        <a asp-action="Index" class="btn btn-secondary ms-2">Cancel</a>
-    </form>
-</div></div></div></div>
+<div class="row"><div class="col-md-6">
+    <div class="delete-warning mb-3">
+        <i class="bi bi-exclamation-triangle me-2"></i>Remove this transfer? The balances on both accounts will be recalculated. This cannot be undone.
+    </div>
+    <div class="card"><div class="card-body">
+        <dl class="row mb-3">
+            <dt class="col-sm-4">Date</dt><dd class="col-sm-8 folio">@Model.Date.ToString("dd MMM yyyy")</dd>
+            <dt class="col-sm-4">From</dt><dd class="col-sm-8">@Model.FromAccount?.Name</dd>
+            <dt class="col-sm-4">To</dt><dd class="col-sm-8">@Model.ToAccount?.Name</dd>
+            <dt class="col-sm-4">Amount</dt><dd class="col-sm-8 text-tabular t-balance fw-semibold">@Model.Amount.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</dd>
+            <dt class="col-sm-4">Note</dt><dd class="col-sm-8">@Model.Description</dd>
+        </dl>
+        <form asp-action="Delete">
+            <input type="hidden" asp-for="Id" />
+            <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Delete</button>
+            <a asp-action="Index" class="btn btn-outline-secondary ms-2">Cancel</a>
+        </form>
+    </div></div>
+</div></div>

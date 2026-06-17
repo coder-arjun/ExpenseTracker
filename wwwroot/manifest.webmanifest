@@ -1,13 +1,13 @@
 {
-  "name": "ExpenseTracker — Personal Finance",
-  "short_name": "ExpenseTracker",
+  "name": "Finoma — Personal Finance",
+  "short_name": "Finoma",
   "description": "Privacy-first personal expense tracking. All analysis runs on your device.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#FAFAFA",
-  "theme_color": "#0066FF",
+  "background_color": "#F8F7F3",
+  "theme_color": "#F8F7F3",
   "lang": "en-IN",
   "categories": ["finance", "productivity"],
   "icons": [
