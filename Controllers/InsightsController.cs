@@ -41,11 +41,12 @@ namespace ExpenseTracker.Controllers
 
             string? markdown = null;
             DateTime? generatedAt = null;
+            FinancialSnapshot? snapshot = null;
 
             if (period == MonthToDateKey)
             {
                 // MTD is never cached (changes daily). Compute on the fly.
-                var snapshot = await _analyzer.BuildSnapshotAsync(userId, CurrentMonth(), DateTime.Now);
+                snapshot = await _analyzer.BuildSnapshotAsync(userId, CurrentMonth(), DateTime.Now);
                 markdown = InsightsRenderer.Render(snapshot);
                 generatedAt = DateTime.UtcNow;
                 ViewData["IsMonthToDate"] = true;
@@ -57,10 +58,19 @@ namespace ExpenseTracker.Controllers
                 markdown = cached?.MarkdownContent;
                 generatedAt = cached?.GeneratedAt;
                 ViewData["IsMonthToDate"] = false;
+
+                // When an insight has been generated for this month, also recompute the
+                // structured snapshot so the view can render charts/gauges/progress bars
+                // alongside the cached narrative. The figures are deterministic from the
+                // ledger, so this matches what was cached. Skipped when nothing's generated
+                // yet (we show the empty state instead).
+                if (cached != null)
+                    snapshot = await _analyzer.BuildSnapshotAsync(userId, period);
             }
 
             ViewData["GeneratedAt"] = generatedAt;
-            return View((object?)markdown);
+            ViewData["Markdown"] = markdown;
+            return View(snapshot);
         }
 
         // POST /Insights/Generate
