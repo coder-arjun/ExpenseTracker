@@ -9,12 +9,13 @@ namespace ExpenseTracker.Services
     /// </summary>
     public static class ExcelExporter
     {
-        // Brand palette — keeps the export aesthetic in step with the app.
-        private static readonly XLColor Primary    = XLColor.FromHtml("#0066FF");
+        // Brand palette — "The Ledger": a crimson stamp on warm paper, ink text.
+        private static readonly XLColor Primary    = XLColor.FromHtml("#C20E3A"); // crimson
         private static readonly XLColor HeaderText = XLColor.White;
-        private static readonly XLColor Stripe     = XLColor.FromHtml("#F4F7FB");
-        private static readonly XLColor Border     = XLColor.FromHtml("#E4E4E7");
-        private static readonly XLColor SubtleText = XLColor.FromHtml("#71717A");
+        private static readonly XLColor Stripe     = XLColor.FromHtml("#F2F0E9"); // warm paper
+        private static readonly XLColor Border     = XLColor.FromHtml("#E7E2D7"); // rule
+        private static readonly XLColor SubtleText = XLColor.FromHtml("#8A857A"); // ink-muted
+        private static readonly XLColor Ink        = XLColor.FromHtml("#1A1814"); // text
 
         public record Column<T>(string Header, Func<T, object?> Get, bool IsCurrency = false, XLAlignmentHorizontalValues? Align = null);
 
@@ -30,28 +31,38 @@ namespace ExpenseTracker.Services
             var ws = wb.AddWorksheet(sheetName);
             var lastCol = columns.Count;
 
-            // ── Title band ─────────────────────────────────────────────────
-            ws.Cell(1, 1).Value = title;
-            var titleRange = ws.Range(1, 1, 1, lastCol);
-            titleRange.Merge();
-            titleRange.Style
-                .Font.SetBold().Font.SetFontSize(18).Font.SetFontColor(Primary)
+            // ── Brand eyebrow ──────────────────────────────────────────────
+            ws.Cell(1, 1).Value = "FINOMA";
+            var brandRange = ws.Range(1, 1, 1, lastCol);
+            brandRange.Merge();
+            brandRange.Style
+                .Font.SetBold().Font.SetFontSize(10).Font.SetFontColor(Primary)
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left)
                 .Alignment.SetVertical(XLAlignmentVerticalValues.Center);
-            ws.Row(1).Height = 28;
+            ws.Row(1).Height = 16;
+
+            // ── Title band ─────────────────────────────────────────────────
+            ws.Cell(2, 1).Value = title;
+            var titleRange = ws.Range(2, 1, 2, lastCol);
+            titleRange.Merge();
+            titleRange.Style
+                .Font.SetBold().Font.SetFontSize(18).Font.SetFontColor(Ink)
+                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left)
+                .Alignment.SetVertical(XLAlignmentVerticalValues.Center);
+            ws.Row(2).Height = 26;
 
             // ── Subtitle row ───────────────────────────────────────────────
-            ws.Cell(2, 1).Value = subtitle;
-            var subRange = ws.Range(2, 1, 2, lastCol);
+            ws.Cell(3, 1).Value = subtitle;
+            var subRange = ws.Range(3, 1, 3, lastCol);
             subRange.Merge();
             subRange.Style
                 .Font.SetFontSize(10).Font.SetFontColor(SubtleText)
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Left);
 
-            // Row 3 left empty as breathing room.
+            // Row 4 left empty as breathing room.
 
             // ── Header row ─────────────────────────────────────────────────
-            const int headerRow = 4;
+            const int headerRow = 5;
             for (int i = 0; i < columns.Count; i++)
             {
                 var c = ws.Cell(headerRow, i + 1);

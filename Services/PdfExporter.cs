@@ -10,13 +10,30 @@ namespace ExpenseTracker.Services
     /// </summary>
     public static class PdfExporter
     {
-        // Brand palette
-        private const string Primary    = "#0066FF";
-        private const string PrimaryDk  = "#0052CC";
-        private const string Stripe     = "#F4F7FB";
-        private const string Border     = "#E4E4E7";
-        private const string Subtle     = "#71717A";
-        private const string Text       = "#09090B";
+        // Brand palette — "The Ledger": crimson stamp on warm paper, ink text.
+        private const string Primary    = "#C20E3A"; // crimson
+        private const string PrimaryDk  = "#9C0A2E";
+        private const string Stripe     = "#F4F1EA"; // warm paper
+        private const string Border     = "#E7E2D7"; // rule
+        private const string Subtle     = "#8A857A"; // ink-muted
+        private const string Text       = "#1A1814"; // ink
+
+        // Font families to match the web app.
+        private const string Display = "Space Grotesk"; // titles / brand
+        private const string Body    = "Inter";          // body text
+        private const string Mono    = "IBM Plex Mono";  // figures / amounts
+
+        // Register the embedded TTFs with QuestPDF once, before any document is built.
+        static PdfExporter()
+        {
+            var asm = typeof(PdfExporter).Assembly;
+            foreach (var res in asm.GetManifestResourceNames())
+            {
+                if (!res.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)) continue;
+                using var stream = asm.GetManifestResourceStream(res);
+                if (stream != null) QuestPDF.Drawing.FontManager.RegisterFont(stream);
+            }
+        }
 
         public record Column<T>(string Header, Func<T, object?> Get, bool IsCurrency = false, float? RelativeWidth = null);
 
@@ -37,7 +54,7 @@ namespace ExpenseTracker.Services
                     page.Size(PageSizes.A4.Landscape());
                     page.Margin(28);
                     page.PageColor(Colors.White);
-                    page.DefaultTextStyle(x => x.FontSize(9).FontColor(Text).FontFamily("Helvetica"));
+                    page.DefaultTextStyle(x => x.FontSize(9).FontColor(Text).FontFamily(Body));
 
                     page.Header().Element(h => ComposeHeader(h, title, subtitle, generatedAt));
                     page.Content().PaddingVertical(10).Element(b => ComposeBody(b, data, columns, inr));
@@ -52,8 +69,8 @@ namespace ExpenseTracker.Services
             {
                 row.RelativeItem().Column(col =>
                 {
-                    col.Item().Text("EXPENSE TRACKER").FontSize(8).LetterSpacing(2).FontColor(Subtle).SemiBold();
-                    col.Item().PaddingTop(2).Text(title).FontSize(20).Bold().FontColor(Primary);
+                    col.Item().Text("FINOMA").FontSize(8).LetterSpacing(2).FontColor(Primary).SemiBold().FontFamily(Display);
+                    col.Item().PaddingTop(2).Text(title).FontSize(20).Bold().FontColor(Text).FontFamily(Display);
                     if (!string.IsNullOrWhiteSpace(subtitle))
                         col.Item().PaddingTop(2).Text(subtitle).FontSize(10).FontColor(Subtle);
                 });
@@ -117,7 +134,7 @@ namespace ExpenseTracker.Services
                             .BorderBottom(0.5f).BorderColor(Border)
                             .PaddingVertical(5).PaddingHorizontal(8);
                         if (col.IsCurrency)
-                            cell.AlignRight().Text(text).FontSize(9);
+                            cell.AlignRight().Text(text).FontSize(9).FontFamily(Mono);
                         else
                             cell.Text(text).FontSize(9);
                     }
@@ -151,7 +168,7 @@ namespace ExpenseTracker.Services
                         if (i == 0)
                             cell.Text("Total").Bold().FontColor(PrimaryDk).FontSize(10);
                         else if (col.IsCurrency)
-                            cell.AlignRight().Text(Format(totals[i], true, inr)).Bold().FontColor(PrimaryDk).FontSize(10);
+                            cell.AlignRight().Text(Format(totals[i], true, inr)).Bold().FontColor(PrimaryDk).FontSize(10).FontFamily(Mono);
                         else
                             cell.Text("");
                     }
@@ -165,7 +182,7 @@ namespace ExpenseTracker.Services
             {
                 row.RelativeItem().Text("Confidential · For internal use only")
                     .FontSize(7).FontColor(Subtle);
-                row.RelativeItem().AlignCenter().Text("ExpenseTracker — privacy-first personal finance")
+                row.RelativeItem().AlignCenter().Text("Finoma — privacy-first personal finance")
                     .FontSize(7).FontColor(Subtle);
                 row.RelativeItem().AlignRight().Text(t =>
                 {

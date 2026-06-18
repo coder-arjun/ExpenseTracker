@@ -1,11 +1,12 @@
 using ExpenseTracker.Models.Domain;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace ExpenseTracker.Data
 {
-    public class ApplicationDbContext : IdentityDbContext<IdentityUser>
+    public class ApplicationDbContext : IdentityDbContext<IdentityUser>, IDataProtectionKeyContext
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
         { }
@@ -21,6 +22,11 @@ namespace ExpenseTracker.Data
         public DbSet<GoalContribution> GoalContributions => Set<GoalContribution>();
         public DbSet<RecurringRule> RecurringRules => Set<RecurringRule>();
         public DbSet<Attachment> Attachments => Set<Attachment>();
+
+        // Data-protection keys persisted in the DB (backs IDataProtectionKeyContext)
+        // so auth/"remember me" cookies survive app restarts and redeploys on hosts
+        // with an ephemeral filesystem.
+        public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

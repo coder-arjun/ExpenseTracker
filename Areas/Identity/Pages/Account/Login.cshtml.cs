@@ -5,6 +5,7 @@
 using ExpenseTracker.Models.Domain;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -24,6 +25,11 @@ namespace ExpenseTracker.Areas.Identity.Pages.Account
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ILogger<LoginModel> _logger;
+
+        // Stores ONLY the last-used identifier (email or user ID) so the login
+        // form can pre-fill it after logout when "Remember me" was ticked.
+        // The password is never stored — that is the browser password manager's job.
+        private const string RememberUserCookie = "Finoma.RememberUser";
 
         public LoginModel(SignInManager<ApplicationUser> signInManager, ILogger<LoginModel> logger)
         {
@@ -98,6 +104,15 @@ namespace ExpenseTracker.Areas.Identity.Pages.Account
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
 
             ReturnUrl = returnUrl;
+
+            // Pre-fill the identifier and re-check "Remember me" if the user opted
+            // into it last time. Password is intentionally left blank for the
+            // browser's password manager to fill.
+            if (Request.Cookies.TryGetValue(RememberUserCookie, out var rememberedUser)
+                && !string.IsNullOrWhiteSpace(rememberedUser))
+            {
+                Input = new InputModel { EmailOrUserId = rememberedUser, RememberMe = true };
+            }
         }
 
         public async Task<IActionResult> OnPostAsync(string returnUrl = null)
@@ -128,6 +143,23 @@ namespace ExpenseTracker.Areas.Identity.Pages.Account
                 var result = await _signInManager.PasswordSignInAsync(email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
                 if (result.Succeeded)
                 {
+                    // Remember (or forget) the identifier for next time's form pre-fill.
+                    if (Input.RememberMe)
+                    {
+                        Response.Cookies.Append(RememberUserCookie, Input.EmailOrUserId, new CookieOptions
+                        {
+                            Expires = DateTimeOffset.UtcNow.AddDays(30),
+                            HttpOnly = true,
+                            IsEssential = true,
+                            SameSite = SameSiteMode.Lax,
+                            Secure = Request.IsHttps,
+                        });
+                    }
+                    else
+                    {
+                        Response.Cookies.Delete(RememberUserCookie);
+                    }
+
                     _logger.LogInformation("User {Email} logged in. RememberMe={RememberMe}", email, Input.RememberMe);
                     return LocalRedirect(returnUrl);
                 }

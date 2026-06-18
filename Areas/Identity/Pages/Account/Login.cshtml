@@ -3,7 +3,22 @@
 
 @{
     ViewData["Title"] = "Log in";
+    // Returning user (username pre-filled from the "Remember me" cookie): jump
+    // straight to the password field. Fresh visit: focus the username field.
+    var hasRememberedUser = !string.IsNullOrEmpty(Model.Input?.EmailOrUserId);
 }
+
+<style>
+    .login-field .pwd-input { padding-right: 2.75rem; }
+    .login-field .password-toggle {
+        position: absolute; top: 0; right: 0; height: 100%; width: 2.75rem;
+        display: flex; align-items: center; justify-content: center;
+        background: transparent; border: 0; padding: 0; cursor: pointer;
+        color: var(--ink-muted); z-index: 3; font-size: 1.05rem;
+    }
+    .login-field .password-toggle:hover { color: var(--red); }
+    .login-field .password-toggle:focus-visible { color: var(--red); outline: 2px solid var(--red); outline-offset: -2px; border-radius: var(--r-sm); }
+</style>
 
 <div class="login-wrapper">
     <div class="login-container">
@@ -34,13 +49,17 @@
             <form id="account" method="post">
                 <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
                 <div class="form-floating mb-3 login-field">
-                    <input asp-for="Input.EmailOrUserId" class="form-control" autocomplete="username" aria-required="true" placeholder="email or user ID" />
+                    <input asp-for="Input.EmailOrUserId" class="form-control" autocomplete="username" aria-required="true" placeholder="email or user ID" autofocus="@(!hasRememberedUser)" />
                     <label asp-for="Input.EmailOrUserId" class="form-label">Email or User ID</label>
                     <span asp-validation-for="Input.EmailOrUserId" class="text-danger"></span>
                 </div>
-                <div class="form-floating mb-3 login-field">
-                    <input asp-for="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="password" />
+                <div class="form-floating mb-3 login-field position-relative">
+                    <input asp-for="Input.Password" class="form-control pwd-input" autocomplete="current-password" aria-required="true" placeholder="password" autofocus="@hasRememberedUser" />
                     <label asp-for="Input.Password" class="form-label">Password</label>
+                    <button type="button" id="loginPasswordToggle" class="password-toggle"
+                            aria-label="Show password" aria-pressed="false" title="Show password">
+                        <i class="bi bi-eye" aria-hidden="true"></i>
+                    </button>
                     <span asp-validation-for="Input.Password" class="text-danger"></span>
                 </div>
                 <div class="form-check mb-3 login-field">
@@ -69,4 +88,19 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            var btn = document.getElementById('loginPasswordToggle');
+            var inp = document.querySelector('input[name="Input.Password"]');
+            if (!btn || !inp) return;
+            btn.addEventListener('click', function () {
+                var show = inp.getAttribute('type') !== 'text';
+                inp.setAttribute('type', show ? 'text' : 'password');
+                btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+                btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+                btn.setAttribute('title', show ? 'Hide password' : 'Show password');
+                btn.querySelector('i').className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+            });
+        })();
+    </script>
 }

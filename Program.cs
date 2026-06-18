@@ -38,15 +38,15 @@ builder.Services.AddControllersWithViews(options =>
     options.Filters.Add(new Microsoft.AspNetCore.Mvc.Authorization.AuthorizeFilter(policy));
 });
 
-// Data-protection keys: persisted to disk and NEVER wiped on startup.
-// The keys encrypt the auth cookie — if we delete them, every previously
-// issued cookie (including "Remember me" cookies) becomes garbage on the
-// next request and the user is silently logged out. Persisting the keys
-// is what lets Remember Me survive app restarts.
-var keysDir = Path.Combine(builder.Environment.ContentRootPath, "keys");
-Directory.CreateDirectory(keysDir);
+// Data-protection keys: persisted in the DATABASE (DataProtectionKeys table).
+// The keys encrypt the auth cookie — if they're lost, every previously issued
+// cookie (including "Remember me" cookies) becomes garbage and the user is
+// silently logged out. Hosted environments (incl. MonsterASP) can reset the
+// local filesystem on redeploy, so we store keys in the DB, which is durable
+// and shared across instances. SetApplicationName must stay stable forever —
+// changing it invalidates all existing cookies.
 builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(new DirectoryInfo(keysDir))
+    .PersistKeysToDbContext<ApplicationDbContext>()
     .SetApplicationName("ExpenseTracker");
 
 builder.Services.ConfigureApplicationCookie(options =>
@@ -95,6 +95,32 @@ if (args.Length >= 3 && args[0] == "analyze")
     var snap = await analyzer.BuildSnapshotAsync(args[1], period, asOf);
     Console.WriteLine(ExpenseTracker.Services.InsightsRenderer.Render(snap));
     return;
+}
+
+// Apply any pending EF Core migrations on startup. This means a freshly
+// provisioned database (e.g. the empty MonsterASP MSSQL instance) gets its
+// full schema — including the DataProtectionKeys table — automatically on the
+// first launch, with no manual `dotnet ef database update` step on the host.
+using (var migrationScope = app.Services.CreateScope())
+{
+    try
+    {
+        var db = migrationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        db.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        // Don't take the whole site down if the startup migration fails — record the
+        // reason to a readable file and let the app boot so the error is diagnosable.
+        try
+        {
+            var diagPath = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "_diag.txt");
+            File.WriteAllText(diagPath, DateTime.UtcNow.ToString("o") + "\n\n" + ex);
+        }
+        catch { /* ignore */ }
+        app.Services.GetService<ILoggerFactory>()?.CreateLogger("Startup")
+            .LogError(ex, "Database migration failed at startup");
+    }
 }
 
 // Configure the HTTP request pipeline.
