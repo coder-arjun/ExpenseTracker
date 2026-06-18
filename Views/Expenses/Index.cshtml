@@ -13,14 +13,14 @@
         : "Total expenses (filtered)";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
     <div class="page-header mb-0">
         <h1><i class="bi bi-cash-stack me-2"></i>Expenses</h1>
         <p>Manage and track all your expenses</p>
     </div>
-    <div>
-        <div class="btn-group me-1">
-            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+    <div class="d-flex gap-2">
+        <div class="btn-group flex-fill flex-sm-grow-0">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-download me-1"></i>Export
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
@@ -45,7 +45,7 @@
                 </a></li>
             </ul>
         </div>
-        <a asp-action="Create" class="btn btn-primary">
+        <a asp-action="Create" class="btn btn-primary flex-fill flex-sm-grow-0">
             <i class="bi bi-plus-circle me-1"></i>Add Expense
         </a>
     </div>

@@ -21,6 +21,28 @@
     <meta name="theme-color" content="#F8F7F3" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#14130E" media="(prefers-color-scheme: dark)" />
     <title>@ViewData["Title"] - Finoma</title>
+    @{
+        var ogBase = $"{Context.Request.Scheme}://{Context.Request.Host}";
+        var ogImage = ogBase + "/icons/og-image.png";
+        const string ogDesc = "A private, modern personal finance tracker — track expenses, income & savings, set budgets with smart alerts, and get plain-English insights into your money. Everything stays on your own ledger.";
+    }
+    @* Open Graph / Twitter — crisp, rich link preview when shared (WhatsApp, etc.) *@
+    <meta name="description" content="@ogDesc" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Finoma" />
+    <meta property="og:title" content="Finoma — A private, modern ledger for your money" />
+    <meta property="og:description" content="@ogDesc" />
+    <meta property="og:url" content="@ogBase" />
+    <meta property="og:image" content="@ogImage" />
+    <meta property="og:image:secure_url" content="@ogImage" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Finoma — personal finance, privacy-first" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Finoma — A private, modern ledger for your money" />
+    <meta name="twitter:description" content="@ogDesc" />
+    <meta name="twitter:image" content="@ogImage" />
     <script type="importmap"></script>
     @* The Ledger type stack:
          display  = Space Grotesk (mechanical grotesk; numerals rhyme with the figures)
@@ -36,6 +58,8 @@
     <link rel="manifest" href="~/manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="~/icons/icon.svg" asp-append-version="true" />
     <link rel="icon" href="~/favicon.ico" sizes="any" asp-append-version="true" />
+    <link rel="icon" type="image/png" sizes="512x512" href="~/icons/icon-512.png" asp-append-version="true" />
+    <link rel="apple-touch-icon" href="~/icons/icon-512.png" asp-append-version="true" />
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>

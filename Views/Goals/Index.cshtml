@@ -8,13 +8,15 @@
     var INR = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
     <div class="page-header mb-0">
         <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Saving goals</div>
         <h1><i class="bi bi-bullseye me-2"></i>Goals</h1>
         <p>SAVING TARGETS &middot; TRACK PROGRESS TOWARD WHAT MATTERS</p>
     </div>
-    <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Goal</a>
+    <div class="d-grid d-sm-block">
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Goal</a>
+    </div>
 </div>
 
 <div class="filter-bar mb-4">

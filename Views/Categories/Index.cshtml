@@ -6,13 +6,13 @@
     var typeFilter = ViewData["TypeFilter"] as CategoryType?;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
     <div class="page-header mb-0">
         <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Category master</div>
         <h1>Categories</h1>
         <p>MANAGE EXPENSE AND INCOME CATEGORIES</p>
     </div>
-    <div>
+    <div class="d-grid d-sm-block">
         <a asp-action="Create" asp-route-type="@(typeFilter ?? CategoryType.Expense)" class="btn btn-primary">
             <i class="bi bi-plus-circle me-1"></i>Add Category
         </a>

@@ -6,17 +6,17 @@
     var balances = (Dictionary<int, decimal>)ViewData["Balances"]!;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
     <div class="page-header mb-0">
         <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Account ledger</div>
         <h1><i class="bi bi-wallet2 me-2"></i>Accounts</h1>
         <p>CASH &middot; BANK &middot; CREDIT &middot; UPI &mdash; EVERY MONEY LOCATION</p>
     </div>
-    <div>
-        <a asp-controller="Transfers" asp-action="Create" class="btn btn-outline-secondary me-1">
+    <div class="d-flex gap-2">
+        <a asp-controller="Transfers" asp-action="Create" class="btn btn-outline-secondary flex-fill flex-sm-grow-0">
             <i class="bi bi-arrow-left-right me-1"></i>Transfer
         </a>
-        <a asp-action="Create" class="btn btn-primary">
+        <a asp-action="Create" class="btn btn-primary flex-fill flex-sm-grow-0">
             <i class="bi bi-plus-circle me-1"></i>Add Account
         </a>
     </div>

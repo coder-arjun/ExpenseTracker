@@ -571,7 +571,11 @@ input[type="number"], input[inputmode="decimal"], input[name*="Amount" i] { font
    FILTER BAR
    ============================================================ */
 .filter-bar { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: 1.1rem 1.3rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); }
-.filter-bar.sticky-filter { position: sticky; top: 58px; z-index: 30; background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+/* The filter bar scrolls inline with the page on ALL viewports. It used to be
+   position:sticky (pinned under the navbar), but that felt "locked"/janky while
+   scrolling on desktop and mobile alike. The .sticky-filter class is kept on the
+   markup for compatibility but no longer pins. */
+.filter-bar.sticky-filter { position: static; top: auto; }
 
 /* ============================================================
    TABS
@@ -891,20 +895,8 @@ td.credit::before, .amount-in::before { content: "+"; }
 }
 
 /* ============================================================
-   MOBILE POLISH (2026-06) — sticky filter + collapsed navbar
+   MOBILE POLISH (2026-06) — navigation drawer
    ============================================================ */
-/* On phones/small tablets the filter bar should scroll with the page,
-   not pin under the navbar (it covered content and felt janky). */
-@media (max-width: 767.98px) {
-  .filter-bar.sticky-filter {
-    position: static;
-    top: auto;
-    background: var(--surface);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-}
-
 /* ── Mobile navigation drawer (< md) ─────────────────────────
    A slide-over off-canvas panel — the premium mobile pattern.
    Bootstrap gives us the backdrop scrim, focus trap, ESC-to-close

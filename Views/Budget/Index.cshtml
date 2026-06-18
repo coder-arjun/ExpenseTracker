@@ -7,21 +7,21 @@
     var totalSpent = (decimal)(ViewData["TotalSpent"] ?? 0m);
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
     <div class="page-header mb-0">
         <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Budget ledger</div>
         <h1><i class="bi bi-speedometer me-2"></i>Budgets</h1>
         <p>SET AND TRACK YOUR SPENDING LIMITS</p>
     </div>
-    <div>
-        <form asp-action="CopyFromPreviousMonth" method="post" class="d-inline">
+    <div class="d-flex gap-2">
+        <form asp-action="CopyFromPreviousMonth" method="post" class="flex-fill flex-sm-grow-0 m-0">
             @Html.AntiForgeryToken()
             <input type="hidden" name="yearMonth" value="@yearMonth" />
-            <button type="submit" class="btn btn-outline-secondary" title="Copy budgets from previous month">
+            <button type="submit" class="btn btn-outline-secondary w-100" title="Copy budgets from previous month">
                 <i class="bi bi-clipboard-check me-1"></i>Copy Previous
             </button>
         </form>
-        <a asp-action="Create" asp-route-yearMonth="@yearMonth" class="btn btn-primary ms-1">
+        <a asp-action="Create" asp-route-yearMonth="@yearMonth" class="btn btn-primary flex-fill flex-sm-grow-0">
             <i class="bi bi-plus-circle me-1"></i>Add Budget
         </a>
     </div>

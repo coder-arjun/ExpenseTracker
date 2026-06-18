@@ -45,3 +45,46 @@
         </div>
     </div>
 </div>
+
+@{
+    // Build the share link from the current host so it always points at the live site.
+    var appUrl = $"{Context.Request.Scheme}://{Context.Request.Host}";
+    var shareText =
+        "📊 Finoma — a clean, privacy-first way to manage your money.\n\n" +
+        "Track your expenses, income & savings, set budgets with smart alerts, and get plain-English insights into where your money goes — all kept private on your own ledger.\n\n" +
+        $"Try it free: {appUrl}";
+    var waHref = "https://wa.me/?text=" + Uri.EscapeDataString(shareText);
+}
+
+<section class="share-section text-center" aria-label="Share Finoma">
+    <div class="eyebrow mb-2" style="justify-content:center;"><span class="seal-dot">&#9679;</span> Spread the word</div>
+    <h2 class="share-heading">Know someone who'd keep better books?</h2>
+    <p class="share-sub">Finoma is free and private. Pass it along — it takes a minute to set up.</p>
+    <a href="@waHref" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp btn-lg">
+        <i class="bi bi-whatsapp me-2" aria-hidden="true"></i>Share on WhatsApp
+    </a>
+</section>
+
+<style>
+    .share-section {
+        margin: 1rem 0 3.5rem;
+        padding: 2.75rem 1.5rem 0.5rem;
+        border-top: 3px double var(--rule-strong);
+    }
+    .share-heading {
+        font-family: var(--font-display); font-weight: 600;
+        font-size: clamp(1.3rem, 1.1rem + 1vw, 1.95rem);
+        letter-spacing: -0.02em; color: var(--ink); margin-bottom: 0.5rem;
+    }
+    .share-sub { color: var(--ink-muted); max-width: 34rem; margin: 0 auto 1.6rem; }
+    .btn-whatsapp {
+        background: #25D366; border: 1px solid #25D366; color: #fff; font-weight: 600;
+        box-shadow: 0 6px 18px -6px rgba(37, 211, 102, 0.55);
+        transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--motion-fast) var(--ease-out);
+    }
+    .btn-whatsapp:hover, .btn-whatsapp:focus-visible {
+        background: #1ebe5d; border-color: #1ebe5d; color: #fff;
+        box-shadow: 0 9px 24px -6px rgba(37, 211, 102, 0.7);
+    }
+    .btn-whatsapp:active { background: #1aa653; border-color: #1aa653; color: #fff; transform: translateY(0.5px); }
+</style>
