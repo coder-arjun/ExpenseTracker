@@ -40,16 +40,38 @@
 <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-light" aria-label="Primary">
+        <nav class="navbar navbar-expand-md navbar-light" aria-label="Primary">
             <div class="container-fluid">
                 <a class="navbar-brand fw-bold" asp-area="" asp-controller="Dashboard" asp-action="Index">
                     <i class="bi bi-wallet2 me-2" aria-hidden="true"></i>Finoma
                 </a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
+                <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileNav"
+                        aria-controls="mobileNav" aria-label="Open menu">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                <div class="offcanvas offcanvas-end mobile-drawer" tabindex="-1" id="mobileNav" aria-labelledby="mobileNavLabel">
+                    <div class="offcanvas-header">
+                        <span class="mobile-drawer-brand" id="mobileNavLabel">
+                            <span class="mobile-drawer-seal" aria-hidden="true">&#8377;</span>
+                            <span>Finoma</span>
+                        </span>
+                        <button type="button" class="mobile-drawer-close" data-bs-dismiss="offcanvas" aria-label="Close menu">
+                            <i class="bi bi-x-lg" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="offcanvas-body">
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <form class="mobile-drawer-search d-md-none" role="search"
+                                  asp-controller="Search" asp-action="Results" method="get">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+                                    <input type="search" name="q" class="form-control" placeholder="Search transactions…"
+                                           aria-label="Search" autocomplete="off" />
+                                </div>
+                            </form>
+                            <div class="mobile-drawer-label d-md-none">Navigate</div>
+                        }
                     <ul class="navbar-nav flex-grow-1">
                         @if (User.Identity?.IsAuthenticated == true)
                         {
@@ -111,7 +133,8 @@
                             </li>
                         }
                     </ul>
-                    <div class="d-flex align-items-center gap-2">
+                    <div class="mobile-drawer-label d-md-none">Settings</div>
+                    <div class="d-flex align-items-center gap-2 nav-utility">
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             <form class="navbar-search d-none d-md-flex" role="search"
@@ -127,8 +150,10 @@
                                 aria-pressed="false" aria-label="Switch to dark mode" title="Switch to dark mode">
                             <i class="bi bi-moon-fill" aria-hidden="true"></i>
                             <i class="bi bi-sun-fill" aria-hidden="true"></i>
+                            <span class="theme-toggle-text d-md-none">Appearance</span>
                         </button>
                         <partial name="_LoginPartial" />
+                    </div>
                     </div>
                 </div>
             </div>

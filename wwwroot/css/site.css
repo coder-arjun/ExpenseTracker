@@ -258,10 +258,20 @@ main { animation: page-in var(--motion-slow) var(--ease-out); }
    ============================================================ */
 .navbar {
   background: color-mix(in srgb, var(--paper) 85%, transparent) !important;
-  backdrop-filter: saturate(140%) blur(12px);
-  -webkit-backdrop-filter: saturate(140%) blur(12px);
   border-bottom: 1px solid var(--rule);
   padding: 0.55rem 0; position: sticky; top: 0; z-index: 1020;
+}
+/* The frosted blur lives on a pseudo-element, NOT on the .navbar box itself.
+   backdrop-filter (like transform/filter) establishes a containing block, and
+   the mobile nav drawer (a position:fixed Bootstrap offcanvas) is nested inside
+   the navbar — so a blur on .navbar would re-anchor the drawer to the navbar's
+   box, sizing/placing it wrong (it collapsed to the navbar height or pinned
+   narrow to one side). On ::before the blur is purely visual and the drawer
+   stays anchored to the viewport. */
+.navbar::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  backdrop-filter: saturate(140%) blur(12px);
+  -webkit-backdrop-filter: saturate(140%) blur(12px);
 }
 @supports not (backdrop-filter: blur(1px)) { .navbar { background: var(--paper) !important; } }
 
@@ -895,45 +905,180 @@ td.credit::before, .amount-in::before { content: "+"; }
   }
 }
 
-/* Collapsed navbar (≤ sm): a clean vertical panel rather than the cramped,
-   floaty Bootstrap default. */
-@media (max-width: 575.98px) {
-  .navbar .navbar-collapse {
-    margin-top: 0.55rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--rule);
+/* ── Mobile navigation drawer (< md) ─────────────────────────
+   A slide-over off-canvas panel — the premium mobile pattern.
+   Bootstrap gives us the backdrop scrim, focus trap, ESC-to-close
+   and body scroll-lock for free; we dress the panel as a leaf torn
+   from the ledger: warm paper, a hairline spine, a sealed header,
+   icon-chipped rows, and a crimson accent on the open page. */
+.mobile-drawer {
+  --bs-offcanvas-width: min(86vw, 360px);
+  --bs-offcanvas-bg: var(--paper);
+  --bs-offcanvas-border-color: var(--rule);
+  --bs-offcanvas-border-width: 1px;
+  --bs-offcanvas-box-shadow: var(--shadow-lg);
+  --bs-offcanvas-padding-x: 0;
+  --bs-offcanvas-padding-y: 0;
+  color: var(--ink);
+}
+/* warm, soft scrim instead of Bootstrap's flat black */
+.offcanvas-backdrop.show { background: rgba(26, 24, 20, 0.42); opacity: 1; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+
+/* The backdrop / panel only render below the expand breakpoint, so these
+   rules are scoped to the drawer viewport to keep the desktop bar untouched. */
+@media (max-width: 767.98px) {
+  /* Full-height sheet. Belt-and-braces: the plain .offcanvas base gives
+     top/bottom:0, but we pin the height explicitly so the panel always
+     fills the viewport (dvh tracks the mobile browser chrome) and the
+     body flex-grows into real space instead of collapsing to a sliver. */
+  .mobile-drawer.offcanvas { height: 100vh; height: 100dvh; }
+  /* — Sealed header: ₹ medallion + wordmark, filed close control — */
+  .mobile-drawer .offcanvas-header {
+    padding: 1.1rem 1.25rem 0.9rem;
+    border-bottom: 1px solid var(--rule);
+    background: linear-gradient(180deg, var(--surface), var(--paper));
   }
-  .navbar .navbar-nav { width: 100%; }
-  .navbar .navbar-nav .nav-link {
-    padding: 0.6rem 0.55rem !important;
-    border-radius: var(--r-sm);
+  .mobile-drawer-brand {
+    display: inline-flex; align-items: center; gap: 0.6rem;
+    font-family: var(--font-display); font-weight: 600; font-size: 1.15rem;
+    letter-spacing: -0.02em; color: var(--ink);
   }
-  .navbar .navbar-nav .nav-link:hover,
-  .navbar .navbar-nav .nav-link:focus-visible { background: var(--red-tint); }
-  /* the horizontal bottom-underline marker looks broken when items stack —
-     switch it to a left accent bar */
-  .navbar .nav-link.active::after,
-  .navbar .nav-link[aria-current="page"]::after {
-    left: 0; right: auto; top: 0.45rem; bottom: 0.45rem; width: 3px; height: auto;
+  .mobile-drawer-seal {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2rem; height: 2rem; border-radius: 50%;
+    border: 1.5px solid var(--red); color: var(--red);
+    font-family: var(--font-mono); font-size: 1rem; font-weight: 600; line-height: 1;
+    box-shadow: inset 0 0 0 2px var(--paper), 0 1px 2px var(--red-tint-2);
   }
-  /* dropdowns (More / account) flow inline and flat — no off-screen floating panel */
-  .navbar .dropdown-menu {
-    position: static !important;
-    float: none;
-    border: 0;
-    box-shadow: none;
-    background: transparent;
-    padding: 0.1rem 0 0.25rem 1rem;
-    margin: 0;
+  .mobile-drawer-close {
+    margin-left: auto; width: 2.25rem; height: 2.25rem;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; border: 1px solid var(--rule-strong);
+    border-radius: var(--r-sm); color: var(--ink-soft); font-size: 1rem; cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
   }
-  .navbar .dropdown-menu .dropdown-item { padding: 0.5rem 0.55rem; }
-  /* theme toggle + account row drops below the links with its own divider */
-  .navbar .navbar-collapse > .d-flex {
-    width: 100%;
-    margin-top: 0.5rem;
-    padding-top: 0.6rem;
-    border-top: 1px solid var(--rule);
-    justify-content: flex-start;
-    gap: 0.85rem;
+  .mobile-drawer-close:hover, .mobile-drawer-close:focus-visible { color: var(--red); border-color: var(--red); background: var(--red-tint); }
+  .mobile-drawer-close:focus-visible { outline: none; box-shadow: var(--ring); }
+
+  /* — Body: comfortable rhythm, scrolls under a safe-area-aware floor — */
+  .mobile-drawer .offcanvas-body {
+    display: flex; flex-direction: column;
+    padding: 1rem 1rem calc(1rem + var(--safe-bottom));
+    gap: 0.15rem;
   }
+
+  /* — Section eyebrows divide Navigate / Settings — */
+  .mobile-drawer-label {
+    font-family: var(--font-sans); text-transform: uppercase;
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.13em;
+    color: var(--ink-muted); padding: 0 0.35rem; margin: 0.35rem 0 0.4rem;
+  }
+  .mobile-drawer .nav-utility .mobile-drawer-label,
+  .mobile-drawer-label + .mobile-drawer-label { margin-top: 0.35rem; }
+
+  /* — In-drawer search field — */
+  .mobile-drawer-search { margin-bottom: 0.85rem; }
+  .mobile-drawer-search .input-group-text {
+    background: var(--surface); border: 1px solid var(--rule-strong); border-right: 0;
+    color: var(--ink-muted); border-radius: var(--r-md) 0 0 var(--r-md);
+  }
+  .mobile-drawer-search .form-control {
+    border: 1px solid var(--rule-strong); border-left: 0; background: var(--surface);
+    color: var(--ink); border-radius: 0 var(--r-md) var(--r-md) 0; padding: 0.6rem 0.75rem; font-size: 0.95rem;
+  }
+  .mobile-drawer-search .form-control::placeholder { color: var(--ink-muted); }
+  .mobile-drawer-search .form-control:focus { box-shadow: var(--ring); border-color: var(--red); }
+
+  /* — Nav list: full-width rows, icon chip, generous touch target — */
+  .navbar .navbar-nav { width: 100%; gap: 0.1rem; }
+  .navbar .navbar-nav .nav-item { width: 100%; }
+  .mobile-drawer .navbar-nav .nav-link {
+    display: flex; align-items: center; gap: 0.85rem; width: 100%;
+    padding: 0.78rem 0.7rem !important; margin: 0; border-radius: var(--r-md);
+    font-size: 0.98rem; font-weight: 500; color: var(--ink-soft) !important;
+    transition: background var(--transition-fast), color var(--transition-fast);
+  }
+  /* icon chip: a small filed square that lifts each row */
+  .mobile-drawer .navbar-nav .nav-link > .bi:first-child {
+    flex-shrink: 0; width: 2rem; height: 2rem; margin: 0 !important;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--paper-2); border: 1px solid var(--rule); border-radius: var(--r-sm);
+    color: var(--ink-muted); font-size: 1rem;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  }
+  .mobile-drawer .navbar-nav .nav-link:hover,
+  .mobile-drawer .navbar-nav .nav-link:focus-visible {
+    background: var(--red-tint); color: var(--ink) !important;
+  }
+  .mobile-drawer .navbar-nav .nav-link:hover > .bi:first-child,
+  .mobile-drawer .navbar-nav .nav-link:focus-visible > .bi:first-child {
+    color: var(--red); border-color: var(--red-tint-2);
+  }
+  /* the open page: crimson tint, ink text, a filled stamp chip */
+  .mobile-drawer .nav-link.active,
+  .mobile-drawer .nav-link[aria-current="page"] {
+    background: var(--red-tint); color: var(--ink) !important; font-weight: 600;
+  }
+  .mobile-drawer .nav-link.active > .bi:first-child,
+  .mobile-drawer .nav-link[aria-current="page"] > .bi:first-child {
+    background: var(--red); border-color: var(--red); color: #fff;
+  }
+  /* drop the desktop underline marker inside the drawer */
+  .mobile-drawer .nav-link.active::after,
+  .mobile-drawer .nav-link[aria-current="page"]::after { display: none; }
+  /* the dropdown toggle caret aligns to the far right */
+  .mobile-drawer .dropdown-toggle { justify-content: flex-start; }
+  .mobile-drawer .dropdown-toggle::after { margin-left: auto; }
+
+  /* — Sub-menus (More / account) expand flat & indented, no floating panel — */
+  .mobile-drawer .dropdown-menu {
+    position: static !important; float: none; inset: auto !important; transform: none !important;
+    border: 0; box-shadow: none; background: transparent;
+    padding: 0.1rem 0 0.3rem 2.85rem; margin: 0; width: 100%;
+  }
+  .mobile-drawer .dropdown-menu .dropdown-item {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.6rem 0.6rem; border-radius: var(--r-sm); color: var(--ink-soft); font-size: 0.92rem;
+  }
+  .mobile-drawer .dropdown-menu .dropdown-item .bi { color: var(--ink-muted); margin: 0 !important; }
+  .mobile-drawer .dropdown-divider { margin: 0.3rem 0; }
+
+  /* — Utility footer: theme + account, divided from the list — */
+  .mobile-drawer .nav-utility {
+    flex-direction: column; align-items: stretch; width: 100%; gap: 0.1rem;
+    margin-top: 0.4rem;
+  }
+  .mobile-drawer .nav-utility > * { width: 100%; }
+  /* theme toggle becomes a full labelled row to match the nav items */
+  .mobile-drawer .theme-toggle {
+    justify-content: flex-start; gap: 0.85rem; width: 100%;
+    padding: 0.78rem 0.7rem; border: 0; border-radius: var(--r-md);
+    font-family: var(--font-sans); font-size: 0.98rem; font-weight: 500; color: var(--ink-soft);
+  }
+  .mobile-drawer .theme-toggle:hover { background: var(--red-tint); color: var(--ink); }
+  .mobile-drawer .theme-toggle .bi { width: 2rem; height: 2rem; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--paper-2); border: 1px solid var(--rule); border-radius: var(--r-sm);
+    color: var(--ink-muted); font-size: 1rem; }
+  .mobile-drawer .theme-toggle-text { font-weight: 500; }
+  /* account ("Hello …") row matches nav rows; its person icon gets a chip too */
+  .mobile-drawer .nav-utility .navbar-nav { width: 100%; }
+
+  /* — Staggered reveal as the page slides in — */
+}
+/* Staggered reveal — FAIL-SAFE: rows default to fully visible and only the
+   open animation (gated on .show) plays the fade-in. If the offcanvas never
+   gets .show (JS off, etc.) the rows simply stay visible — they can never get
+   stuck transparent the way a default opacity:0 would risk. */
+@keyframes drawerRowIn {
+  from { opacity: 0; transform: translateX(14px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (max-width: 767.98px) and (prefers-reduced-motion: no-preference) {
+  .mobile-drawer.show .offcanvas-body > * { animation: drawerRowIn 0.34s var(--ease-out) both; }
+  .mobile-drawer.show .offcanvas-body > *:nth-child(1) { animation-delay: 0.04s; }
+  .mobile-drawer.show .offcanvas-body > *:nth-child(2) { animation-delay: 0.09s; }
+  .mobile-drawer.show .offcanvas-body > *:nth-child(3) { animation-delay: 0.14s; }
+  .mobile-drawer.show .offcanvas-body > *:nth-child(4) { animation-delay: 0.19s; }
+  .mobile-drawer.show .offcanvas-body > *:nth-child(5) { animation-delay: 0.24s; }
 }
