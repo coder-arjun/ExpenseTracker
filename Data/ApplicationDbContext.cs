@@ -22,6 +22,8 @@ namespace ExpenseTracker.Data
         public DbSet<GoalContribution> GoalContributions => Set<GoalContribution>();
         public DbSet<RecurringRule> RecurringRules => Set<RecurringRule>();
         public DbSet<Attachment> Attachments => Set<Attachment>();
+        public DbSet<StatementDelivery> StatementDeliveries => Set<StatementDelivery>();
+        public DbSet<Debt> Debts => Set<Debt>();
 
         // Data-protection keys persisted in the DB (backs IDataProtectionKeyContext)
         // so auth/"remember me" cookies survive app restarts and redeploys on hosts
@@ -48,6 +50,8 @@ namespace ExpenseTracker.Data
             builder.Entity<Goal>().Property(g => g.TargetAmount).HasPrecision(18, 2);
             builder.Entity<GoalContribution>().Property(g => g.Amount).HasPrecision(18, 2);
             builder.Entity<RecurringRule>().Property(r => r.Amount).HasPrecision(18, 2);
+            builder.Entity<Debt>().Property(d => d.Amount).HasPrecision(18, 2);
+            builder.Entity<Debt>().Property(d => d.AmountPaid).HasPrecision(18, 2);
 
             // One name per (user, type). Filtered index so different users can have
             // identically-named categories.
@@ -123,6 +127,13 @@ namespace ExpenseTracker.Data
                 .HasForeignKey(a => a.ExpenseId)
                 .OnDelete(DeleteBehavior.Cascade);
             builder.Entity<Attachment>().HasIndex(a => a.ExpenseId);
+
+            // ---- Statement deliveries (email log / month-end de-dup) ----
+            builder.Entity<StatementDelivery>().HasIndex(s => new { s.UserId, s.Period });
+
+            // ---- Debts (money owed to/by the user) ----------------------
+            builder.Entity<Debt>().HasIndex(d => new { d.UserId, d.Direction });
+            builder.Entity<Debt>().HasIndex(d => new { d.UserId, d.YearMonth });
 
             // ---- Existing Category cascading rules (unchanged) ---------
             builder.Entity<Expense>()

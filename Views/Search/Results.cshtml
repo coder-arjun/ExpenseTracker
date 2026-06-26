@@ -86,4 +86,25 @@ else
             </div>
         </div>
     }
+
+    @if (Model.Debts.Count > 0)
+    {
+        <div class="card mb-3">
+            <div class="card-header">Owed to Me</div>
+            <div class="list-group list-group-flush">
+                @foreach (var d in Model.Debts)
+                {
+                    <a href="@d.Url" class="list-group-item list-group-item-action d-flex align-items-center justify-content-between">
+                        <span>
+                            <i class="bi @(d.TheyOweMe ? "bi-arrow-down-left text-success" : "bi-arrow-up-right text-danger") me-2"></i>@d.Person
+                        </span>
+                        <span class="text-muted small">
+                            <span class="badge @(d.TheyOweMe ? "bg-success-subtle text-success" : "bg-danger-subtle text-danger") me-2">@d.Direction</span>
+                            <span class="text-tabular">@d.Outstanding</span>
+                        </span>
+                    </a>
+                }
+            </div>
+        </div>
+    }
 }

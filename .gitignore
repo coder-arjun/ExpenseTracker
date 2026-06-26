@@ -56,6 +56,11 @@ appsettings.*.json
 ## Data protection keys (machine-specific)
 /keys/
 
+## Database backups (real data + connection secrets — never commit)
+/db-backup/secrets.ps1
+/db-backup/backups/
+*.bacpac
+
 ## Misc
 *.cache
 *.tmp

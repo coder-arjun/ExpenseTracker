@@ -24,16 +24,7 @@ namespace ExpenseTracker.Services
         private const string Mono    = "IBM Plex Mono";  // figures / amounts
 
         // Register the embedded TTFs with QuestPDF once, before any document is built.
-        static PdfExporter()
-        {
-            var asm = typeof(PdfExporter).Assembly;
-            foreach (var res in asm.GetManifestResourceNames())
-            {
-                if (!res.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase)) continue;
-                using var stream = asm.GetManifestResourceStream(res);
-                if (stream != null) QuestPDF.Drawing.FontManager.RegisterFont(stream);
-            }
-        }
+        static PdfExporter() => PdfFonts.Ensure();
 
         public record Column<T>(string Header, Func<T, object?> Get, bool IsCurrency = false, float? RelativeWidth = null);
 

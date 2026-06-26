@@ -1,0 +1,190 @@
+@using System.Globalization
+@using ExpenseTracker.Models.Domain
+@model ExpenseTracker.Models.PaginatedList<ExpenseTracker.Models.Domain.Debt>
+
+@{
+    ViewData["Title"] = "Owed to Me";
+    var inr = CultureInfo.GetCultureInfo("en-IN");
+    string Money(decimal a) => a.ToString("C0", inr);
+
+    var owedToMe = (decimal)(ViewData["OwedToMe"] ?? 0m);
+    var iOwe = (decimal)(ViewData["IOwe"] ?? 0m);
+    var net = (decimal)(ViewData["DebtNet"] ?? 0m);
+    var overdue = (int)(ViewData["OverdueCount"] ?? 0);
+
+    (string cls, string label, string icon) DirChip(Debt d) => d.Direction == DebtDirection.TheyOweMe
+        ? ("owe-in", "Owed to me", "bi-arrow-down-left")
+        : ("owe-out", "I owe", "bi-arrow-up-right");
+
+    (string cls, string label) StatChip(Debt d) => d.Status switch
+    {
+        DebtStatus.Settled => ("owe-st-settled", "Settled"),
+        DebtStatus.PartlyPaid => ("owe-st-partly", "Partly paid"),
+        _ => ("owe-st-open", "Outstanding")
+    };
+}
+
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
+    <div class="page-header mb-0">
+        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Who owes whom</div>
+        <h1><i class="bi bi-cash-coin me-2"></i>Owed to Me</h1>
+        <p>TRACK MONEY OWED TO YOU AND MONEY YOU OWE</p>
+    </div>
+    <div class="d-flex gap-2">
+        <div class="btn-group flex-fill flex-sm-grow-0">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download me-1"></i>Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="xlsx">
+                    <i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i>Excel (.xlsx)
+                </a></li>
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="pdf">
+                    <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF
+                </a></li>
+                <li><hr class="dropdown-divider" /></li>
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="csv">
+                    <i class="bi bi-filetype-csv me-2 text-secondary"></i>CSV (plain text)
+                </a></li>
+            </ul>
+        </div>
+        <a asp-action="Create" class="btn btn-primary flex-fill flex-sm-grow-0">
+            <i class="bi bi-plus-circle me-1"></i>Add Debt
+        </a>
+    </div>
+</div>
+
+@* ── Summary strip: owed to you · you owe · net ───────────────────── *@
+<div class="owe-summary mb-4">
+    <div class="owe-stat">
+        <div class="l"><i class="bi bi-arrow-down-left"></i> Owed to you</div>
+        <div class="v credit">@Money(owedToMe)</div>
+    </div>
+    <div class="owe-stat">
+        <div class="l"><i class="bi bi-arrow-up-right"></i> You owe</div>
+        <div class="v debit">@Money(iOwe)</div>
+    </div>
+    <div class="owe-stat owe-stat-net">
+        <div class="l"><i class="bi bi-safe2"></i> Net position</div>
+        <div class="v @(net >= 0 ? "credit" : "debit")">@(net >= 0 ? "+" : "−")@Money(Math.Abs(net))</div>
+        @if (overdue > 0)
+        {
+            <div class="owe-overdue"><i class="bi bi-exclamation-triangle-fill"></i> @overdue overdue</div>
+        }
+    </div>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-cash-coin"></i></div>
+        <div class="es-title">No debts tracked yet</div>
+        <p class="es-body">Lent a friend some cash, or borrowed a little? Record it here so nothing slips through the cracks.</p>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>Add Debt</a>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="card-body p-0">
+            <table class="table table-hover table-stack mb-0">
+                <thead>
+                    <tr>
+                        <th>Person</th>
+                        <th>Direction</th>
+                        <th class="text-end">Amount</th>
+                        <th class="text-end">Outstanding</th>
+                        <th>Status</th>
+                        <th>Due</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        var dir = DirChip(item);
+                        var st = StatChip(item);
+                        <tr>
+                            <td data-label="Person" class="fw-semibold">@item.PersonName</td>
+                            <td data-label="Direction">
+                                <span class="owe-chip @dir.cls"><i class="bi @dir.icon"></i> @dir.label</span>
+                            </td>
+                            <td data-label="Amount" class="text-end text-tabular">@Money(item.Amount)</td>
+                            <td data-label="Outstanding" class="text-end fw-semibold text-tabular t-balance">
+                                @Money(item.Outstanding)
+                            </td>
+                            <td data-label="Status">
+                                <span class="owe-status @st.cls">@st.label</span>
+                                @if (item.IsOverdue)
+                                {
+                                    <span class="owe-status owe-st-overdue">Overdue</span>
+                                }
+                            </td>
+                            <td data-label="Due" class="folio">@(item.DueDate?.ToString("dd MMM yyyy") ?? "—")</td>
+                            <td data-label="Actions">
+                                @if (item.Outstanding > 0m)
+                                {
+                                    <form asp-action="Settle" asp-route-id="@item.Id" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-success" aria-label="Mark settled" title="Mark settled">
+                                            <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                                        </button>
+                                    </form>
+                                }
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" aria-label="Edit">
+                                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                                </a>
+                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info" aria-label="View details">
+                                    <i class="bi bi-eye" aria-hidden="true"></i>
+                                </a>
+                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger" aria-label="Delete">
+                                    <i class="bi bi-trash" aria-hidden="true"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@{
+    ViewData["PageIndex"] = Model.PageIndex;
+    ViewData["TotalPages"] = Model.TotalPages;
+    ViewData["HasPreviousPage"] = Model.HasPreviousPage;
+    ViewData["HasNextPage"] = Model.HasNextPage;
+}
+<partial name="_PaginationPartial" />
+
+<style>
+    /* ── Owed-to-Me · summary + chips (Ledger tokens) ───────────────── */
+    .owe-summary {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;
+    }
+    @@media (max-width: 640px) { .owe-summary { grid-template-columns: 1fr; } }
+    .owe-stat {
+        background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-lg);
+        box-shadow: var(--shadow-sm); padding: 1rem 1.2rem;
+    }
+    .owe-stat .l { font-size: 0.78rem; color: var(--ink-muted); font-weight: 500; display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.3rem; }
+    .owe-stat .v { font-family: var(--font-mono); font-weight: 600; font-size: clamp(1.1rem, 0.95rem + 0.8vw, 1.5rem); letter-spacing: -0.02em; }
+    .owe-stat .v.credit { color: var(--green); }
+    .owe-stat .v.debit { color: var(--red); }
+    .owe-stat-net { border-left: 3px solid var(--rule-strong); }
+    .owe-overdue { margin-top: 0.4rem; font-size: 0.74rem; font-weight: 600; color: var(--red); display: inline-flex; align-items: center; gap: 0.3rem; }
+
+    /* Direction chip */
+    .owe-chip { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.74rem; font-weight: 600;
+        padding: 0.18rem 0.55rem; border-radius: var(--r-pill); border: 1px solid var(--rule); white-space: nowrap; }
+    .owe-chip.owe-in { color: var(--green); background: var(--green-tint); border-color: var(--green-tint); }
+    .owe-chip.owe-out { color: var(--red); background: var(--red-tint); border-color: var(--red-tint-2); }
+
+    /* Status pills */
+    .owe-status { display: inline-block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em;
+        padding: 0.14rem 0.5rem; border-radius: var(--r-pill); border: 1px solid var(--rule); }
+    .owe-st-open { color: var(--ink-soft); background: var(--paper-2); }
+    .owe-st-partly { color: var(--brass); background: var(--brass-tint); border-color: var(--brass-tint); }
+    .owe-st-settled { color: var(--green); background: var(--green-tint); border-color: var(--green-tint); }
+    .owe-st-overdue { color: var(--red); background: var(--red-tint); border-color: var(--red-tint-2); margin-left: 0.25rem; }
+</style>

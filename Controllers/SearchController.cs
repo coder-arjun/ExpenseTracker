@@ -39,6 +39,8 @@ namespace ExpenseTracker.Controllers
             ("Add Goal",        "/Goals/Create",    "plus-circle"),
             ("Recurring",       "/Recurring",       "arrow-repeat"),
             ("Add Recurring",   "/Recurring/Create","plus-circle"),
+            ("Owed to Me",      "/Debts",           "cash-coin"),
+            ("Add Debt",        "/Debts/Create",    "plus-circle"),
             ("Insights",        "/Insights",        "lightbulb"),
         };
 
@@ -62,6 +64,7 @@ namespace ExpenseTracker.Controllers
                 navigation = data.Nav.Select(n => new { label = n.label, url = n.url, icon = n.icon }),
                 categories = data.Categories.Select(c => new { name = c.name, type = c.type, url = c.url }),
                 expenses   = data.Expenses.Select(e => new { description = e.description, amount = e.amount, month = e.month, url = e.url }),
+                debts      = data.Debts.Select(d => new { person = d.person, direction = d.direction, outstanding = d.outstanding, url = d.url }),
             });
         }
 
@@ -78,6 +81,7 @@ namespace ExpenseTracker.Controllers
             vm.Nav = data.Nav.Select(n => new SearchNavHit(n.label, n.url, n.icon)).ToList();
             vm.Categories = data.Categories.Select(c => new SearchCategoryHit(c.name, c.type, c.url)).ToList();
             vm.Expenses = data.Expenses.Select(e => new SearchExpenseHit(e.description, e.amount, e.month, e.url)).ToList();
+            vm.Debts = data.Debts.Select(d => new SearchDebtHit(d.person, d.direction, d.outstanding, d.theyOweMe, d.url)).ToList();
             return View(vm);
         }
 
@@ -124,7 +128,26 @@ namespace ExpenseTracker.Controllers
                     url: "/Expenses/Details/" + e.Id))
                 .ToList();
 
-            return new SearchResults { Nav = nav, Categories = cats, Expenses = expenses };
+            // Debts — match on the counterparty name or note. Show the outstanding
+            // balance (Amount - AmountPaid) and which way the money flows.
+            var debtRaw = await _context.Debts
+                .Where(d => d.UserId == userId
+                    && (EF.Functions.Like(d.PersonName, $"%{q}%") || EF.Functions.Like(d.Note, $"%{q}%")))
+                .OrderByDescending(d => d.Amount - d.AmountPaid > 0m)
+                .ThenByDescending(d => d.Date)
+                .Take(15)
+                .Select(d => new { d.Id, d.PersonName, d.Direction, d.Amount, d.AmountPaid })
+                .ToListAsync();
+            var debts = debtRaw
+                .Select(d => (
+                    person: d.PersonName,
+                    direction: d.Direction == DebtDirection.TheyOweMe ? "Owed to me" : "I owe",
+                    outstanding: Math.Max(0m, d.Amount - d.AmountPaid).ToString("C0", inr),
+                    theyOweMe: d.Direction == DebtDirection.TheyOweMe,
+                    url: "/Debts/Details/" + d.Id))
+                .ToList();
+
+            return new SearchResults { Nav = nav, Categories = cats, Expenses = expenses, Debts = debts };
         }
 
         private class SearchResults
@@ -132,6 +155,7 @@ namespace ExpenseTracker.Controllers
             public List<(string label, string url, string icon)> Nav { get; set; } = new();
             public List<(string name, string type, string url)> Categories { get; set; } = new();
             public List<(string? description, string amount, string month, string url)> Expenses { get; set; } = new();
+            public List<(string person, string direction, string outstanding, bool theyOweMe, string url)> Debts { get; set; } = new();
         }
     }
 }

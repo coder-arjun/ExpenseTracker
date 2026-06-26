@@ -12,14 +12,17 @@ namespace ExpenseTracker.Models.ViewModel
 
     public record SearchExpenseHit(string? Description, string Amount, string Month, string Url);
 
+    public record SearchDebtHit(string Person, string Direction, string Outstanding, bool TheyOweMe, string Url);
+
     public class SearchResultsViewModel
     {
         public string Query { get; set; } = "";
         public List<SearchNavHit> Nav { get; set; } = new();
         public List<SearchCategoryHit> Categories { get; set; } = new();
         public List<SearchExpenseHit> Expenses { get; set; } = new();
+        public List<SearchDebtHit> Debts { get; set; } = new();
 
-        public int TotalCount => Nav.Count + Categories.Count + Expenses.Count;
+        public int TotalCount => Nav.Count + Categories.Count + Expenses.Count + Debts.Count;
         public bool HasAny => TotalCount > 0;
     }
 }

@@ -28,6 +28,11 @@ builder.Services.AddScoped<ExpenseTracker.Services.AccountBalanceService>();
 builder.Services.AddScoped<ExpenseTracker.Services.RecurringProcessor>();
 builder.Services.AddSingleton<ExpenseTracker.Services.AttachmentStorage>();
 
+// Email + monthly statements
+builder.Services.Configure<ExpenseTracker.Services.EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.AddScoped<ExpenseTracker.Services.EmailSender>();
+builder.Services.AddScoped<ExpenseTracker.Services.StatementService>();
+
 // Add services to the container.
 builder.Services.AddControllersWithViews(options =>
 {

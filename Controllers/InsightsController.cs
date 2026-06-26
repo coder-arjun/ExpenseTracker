@@ -70,6 +70,7 @@ namespace ExpenseTracker.Controllers
 
             ViewData["GeneratedAt"] = generatedAt;
             ViewData["Markdown"] = markdown;
+            ViewData["DebtSummary"] = await BuildDebtSummaryAsync(userId);
             return View(snapshot);
         }
 
@@ -114,6 +115,31 @@ namespace ExpenseTracker.Controllers
 
             TempData["SuccessMessage"] = $"Insights generated for {period}.";
             return RedirectToAction(nameof(Index), new { period });
+        }
+
+        // Live IOU ledger snapshot for the "Money owed" card. Period-independent —
+        // it's a running balance, computed fresh on every visit.
+        private async Task<ExpenseTracker.Models.ViewModel.DebtSummaryViewModel> BuildDebtSummaryAsync(string userId)
+        {
+            var vm = new ExpenseTracker.Models.ViewModel.DebtSummaryViewModel();
+            var open = await _context.Debts
+                .Where(d => d.UserId == userId && d.Amount - d.AmountPaid > 0m)
+                .Select(d => new { d.PersonName, d.Direction, d.DueDate, Outstanding = d.Amount - d.AmountPaid })
+                .ToListAsync();
+
+            vm.OwedToMe = open.Where(d => d.Direction == DebtDirection.TheyOweMe).Sum(d => d.Outstanding);
+            vm.IOwe = open.Where(d => d.Direction == DebtDirection.IOweThem).Sum(d => d.Outstanding);
+            vm.OverdueCount = open.Count(d => d.DueDate.HasValue && d.DueDate.Value.Date < DateTime.Today);
+            vm.Top = open
+                .OrderByDescending(d => d.Outstanding)
+                .Take(5)
+                .Select(d => new ExpenseTracker.Models.ViewModel.DebtPeek(
+                    d.PersonName,
+                    d.Outstanding,
+                    d.Direction == DebtDirection.TheyOweMe,
+                    d.DueDate.HasValue && d.DueDate.Value.Date < DateTime.Today))
+                .ToList();
+            return vm;
         }
 
         private static string LastCompletedMonth()

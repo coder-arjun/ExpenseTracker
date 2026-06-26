@@ -13,6 +13,7 @@
     var isMtd = (bool)(ViewData["IsMonthToDate"] ?? false);
     var markdown = ViewData["Markdown"] as string;
     var hasContent = !string.IsNullOrEmpty(markdown);
+    var debtSummary = ViewData["DebtSummary"] as ExpenseTracker.Models.ViewModel.DebtSummaryViewModel;
     var inr = CultureInfo.GetCultureInfo("en-IN");
 
     string LabelFor(string p)
@@ -137,6 +138,12 @@
                     <i class="bi bi-stars me-1"></i>@(hasContent ? "Regenerate" : "Generate")
                 </button>
             </div>
+            <div class="col-md-auto">
+                <button type="submit" formaction="@Url.Action("Email", "Statements")" class="btn btn-outline-secondary"
+                        title="Email a PDF statement for the selected month to your registered email">
+                    <i class="bi bi-envelope-arrow-up me-1"></i>Email me this (PDF)
+                </button>
+            </div>
             @if (generatedAt.HasValue)
             {
                 <div class="col-md-auto ms-auto text-muted small">
@@ -146,6 +153,51 @@
         </form>
     </div>
 </div>
+
+@if (debtSummary?.HasAny == true)
+{
+    <section class="owed-card mb-4" aria-label="Money owed">
+        <div class="owed-card-head">
+            <span class="chip"><i class="bi bi-cash-coin"></i></span>
+            <h2>Money owed</h2>
+            <a asp-controller="Debts" asp-action="Index" class="owed-card-link">Open ledger <i class="bi bi-arrow-right-short"></i></a>
+        </div>
+        <div class="owed-card-stats">
+            <div class="owed-card-stat">
+                <div class="l"><i class="bi bi-arrow-down-left"></i> Owed to you</div>
+                <div class="v credit">@Money(debtSummary.OwedToMe)</div>
+            </div>
+            <div class="owed-card-stat">
+                <div class="l"><i class="bi bi-arrow-up-right"></i> You owe</div>
+                <div class="v debit">@Money(debtSummary.IOwe)</div>
+            </div>
+            <div class="owed-card-stat owed-card-net">
+                <div class="l"><i class="bi bi-safe2"></i> Net</div>
+                <div class="v @(debtSummary.Net >= 0 ? "credit" : "debit")">@(debtSummary.Net >= 0 ? "+" : "−")@Money(Math.Abs(debtSummary.Net))</div>
+                @if (debtSummary.OverdueCount > 0)
+                {
+                    <div class="owed-card-overdue"><i class="bi bi-exclamation-triangle-fill"></i> @debtSummary.OverdueCount overdue</div>
+                }
+            </div>
+        </div>
+        @if (debtSummary.Top.Count > 0)
+        {
+            <ul class="owed-card-list">
+                @foreach (var d in debtSummary.Top)
+                {
+                    <li>
+                        <span class="nm"><i class="bi @(d.TheyOweMe ? "bi-arrow-down-left" : "bi-arrow-up-right") @(d.TheyOweMe ? "in" : "out")"></i>@d.Name</span>
+                        @if (d.Overdue)
+                        {
+                            <span class="od">Overdue</span>
+                        }
+                        <span class="amt">@Money(d.Outstanding)</span>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+}
 
 @if (!hasContent)
 {
@@ -432,6 +484,29 @@ else
         .ins-gauge-val, .ins-bar-fill { transition: none; }
         .ins-anim .ins-reveal { opacity: 1; transform: none; transition: none; }
     }
+
+    /* ── "Money owed" card (live IOU balance) ───────────── */
+    .owed-card { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); padding: 1.3rem 1.4rem; }
+    .owed-card-head { display: flex; align-items: center; gap: 0.65rem; margin-bottom: 1.1rem; }
+    .owed-card-head .chip { width: 2.1rem; height: 2.1rem; flex-shrink: 0; border-radius: var(--r-sm); display: inline-flex; align-items: center; justify-content: center; font-size: 1rem; background: var(--green-tint); border: 1px solid var(--green-tint); color: var(--green); }
+    .owed-card-head h2 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; color: var(--ink); }
+    .owed-card-link { margin-left: auto; font-size: 0.82rem; font-weight: 600; text-decoration: none; color: var(--ink-soft); white-space: nowrap; }
+    .owed-card-link:hover { color: var(--red); }
+    .owed-card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    @@media (max-width: 640px) { .owed-card-stats { grid-template-columns: 1fr; } }
+    .owed-card-stat .l { font-size: 0.78rem; color: var(--ink-muted); font-weight: 500; display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.25rem; }
+    .owed-card-stat .v { font-family: var(--font-mono); font-weight: 600; font-size: clamp(1.05rem, 0.9rem + 0.7vw, 1.4rem); letter-spacing: -0.02em; }
+    .owed-card-stat .v.credit { color: var(--green); }
+    .owed-card-stat .v.debit { color: var(--red); }
+    .owed-card-net { border-left: 1px solid var(--rule); padding-left: 1rem; }
+    @@media (max-width: 640px) { .owed-card-net { border-left: none; padding-left: 0; } }
+    .owed-card-overdue { margin-top: 0.35rem; font-size: 0.74rem; font-weight: 600; color: var(--red); display: inline-flex; align-items: center; gap: 0.3rem; }
+    .owed-card-list { list-style: none; margin: 1.1rem 0 0; padding: 0.9rem 0 0; border-top: 1px dashed var(--rule-strong); display: flex; flex-direction: column; gap: 0.55rem; }
+    .owed-card-list li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; }
+    .owed-card-list .nm { color: var(--ink); display: inline-flex; align-items: center; gap: 0.45rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .owed-card-list .nm i.in { color: var(--green); } .owed-card-list .nm i.out { color: var(--red); }
+    .owed-card-list .od { font-size: 0.68rem; font-weight: 600; color: var(--red); background: var(--red-tint); border: 1px solid var(--red-tint-2); padding: 0.05rem 0.4rem; border-radius: var(--r-pill); }
+    .owed-card-list .amt { margin-left: auto; font-family: var(--font-mono); font-weight: 600; color: var(--ink); }
 </style>
 
 @section Scripts {
