@@ -11,6 +11,14 @@ using System.Security.Claims;
 // suitable for personal projects and companies under $1M annual revenue.
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
+// Finoma is an India-only app: pin the process culture to en-IN so every money
+// format (.ToString("C"), ":C" interpolation, etc.) renders in Indian rupees (₹)
+// instead of falling back to the host's OS culture (en-US → "$"). Belt-and-braces
+// with UseRequestLocalization below, which forces it on each request thread too.
+var inIN = new System.Globalization.CultureInfo("en-IN");
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = inIN;
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = inIN;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -140,6 +148,14 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
 }
+
+// Force en-IN on every request thread so all server-rendered money shows ₹.
+app.UseRequestLocalization(new Microsoft.AspNetCore.Builder.RequestLocalizationOptions
+{
+    DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture(inIN),
+    SupportedCultures = new[] { inIN },
+    SupportedUICultures = new[] { inIN }
+});
 
 app.UseHttpsRedirection();
 // Serve static files with the correct MIME for .webmanifest so the PWA
