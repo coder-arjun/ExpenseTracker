@@ -199,12 +199,24 @@ namespace ExpenseTracker.Controllers
 
             // ── Hero KPI strip data (new v2) ──
             var allBalances = await _balances.GetBalancesAsync(userId);
-            var netWorth = allBalances.Values.Sum();
+
+            // Fold the IOU ledger into net worth: money owed to the user is an asset,
+            // money the user owes is a liability (outstanding = Amount − AmountPaid).
+            var openDebts = await _context.Debts
+                .Where(d => d.UserId == userId && d.Amount - d.AmountPaid > 0m)
+                .Select(d => new { d.Direction, Outstanding = d.Amount - d.AmountPaid })
+                .ToListAsync();
+            var owedToMe = openDebts.Where(d => d.Direction == DebtDirection.TheyOweMe).Sum(d => d.Outstanding);
+            var iOwe = openDebts.Where(d => d.Direction == DebtDirection.IOweThem).Sum(d => d.Outstanding);
+
+            var netWorth = allBalances.Values.Sum() + owedToMe - iOwe;
             var activeGoalsCount = await _context.Goals
                 .Where(g => g.UserId == userId && g.Status == GoalStatus.Active)
                 .CountAsync();
 
             ViewData["KpiNetWorth"]     = netWorth;
+            ViewData["KpiOwedToMe"]     = owedToMe;
+            ViewData["KpiIOwe"]         = iOwe;
             ViewData["KpiMonthSpend"]   = totalExpense;
             ViewData["KpiSavingsRate"]  = totalIncome == 0 ? 0 : Math.Round((totalIncome - totalExpense) / totalIncome * 100m, 0);
             ViewData["KpiActiveGoals"]  = activeGoalsCount;

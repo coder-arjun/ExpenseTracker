@@ -57,7 +57,7 @@ namespace ExpenseTracker.Models.Domain
         [Display(Name = "Due date")]
         public DateTime? DueDate { get; set; }
 
-        public string Note { get; set; } = string.Empty;
+        public string? Note { get; set; }
 
         /// <summary>"yyyy-MM" of <see cref="Date"/>; derived server-side for indexing parity with the other ledgers.</summary>
         [Required]

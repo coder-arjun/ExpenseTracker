@@ -286,12 +286,16 @@ namespace ExpenseTracker.Controllers
 
         // YearMonth + UserId are set server-side, so drop their binding/validation
         // errors before checking ModelState (mirrors the other CRUD controllers).
+        // Note is genuinely optional (the form labels it so), but as a non-nullable
+        // string it gets an implicit "required" that rejects an empty value — so drop
+        // its error too. It binds to "" which is fine for the NOT NULL column.
         private void NormalizeServerFields()
         {
             foreach (var key in ModelState.Keys
                          .Where(k => k.Contains("UserId", StringComparison.OrdinalIgnoreCase)
                                   || k.Contains("User", StringComparison.OrdinalIgnoreCase)
-                                  || k.Contains("YearMonth", StringComparison.OrdinalIgnoreCase))
+                                  || k.Contains("YearMonth", StringComparison.OrdinalIgnoreCase)
+                                  || k.Equals("Note", StringComparison.OrdinalIgnoreCase))
                          .ToList())
             {
                 ModelState.Remove(key);

@@ -9,6 +9,8 @@
     var kpiSpend = (decimal)(ViewData["KpiMonthSpend"] ?? 0m);
     var kpiSavings = (decimal)(ViewData["KpiSavingsRate"] ?? 0m);
     var kpiGoals = (int)(ViewData["KpiActiveGoals"] ?? 0);
+    var kpiOwedToMe = (decimal)(ViewData["KpiOwedToMe"] ?? 0m);
+    var kpiIOwe = (decimal)(ViewData["KpiIOwe"] ?? 0m);
 }
 
 @{
@@ -23,7 +25,21 @@
     <div class="statement-eyebrow"><span class="seal-dot">&#9679;</span> Statement &middot; The Reckoning</div>
     <span class="statement-figure" data-countup="@kpiNetWorth" data-countup-format="currency"
           aria-label="Net worth @kpiNetWorth.ToString("C0", inrCulture)">@kpiNetWorth.ToString("C0", inrCulture)</span>
-    <div class="statement-sub">Net worth across all accounts</div>
+    <div class="statement-sub">Net worth &middot; accounts + money owed to you</div>
+    @if (kpiOwedToMe > 0 || kpiIOwe > 0)
+    {
+        <div class="statement-sub" style="margin-top:.2rem; font-size:.82em; opacity:.9;">
+            <span>incl. </span>
+            <span class="t-income">+@kpiOwedToMe.ToString("C0", inrCulture)</span>
+            <span> owed to you</span>
+            @if (kpiIOwe > 0)
+            {
+                <span> &middot; </span>
+                <span class="t-expense">&minus;@kpiIOwe.ToString("C0", inrCulture)</span>
+                <span> you owe</span>
+            }
+        </div>
+    }
     <div class="statement-meta">
         <div class="sm-item">
             <div class="sm-label">@periodSpendLabel</div>
