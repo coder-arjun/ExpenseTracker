@@ -12,14 +12,15 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ExpenseTracker.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260626134415_AddDebts")]
-    partial class AddDebts
+    [Migration("20260629171934_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("finoma")
                 .HasAnnotation("ProductVersion", "10.0.5")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
@@ -62,7 +63,7 @@ namespace ExpenseTracker.Migrations
                         .IsUnique()
                         .HasFilter("[UserId] IS NOT NULL");
 
-                    b.ToTable("Accounts");
+                    b.ToTable("Accounts", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.Attachment", b =>
@@ -106,7 +107,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Attachments");
+                    b.ToTable("Attachments", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.Budget", b =>
@@ -139,7 +140,7 @@ namespace ExpenseTracker.Migrations
                         .IsUnique()
                         .HasFilter("[UserId] IS NOT NULL AND [CategoryId] IS NOT NULL");
 
-                    b.ToTable("Budgets");
+                    b.ToTable("Budgets", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.Category", b =>
@@ -169,7 +170,7 @@ namespace ExpenseTracker.Migrations
                         .IsUnique()
                         .HasFilter("[UserId] IS NOT NULL");
 
-                    b.ToTable("Categories");
+                    b.ToTable("Categories", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.Debt", b =>
@@ -219,7 +220,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("UserId", "YearMonth");
 
-                    b.ToTable("Debts");
+                    b.ToTable("Debts", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.Expense", b =>
@@ -261,7 +262,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("UserId", "Month");
 
-                    b.ToTable("Expenses");
+                    b.ToTable("Expenses", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.Goal", b =>
@@ -301,7 +302,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("UserId", "Status");
 
-                    b.ToTable("Goals");
+                    b.ToTable("Goals", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.GoalContribution", b =>
@@ -335,7 +336,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("GoalContributions");
+                    b.ToTable("GoalContributions", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.Income", b =>
@@ -378,7 +379,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("UserId", "YearMonth");
 
-                    b.ToTable("Incomes");
+                    b.ToTable("Incomes", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.MonthlyInsight", b =>
@@ -410,7 +411,7 @@ namespace ExpenseTracker.Migrations
                     b.HasIndex("UserId", "Period")
                         .IsUnique();
 
-                    b.ToTable("MonthlyInsights");
+                    b.ToTable("MonthlyInsights", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.RecurringRule", b =>
@@ -479,7 +480,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("UserId", "IsActive", "NextDueDate");
 
-                    b.ToTable("RecurringRules");
+                    b.ToTable("RecurringRules", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.Saving", b =>
@@ -512,7 +513,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("UserId", "YearMonth");
 
-                    b.ToTable("Savings");
+                    b.ToTable("Savings", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.StatementDelivery", b =>
@@ -541,7 +542,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("UserId", "Period");
 
-                    b.ToTable("StatementDeliveries");
+                    b.ToTable("StatementDeliveries", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.Transfer", b =>
@@ -584,7 +585,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("UserId", "YearMonth");
 
-                    b.ToTable("Transfers");
+                    b.ToTable("Transfers", "finoma");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
@@ -603,7 +604,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("DataProtectionKeys");
+                    b.ToTable("DataProtectionKeys", "finoma");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -630,7 +631,7 @@ namespace ExpenseTracker.Migrations
                         .HasDatabaseName("RoleNameIndex")
                         .HasFilter("[NormalizedName] IS NOT NULL");
 
-                    b.ToTable("AspNetRoles", (string)null);
+                    b.ToTable("AspNetRoles", "finoma");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -655,7 +656,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetRoleClaims", (string)null);
+                    b.ToTable("AspNetRoleClaims", "finoma");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUser", b =>
@@ -725,7 +726,7 @@ namespace ExpenseTracker.Migrations
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
-                    b.ToTable("AspNetUsers", (string)null);
+                    b.ToTable("AspNetUsers", "finoma");
 
                     b.HasDiscriminator<string>("Discriminator").HasValue("IdentityUser");
 
@@ -754,7 +755,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", (string)null);
+                    b.ToTable("AspNetUserClaims", "finoma");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
@@ -778,7 +779,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", (string)null);
+                    b.ToTable("AspNetUserLogins", "finoma");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
@@ -793,7 +794,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetUserRoles", (string)null);
+                    b.ToTable("AspNetUserRoles", "finoma");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
@@ -814,7 +815,7 @@ namespace ExpenseTracker.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", (string)null);
+                    b.ToTable("AspNetUserTokens", "finoma");
                 });
 
             modelBuilder.Entity("ExpenseTracker.Models.Domain.ApplicationUser", b =>

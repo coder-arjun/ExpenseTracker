@@ -15,7 +15,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        // The prod DB is SHARED with the DailyPilot app (which owns `dbo`). Pin
+        // Finoma's migrations-history table into its own `finoma` schema so the two
+        // apps' Migrate() calls never read each other's history and collide. Must
+        // match HasDefaultSchema("finoma") in ApplicationDbContext.OnModelCreating.
+        sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", "finoma")));
 builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
@@ -32,6 +37,7 @@ builder.Services.AddSingleton<ExpenseTracker.Services.AttachmentStorage>();
 builder.Services.Configure<ExpenseTracker.Services.EmailOptions>(builder.Configuration.GetSection("Email"));
 builder.Services.AddScoped<ExpenseTracker.Services.EmailSender>();
 builder.Services.AddScoped<ExpenseTracker.Services.StatementService>();
+builder.Services.AddScoped<ExpenseTracker.Services.BackupService>();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews(options =>

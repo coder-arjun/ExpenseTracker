@@ -39,6 +39,7 @@ namespace ExpenseTracker.Services
         public async Task SendAsync(
             string toEmail, string? toName, string subject, string htmlBody,
             byte[]? attachment = null, string? attachmentName = null,
+            string? attachmentContentType = null,
             CancellationToken ct = default)
         {
             if (!IsConfigured)
@@ -52,7 +53,16 @@ namespace ExpenseTracker.Services
 
             var body = new BodyBuilder { HtmlBody = htmlBody };
             if (attachment is { Length: > 0 })
-                body.Attachments.Add(attachmentName ?? "statement.pdf", attachment, new ContentType("application", "pdf"));
+            {
+                // Default to PDF (the statement use case); callers can override (e.g. application/gzip).
+                ContentType ctype = new("application", "pdf");
+                if (!string.IsNullOrWhiteSpace(attachmentContentType) && attachmentContentType.Contains('/'))
+                {
+                    var parts = attachmentContentType.Split('/', 2);
+                    ctype = new ContentType(parts[0], parts[1]);
+                }
+                body.Attachments.Add(attachmentName ?? "statement.pdf", attachment, ctype);
+            }
             msg.Body = body.ToMessageBody();
 
             using var client = new SmtpClient();

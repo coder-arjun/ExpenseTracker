@@ -61,6 +61,12 @@ appsettings.*.json
 /db-backup/backups/
 *.bacpac
 
+## Deploy credentials (FTP) — never commit
+/deploy/secrets.ps1
+
+## Server-side backup output (contains real data)
+/App_Data/
+
 ## Misc
 *.cache
 *.tmp

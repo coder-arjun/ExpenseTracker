@@ -32,6 +32,14 @@ namespace ExpenseTracker.Data
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
+            // Finoma shares its production SQL Server database (db56456 on MonsterASP)
+            // with a SECOND app (DailyPilot), which owns the default `dbo` schema. To
+            // keep the two apps fully isolated — own tables, own Identity tables, own
+            // migrations-history table — Finoma lives entirely in the `finoma` schema.
+            // This MUST stay in sync with the MigrationsHistoryTable schema set in
+            // Program.cs (UseSqlServer). Do NOT remove without a coordinated migration.
+            builder.HasDefaultSchema("finoma");
+
             base.OnModelCreating(builder);
 
             builder.Entity<Expense>().HasIndex(e => new { e.UserId, e.Month });
