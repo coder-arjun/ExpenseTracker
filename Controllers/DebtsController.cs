@@ -228,12 +228,17 @@ namespace ExpenseTracker.Controllers
                 return RedirectToAction(nameof(Details), new { id });
             }
 
+            var before = debt.AmountPaid;
             debt.AmountPaid = Math.Clamp(debt.AmountPaid + amount, 0m, debt.Amount);
+            var applied = debt.AmountPaid - before;
+            await RecordSettlementAsync(debt, applied);   // owed-to-me → income; I owe → expense
             await _context.SaveChangesAsync();
 
+            var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+            var ledger = debt.Direction == DebtDirection.TheyOweMe ? "income" : "expenses";
             TempData["SuccessMessage"] = debt.Outstanding <= 0m
-                ? $"Recorded — {debt.PersonName}'s balance is now fully settled."
-                : $"Recorded {amount.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))}. {debt.Outstanding.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))} still outstanding.";
+                ? $"Recorded {applied.ToString("C0", inr)} to your {ledger} — {debt.PersonName}'s balance is now fully settled."
+                : $"Recorded {applied.ToString("C0", inr)} to your {ledger}. {debt.Outstanding.ToString("C0", inr)} still outstanding.";
             return RedirectToAction(nameof(Details), new { id });
         }
 
@@ -247,10 +252,68 @@ namespace ExpenseTracker.Controllers
                 .FirstOrDefaultAsync(d => d.Id == id && d.UserId == userId);
             if (debt == null) return NotFound();
 
+            var applied = debt.Amount - debt.AmountPaid;   // the outstanding being settled now
             debt.AmountPaid = debt.Amount;
+            await RecordSettlementAsync(debt, applied);    // owed-to-me → income; I owe → expense
             await _context.SaveChangesAsync();
-            TempData["SuccessMessage"] = $"Marked {debt.PersonName}'s debt as fully settled.";
+
+            var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+            var ledger = debt.Direction == DebtDirection.TheyOweMe ? "income" : "expenses";
+            TempData["SuccessMessage"] = applied > 0m
+                ? $"Settled {debt.PersonName}'s debt — {applied.ToString("C0", inr)} added to your {ledger}."
+                : $"Marked {debt.PersonName}'s debt as fully settled.";
             return RedirectToAction(nameof(Index));
+        }
+
+        // Records the cash movement when a debt is repaid/settled: money owed to the
+        // user becomes Income; money the user owes becomes an Expense. Adds to the
+        // context (the caller saves). No-op for a non-positive amount.
+        private async Task RecordSettlementAsync(Debt debt, decimal amount)
+        {
+            if (amount <= 0m) return;
+            var today = DateTime.Today;
+            var ym = today.ToString("yyyy-MM");
+
+            if (debt.Direction == DebtDirection.TheyOweMe)
+            {
+                var catId = await EnsureCategoryAsync(debt.UserId!, CategoryType.Income, "Debt Repayment");
+                _context.Incomes.Add(new Income
+                {
+                    Amount = amount,
+                    Date = today,
+                    YearMonth = ym,
+                    UserId = debt.UserId,
+                    Source = $"Repayment from {debt.PersonName}",
+                    CategoryId = catId
+                });
+            }
+            else
+            {
+                var catId = await EnsureCategoryAsync(debt.UserId!, CategoryType.Expense, "Debt Settlement");
+                _context.Expenses.Add(new Expense
+                {
+                    Amount = amount,
+                    Date = today,
+                    Month = ym,
+                    UserId = debt.UserId,
+                    Description = $"Settled with {debt.PersonName}",
+                    CategoryId = catId
+                });
+            }
+        }
+
+        // Finds (or creates) a user-scoped category by type + name; returns its Id.
+        private async Task<int> EnsureCategoryAsync(string userId, CategoryType type, string name)
+        {
+            var cat = await _context.Categories
+                .FirstOrDefaultAsync(c => c.UserId == userId && c.Type == type && c.Name == name);
+            if (cat == null)
+            {
+                cat = new Category { UserId = userId, Type = type, Name = name };
+                _context.Categories.Add(cat);
+                await _context.SaveChangesAsync();
+            }
+            return cat.Id;
         }
 
         // GET: Debts/Delete/5

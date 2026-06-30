@@ -57,12 +57,13 @@ appsettings.*.json
 /keys/
 
 ## Database backups (real data + connection secrets — never commit)
-/db-backup/secrets.ps1
+## secrets.ps1* also catches accidental dupes like secrets.ps1.ps1, but keeps secrets.example.ps1 tracked.
+/db-backup/secrets.ps1*
 /db-backup/backups/
 *.bacpac
 
 ## Deploy credentials (FTP) — never commit
-/deploy/secrets.ps1
+/deploy/secrets.ps1*
 
 ## Server-side backup output (contains real data)
 /App_Data/
