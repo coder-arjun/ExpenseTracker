@@ -1,91 +1,40 @@
-# Finoma — database backup & local restore
+# Finoma — pull server backups to this machine
 
-On-demand backup of the **live** Finoma database (MonsterASP MSSQL) to a portable
-`.bacpac` file, plus a one-command restore into local SQL Server LocalDB. Run it
-**whenever your machine is online** — nothing is scheduled, nothing runs without you.
-
-A `.bacpac` is a single compressed file holding the **full schema + all data**. It's
-a real, restorable snapshot: import it into a fresh hosted database to recover prod,
-or into LocalDB to run Finoma locally against your real data.
-
-> The **export** only needs internet + your prod credentials, so you can keep taking
-> backups even when LocalDB/your dev setup is down. Loading a backup into LocalDB is
-> a separate step you run later.
-
----
+The free-tier production database **blocks external connections**, so you can't back
+it up directly from your PC (SqlPackage/sqlcmd can't reach it). Instead, Finoma backs
+itself up **server-side** (`/Backup/Run` dumps every table to gzipped JSON, emails it,
+and keeps the latest 8), and this script **pulls that snapshot down to your machine**
+over plain HTTPS.
 
 ## One-time setup
+Copy `secrets.example.ps1` → `secrets.ps1` (gitignored) and set:
+- `$BaseUrl` — `https://finoma.runasp.net`
+- `$BackupKey` — the `Statements:CronKey` from the server's `appsettings.json`
 
-1. **Add your credentials** (kept out of git):
-   - Copy `secrets.example.ps1` → `secrets.ps1`.
-   - Paste your MonsterASP **external** connection string (panel → your MSSQL DB →
-     *Connection strings* → the one whose server is a public address).
-   - If you hit a TLS error, append `TrustServerCertificate=True;` (the template
-     already includes it).
+(These are already filled in if I set them up for you.)
 
-2. **SqlPackage** — the scripts auto-install it on first run via
-   `dotnet tool install -g microsoft.sqlpackage`. If PATH doesn't pick it up, open a
-   **new** terminal and re-run (or add `%USERPROFILE%\.dotnet\tools` to PATH).
-
-That's it — `sqlcmd` and `SqlLocalDB` you already have.
-
----
-
-## Weekly backup (run whenever you're up)
-
+## Pull a backup to local
 ```powershell
 # from the db-backup folder:
-./Backup-Finoma.ps1
+./Pull-FinomaBackup.ps1            # triggers a fresh server backup, then downloads it
+./Pull-FinomaBackup.ps1 -NoRun     # just download the latest snapshot already on the server
+./Pull-FinomaBackup.ps1 -Keep 60   # keep more local copies (default 30)
 ```
+Files land in `./backups/finoma-backup-<timestamp>.json.gz`. Each is a complete,
+gzipped JSON snapshot of the `finoma` schema (every table + row) — restorable.
 
-- Produces `./backups/finoma-YYYYMMDD-HHmmss.bacpac`.
-- Keeps the newest **8** backups (`-Keep 12` to keep more).
-- Want a local copy in the same run? add `-RestoreLocal`:
+## Automate it (optional)
+Run it on a schedule with **Windows Task Scheduler** (Action: `powershell.exe`,
+Arguments: `-ExecutionPolicy Bypass -File "D:\MyProject\ExpenseTracker\ExpenseTracker\db-backup\Pull-FinomaBackup.ps1"`).
+The server already runs `/Backup/Run` weekly via cron-job.org and emails the snapshot,
+so this is just for keeping local copies too.
 
+## Inspecting a snapshot
 ```powershell
-./Backup-Finoma.ps1 -RestoreLocal      # export AND load into LocalDB
+python -c "import gzip,json; d=json.load(gzip.open(r'.\backups\<file>.json.gz')); print(d['tableCount'],'tables',d['rowCount'],'rows')"
 ```
 
-Keep a calendar nudge once a week; the script is idempotent, so running it twice in
-a day is harmless.
-
----
-
-## Restore a backup into LocalDB (when your machine is up)
-
-```powershell
-./Restore-FinomaLocal.ps1                       # newest backup → ExpenseTrackerDb_Backup
-./Restore-FinomaLocal.ps1 -Path .\backups\finoma-20260626-120000.bacpac
-```
-
-By default it restores into a **separate** DB `ExpenseTrackerDb_Backup` so your dev
-database is untouched. To run the app against the restored copy, point
-`ConnectionStrings:DefaultConnection` at `Database=ExpenseTrackerDb_Backup`.
-
----
-
-## Emergency recovery (prod is gone)
-
-1. Provision a fresh MSSQL database on MonsterASP (or any SQL Server).
-2. Import your latest `.bacpac` into it:
-
-   ```powershell
-   sqlpackage /Action:Import `
-     "/SourceFile:.\backups\finoma-YYYYMMDD-HHmmss.bacpac" `
-     "/TargetConnectionString:<new database connection string>"
-   ```
-
-3. Update the host's `ConnectionStrings__DefaultConnection` to the new DB and restart.
-   (Finoma's startup auto-migration will no-op since the schema is already present.)
-
----
-
-## Notes
-
-- `secrets.ps1`, the `backups/` folder, and every `*.bacpac` are **gitignored** —
-  real data and your password never enter git.
-- Backups are only as fresh as the last run. For a personal app, a weekly cadence is
-  usually plenty; bump frequency around big changes.
-- Optional automation: if you ever want it hands-off, Windows **Task Scheduler** can
-  run `Backup-Finoma.ps1` on a weekly trigger (`-RestoreLocal` left off so it works
-  headless). Ask and I'll set that up.
+## Restoring
+The server endpoint `POST /Backup/Restore?key=<key>&confirm=replace-finoma` loads a
+snapshot back into the `finoma` schema (used during the 2026-06 recovery). Ask if you
+want a one-command local-restore script too.
