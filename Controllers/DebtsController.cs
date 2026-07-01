@@ -274,6 +274,13 @@ namespace ExpenseTracker.Controllers
             var today = DateTime.Today;
             var ym = today.ToString("yyyy-MM");
 
+            // Land the money in the user's primary account so it moves their balance
+            // (null if they haven't picked one yet — the income/expense still records).
+            var primaryAccountId = await _context.Accounts
+                .Where(a => a.UserId == debt.UserId && a.IsPrimary)
+                .Select(a => (int?)a.Id)
+                .FirstOrDefaultAsync();
+
             if (debt.Direction == DebtDirection.TheyOweMe)
             {
                 var catId = await EnsureCategoryAsync(debt.UserId!, CategoryType.Income, "Debt Repayment");
@@ -284,7 +291,8 @@ namespace ExpenseTracker.Controllers
                     YearMonth = ym,
                     UserId = debt.UserId,
                     Source = $"Repayment from {debt.PersonName}",
-                    CategoryId = catId
+                    CategoryId = catId,
+                    AccountId = primaryAccountId
                 });
             }
             else
@@ -297,7 +305,8 @@ namespace ExpenseTracker.Controllers
                     Month = ym,
                     UserId = debt.UserId,
                     Description = $"Settled with {debt.PersonName}",
-                    CategoryId = catId
+                    CategoryId = catId,
+                    AccountId = primaryAccountId
                 });
             }
         }

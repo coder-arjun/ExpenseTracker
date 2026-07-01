@@ -30,6 +30,11 @@ namespace ExpenseTracker.Models.Domain
 
         public bool IsActive { get; set; } = true;
 
+        // Exactly one account per user is the "primary" — where auto-generated money
+        // (e.g. income/expense from settling a debt) lands. Enforced single via the
+        // controller (setting one primary unsets the others).
+        public bool IsPrimary { get; set; }
+
         public string? UserId { get; set; }
         public ApplicationUser? User { get; set; }
 

@@ -62,6 +62,15 @@ namespace ExpenseTracker.Controllers
                 {
                     _context.Add(account);
                     await _context.SaveChangesAsync();
+
+                    // Auto-mark the user's first-ever account as primary so debt
+                    // settlements always have somewhere to land.
+                    if (!await _context.Accounts.AnyAsync(a => a.UserId == userId && a.IsPrimary))
+                    {
+                        account.IsPrimary = true;
+                        await _context.SaveChangesAsync();
+                    }
+
                     TempData["SuccessMessage"] = $"Account '{account.Name}' created.";
                     return RedirectToAction(nameof(Index));
                 }
@@ -108,6 +117,23 @@ namespace ExpenseTracker.Controllers
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = $"Account '{existing.Name}' updated.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        // POST: Accounts/SetPrimary/5 — make this the (single) primary account.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SetPrimary(int id)
+        {
+            var userId = _userManager.GetUserId(User)!;
+            var target = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
+            if (target == null) return NotFound();
+
+            var mine = await _context.Accounts.Where(a => a.UserId == userId).ToListAsync();
+            foreach (var a in mine) a.IsPrimary = (a.Id == id);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = $"'{target.Name}' is now your primary account — debt settlements will land here.";
             return RedirectToAction(nameof(Index));
         }
 

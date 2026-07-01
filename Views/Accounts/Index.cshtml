@@ -68,9 +68,20 @@ else
                             <div>
                                 <i class="@icon me-1"></i>
                                 <span class="fw-semibold">@a.Name</span>
+                                @if (a.IsPrimary)
+                                {
+                                    <span class="badge bg-success-subtle text-success ms-1" title="Debt settlements land here"><i class="bi bi-star-fill me-1"></i>Primary</span>
+                                }
                                 <div class="small text-muted">@a.Type @(a.IsActive ? "" : "· Inactive")</div>
                             </div>
-                            <div>
+                            <div class="d-flex gap-1">
+                                @if (!a.IsPrimary)
+                                {
+                                    <form asp-action="SetPrimary" asp-route-id="@a.Id" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-success" aria-label="Make primary account" title="Make primary account"><i class="bi bi-star" aria-hidden="true"></i></button>
+                                    </form>
+                                }
                                 <a asp-action="Edit" asp-route-id="@a.Id" class="btn btn-sm btn-outline-primary" aria-label="Edit"><i class="bi bi-pencil" aria-hidden="true"></i></a>
                                 <a asp-action="Delete" asp-route-id="@a.Id" class="btn btn-sm btn-outline-danger" aria-label="Delete"><i class="bi bi-trash" aria-hidden="true"></i></a>
                             </div>
