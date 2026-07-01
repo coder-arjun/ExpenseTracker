@@ -30,6 +30,13 @@ namespace ExpenseTracker.Services
 
             if (dueRules.Count == 0) return 0;
 
+            // Rules without their own account fall back to the user's primary account,
+            // so recurring transactions still move an account balance (and net worth).
+            var primaryAccountId = await _db.Accounts
+                .Where(a => a.UserId == userId && a.IsPrimary)
+                .Select(a => (int?)a.Id)
+                .FirstOrDefaultAsync();
+
             var posted = 0;
             foreach (var rule in dueRules)
             {
@@ -41,7 +48,7 @@ namespace ExpenseTracker.Services
                 while (rule.NextDueDate <= today && rule.IsActive && safety++ < CatchUpLimit)
                 {
                     if (rule.EndDate.HasValue && rule.NextDueDate > rule.EndDate.Value) break;
-                    Post(rule, rule.NextDueDate);
+                    Post(rule, rule.NextDueDate, primaryAccountId);
                     rule.NextDueDate = Advance(rule, rule.NextDueDate);
                     posted++;
                 }
@@ -51,10 +58,11 @@ namespace ExpenseTracker.Services
             return posted;
         }
 
-        private void Post(RecurringRule rule, DateTime date)
+        private void Post(RecurringRule rule, DateTime date, int? fallbackAccountId)
         {
             var yearMonth = date.ToString("yyyy-MM");
             var desc = string.IsNullOrWhiteSpace(rule.Description) ? rule.Name : rule.Description;
+            var accountId = rule.AccountId ?? fallbackAccountId;   // rule's account, else primary
 
             if (rule.Type == RecurringType.Expense)
             {
@@ -64,7 +72,7 @@ namespace ExpenseTracker.Services
                     Date = date,
                     Description = desc,
                     CategoryId = rule.CategoryId ?? throw new InvalidOperationException("Recurring Expense rule needs a CategoryId."),
-                    AccountId = rule.AccountId,
+                    AccountId = accountId,
                     Month = yearMonth,
                     UserId = rule.UserId,
                 });
@@ -77,7 +85,7 @@ namespace ExpenseTracker.Services
                     Date = date,
                     Source = string.IsNullOrWhiteSpace(rule.Source) ? rule.Name : rule.Source!,
                     CategoryId = rule.CategoryId,
-                    AccountId = rule.AccountId,
+                    AccountId = accountId,
                     YearMonth = yearMonth,
                     UserId = rule.UserId,
                 });
