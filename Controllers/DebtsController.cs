@@ -25,33 +25,50 @@ namespace ExpenseTracker.Controllers
             _userManager = userManager;
         }
 
-        // GET: Debts
-        public async Task<IActionResult> Index(int page = 1)
+        // GET: Debts?person=&direction=&showSettled=
+        public async Task<IActionResult> Index(string? person, string? direction, bool showSettled = false, int page = 1)
         {
             var userId = _userManager.GetUserId(User);
-            var all = _context.Debts.Where(d => d.UserId == userId);
+            var query = _context.Debts.Where(d => d.UserId == userId);
 
-            // Summary strip — totals across ALL records, not just the page.
-            // Outstanding == Amount - AmountPaid (settled rows contribute 0).
-            decimal owedToMe = await all
+            // ── Filters ──
+            var dir = direction == "TheyOweMe" ? (DebtDirection?)DebtDirection.TheyOweMe
+                    : direction == "IOweThem" ? (DebtDirection?)DebtDirection.IOweThem
+                    : null;
+            if (dir.HasValue)
+                query = query.Where(d => d.Direction == dir.Value);
+            if (!string.IsNullOrWhiteSpace(person))
+            {
+                var p = person.Trim();
+                query = query.Where(d => EF.Functions.Like(d.PersonName, $"%{p}%"));
+            }
+            // Hide fully-settled (outstanding 0) rows unless "show settled" is on.
+            if (!showSettled)
+                query = query.Where(d => d.Amount - d.AmountPaid > 0m);
+
+            // Summary reflects the active filters.
+            decimal owedToMe = await query
                 .Where(d => d.Direction == DebtDirection.TheyOweMe)
                 .SumAsync(d => (decimal?)(d.Amount - d.AmountPaid)) ?? 0m;
-            decimal iOwe = await all
+            decimal iOwe = await query
                 .Where(d => d.Direction == DebtDirection.IOweThem)
                 .SumAsync(d => (decimal?)(d.Amount - d.AmountPaid)) ?? 0m;
-            int overdue = await all
+            int overdue = await query
                 .CountAsync(d => d.DueDate != null && d.DueDate < DateTime.Today && d.Amount - d.AmountPaid > 0m);
 
             ViewData["OwedToMe"] = owedToMe;
             ViewData["IOwe"] = iOwe;
             ViewData["DebtNet"] = owedToMe - iOwe;
             ViewData["OverdueCount"] = overdue;
+            ViewData["Person"] = person;
+            ViewData["Direction"] = direction;
+            ViewData["ShowSettled"] = showSettled;
 
             // Active (still-owed) records first, then most recent.
-            var query = all
+            var ordered = query
                 .OrderByDescending(d => d.Amount - d.AmountPaid > 0m)
                 .ThenByDescending(d => d.Date);
-            return View(await PaginatedList<Debt>.CreateAsync(query, page));
+            return View(await PaginatedList<Debt>.CreateAsync(ordered, page));
         }
 
         // GET: Debts/Export?format=csv|xlsx|pdf

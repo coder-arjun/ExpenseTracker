@@ -12,6 +12,11 @@
     var endDate = ViewData["EndDate"]?.ToString();
     var selectedCategory = ViewData["SelectedCategory"]?.ToString();
 
+    // Debts (Owed to Me) filters
+    var person = ViewData["Person"]?.ToString();
+    var direction = ViewData["Direction"]?.ToString();
+    var showSettled = ViewData["ShowSettled"]?.ToString();
+
     // Windowed pagination: show at most 5 page numbers around the current page,
     // with first/last shortcuts + ellipses, plus Prev/Next. No long number runs.
     const int window = 5;
@@ -28,6 +33,9 @@
         if (!string.IsNullOrEmpty(startDate)) queryParams.Add($"startDate={startDate}");
         if (!string.IsNullOrEmpty(endDate)) queryParams.Add($"endDate={endDate}");
         if (!string.IsNullOrEmpty(selectedCategory)) queryParams.Add($"selectedCategory={selectedCategory}");
+        if (!string.IsNullOrEmpty(person)) queryParams.Add($"person={Uri.EscapeDataString(person)}");
+        if (!string.IsNullOrEmpty(direction)) queryParams.Add($"direction={direction}");
+        if (string.Equals(showSettled, "True", StringComparison.OrdinalIgnoreCase)) queryParams.Add("showSettled=true");
         return "?" + string.Join("&", queryParams);
     }
 }

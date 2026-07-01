@@ -12,6 +12,11 @@
     var net = (decimal)(ViewData["DebtNet"] ?? 0m);
     var overdue = (int)(ViewData["OverdueCount"] ?? 0);
 
+    var fPerson = ViewData["Person"]?.ToString();
+    var fDirection = ViewData["Direction"]?.ToString();
+    var fShowSettled = (bool)(ViewData["ShowSettled"] ?? false);
+    var hasFilter = !string.IsNullOrEmpty(fPerson) || !string.IsNullOrEmpty(fDirection) || fShowSettled;
+
     (string cls, string label, string icon) DirChip(Debt d) => d.Direction == DebtDirection.TheyOweMe
         ? ("owe-in", "Owed to me", "bi-arrow-down-left")
         : ("owe-out", "I owe", "bi-arrow-up-right");
@@ -54,6 +59,38 @@
     </div>
 </div>
 
+@* ── Filter bar: person · direction · show settled ────────────────── *@
+<div class="filter-bar sticky-filter mb-4">
+    <form method="get" asp-action="Index" class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label fw-semibold">Person</label>
+            <input type="search" name="person" class="form-control" placeholder="Search by name…"
+                   value="@fPerson" autocomplete="off" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-semibold">Direction</label>
+            <select name="direction" class="form-select">
+                <option value="">All</option>
+                <option value="TheyOweMe" selected="@(fDirection == "TheyOweMe" ? "selected" : null)">Owed to me</option>
+                <option value="IOweThem" selected="@(fDirection == "IOweThem" ? "selected" : null)">I owe</option>
+            </select>
+        </div>
+        <div class="col-md-auto">
+            <div class="form-check pb-2">
+                <input class="form-check-input" type="checkbox" name="showSettled" value="true" id="showSettled" @(fShowSettled ? "checked" : null) />
+                <label class="form-check-label" for="showSettled">Show settled</label>
+            </div>
+        </div>
+        <div class="col-md-auto">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Apply</button>
+            @if (hasFilter)
+            {
+                <a asp-action="Index" class="btn btn-outline-secondary ms-1"><i class="bi bi-x-circle me-1"></i>Clear</a>
+            }
+        </div>
+    </form>
+</div>
+
 @* ── Summary strip: owed to you · you owe · net ───────────────────── *@
 <div class="owe-summary mb-4">
     <div class="owe-stat">
@@ -74,7 +111,16 @@
     </div>
 </div>
 
-@if (!Model.Any())
+@if (!Model.Any() && hasFilter)
+{
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-funnel"></i></div>
+        <div class="es-title">No debts match these filters</div>
+        <p class="es-body">Try a different name, direction, or turn on “Show settled”.</p>
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-x-circle me-1"></i>Clear filters</a>
+    </div>
+}
+else if (!Model.Any())
 {
     <div class="empty-state-v2">
         <div class="es-icon"><i class="bi bi-cash-coin"></i></div>
