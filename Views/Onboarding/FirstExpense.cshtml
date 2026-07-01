@@ -36,7 +36,7 @@
                 </div>
                 <div class="col-md-6">
                     <label asp-for="Date" class="form-label">Date</label>
-                    <input asp-for="Date" type="date" class="form-control form-control-lg" />
+                    <input asp-for="Date" type="date" class="form-control form-control-lg" max="@DateTime.Now.ToString("yyyy-MM-dd")" />
                     <span asp-validation-for="Date" class="text-danger"></span>
                 </div>
                 <div class="col-md-6">

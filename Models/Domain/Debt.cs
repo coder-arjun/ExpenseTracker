@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using ExpenseTracker.Validation;
 
 namespace ExpenseTracker.Models.Domain
 {
@@ -51,6 +52,7 @@ namespace ExpenseTracker.Models.Domain
 
         [Required]
         [DataType(DataType.Date)]
+        [NotInFuture]
         public DateTime Date { get; set; }
 
         [DataType(DataType.Date)]

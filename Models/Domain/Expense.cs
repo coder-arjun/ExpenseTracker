@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using ExpenseTracker.Validation;
 
 namespace ExpenseTracker.Models.Domain
 {
@@ -8,6 +9,7 @@ namespace ExpenseTracker.Models.Domain
         public int Id { get; set; }
         public required decimal Amount { get; set; }
         [DataType(DataType.Date)]
+        [NotInFuture]
         public required DateTime Date { get; set; }
         public string? Description { get; set; }
 
