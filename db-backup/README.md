@@ -34,7 +34,21 @@ so this is just for keeping local copies too.
 python -c "import gzip,json; d=json.load(gzip.open(r'.\backups\<file>.json.gz')); print(d['tableCount'],'tables',d['rowCount'],'rows')"
 ```
 
-## Restoring
-The server endpoint `POST /Backup/Restore?key=<key>&confirm=replace-finoma` loads a
-snapshot back into the `finoma` schema (used during the 2026-06 recovery). Ask if you
-want a one-command local-restore script too.
+## Load a snapshot into a LOCAL database (server → local migration)
+`Pull-FinomaBackup.ps1` only downloads the snapshot *file*. To turn it into a real,
+queryable local database, run:
+```powershell
+./Restore-FinomaLocal.ps1                       # newest snapshot -> ExpenseTrackerDb_Backup
+./Restore-FinomaLocal.ps1 -Path .\backups\finoma-backup-<ts>.json.gz
+./Restore-FinomaLocal.ps1 -LocalDb ExpenseTrackerDb   # overwrite your dev DB instead
+```
+It builds the schema (via EF migrations) and loads every row into the `finoma` schema
+of the target LocalDB database (default **`ExpenseTrackerDb_Backup`**, separate from your
+dev DB). Then open it in SSMS, or set `ConnectionStrings:DefaultConnection` →
+`Database=ExpenseTrackerDb_Backup` to run Finoma locally against your real data.
+It reuses the app's tested restore engine and is **guarded to LocalDB only** — it will
+refuse any non-LocalDB connection, so it can't touch production.
+
+## Restoring on the server
+The endpoint `POST /Backup/Restore?key=<key>&confirm=replace-finoma` loads a snapshot
+back into the live `finoma` schema (used during the 2026-06 recovery).

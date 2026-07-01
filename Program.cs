@@ -116,6 +116,28 @@ if (args.Length >= 3 && args[0] == "analyze")
     return;
 }
 
+// ----- `dotnet run -- restorelocal <backup.json[.gz]>` -----
+// Loads a downloaded server snapshot into the LOCAL database's `finoma` schema so it
+// can be browsed in SSMS or run against locally. Reuses BackupService.RestoreAsync
+// (the same engine used to recover prod). GUARDED to LocalDB only, so it can never
+// wipe a remote/production database by accident.
+if (args.Length >= 2 && args[0] == "restorelocal")
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+    var connStr = db.Database.GetConnectionString() ?? "";
+    if (!connStr.Contains("localdb", StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("restorelocal only targets a LocalDB database (safety guard).");
+
+    db.Database.SetCommandTimeout(300);  // LocalDB CREATE DATABASE can be slow to spin up
+    await db.Database.MigrateAsync();   // ensure the finoma schema + tables exist locally
+    var backup = scope.ServiceProvider.GetRequiredService<ExpenseTracker.Services.BackupService>();
+    var bytes = await File.ReadAllBytesAsync(args[1]);
+    Console.WriteLine(await backup.RestoreAsync(bytes));
+    return;
+}
+
 // Apply any pending EF Core migrations on startup. This means a freshly
 // provisioned database (e.g. the empty MonsterASP MSSQL instance) gets its
 // full schema — including the DataProtectionKeys table — automatically on the
