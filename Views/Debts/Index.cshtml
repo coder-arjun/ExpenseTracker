@@ -5,7 +5,7 @@
 @{
     ViewData["Title"] = "Owed to Me";
     var inr = CultureInfo.GetCultureInfo("en-IN");
-    string Money(decimal a) => a.ToString("C0", inr);
+    string Money(decimal a) => a.ToString("C2", inr);
 
     var owedToMe = (decimal)(ViewData["OwedToMe"] ?? 0m);
     var iOwe = (decimal)(ViewData["IOwe"] ?? 0m);
@@ -13,6 +13,7 @@
     var overdue = (int)(ViewData["OverdueCount"] ?? 0);
 
     var fPerson = ViewData["Person"]?.ToString();
+    var personOptions = ViewData["PersonOptions"] as List<string> ?? new List<string>();
     var fDirection = ViewData["Direction"]?.ToString();
     var fShowSettled = (bool)(ViewData["ShowSettled"] ?? false);
     var hasFilter = !string.IsNullOrEmpty(fPerson) || !string.IsNullOrEmpty(fDirection) || fShowSettled;
@@ -64,8 +65,13 @@
     <form method="get" asp-action="Index" class="row g-3 align-items-end">
         <div class="col-md-4">
             <label class="form-label fw-semibold">Person</label>
-            <input type="search" name="person" class="form-control" placeholder="Search by name…"
-                   value="@fPerson" autocomplete="off" />
+            <select name="person" class="form-select">
+                <option value="">All people</option>
+                @foreach (var p in personOptions)
+                {
+                    <option value="@p" selected="@(p == fPerson ? "selected" : null)">@p</option>
+                }
+            </select>
         </div>
         <div class="col-md-3">
             <label class="form-label fw-semibold">Direction</label>

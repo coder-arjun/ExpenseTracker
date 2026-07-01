@@ -5,7 +5,7 @@
 @{
     ViewData["Title"] = "Debt Details";
     var inr = CultureInfo.GetCultureInfo("en-IN");
-    string Money(decimal a) => a.ToString("C0", inr);
+    string Money(decimal a) => a.ToString("C2", inr);
     var isOwedToMe = Model.Direction == DebtDirection.TheyOweMe;
     var dirLabel = isOwedToMe ? "Owed to me" : "I owe";
     var statLabel = Model.Status switch

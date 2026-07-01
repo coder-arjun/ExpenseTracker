@@ -5,7 +5,7 @@
 @{
     ViewData["Title"] = "Delete Debt";
     var inr = CultureInfo.GetCultureInfo("en-IN");
-    string Money(decimal a) => a.ToString("C0", inr);
+    string Money(decimal a) => a.ToString("C2", inr);
     var dirLabel = Model.Direction == DebtDirection.TheyOweMe ? "Owed to me" : "I owe";
 }
 

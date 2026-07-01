@@ -38,10 +38,7 @@ namespace ExpenseTracker.Controllers
             if (dir.HasValue)
                 query = query.Where(d => d.Direction == dir.Value);
             if (!string.IsNullOrWhiteSpace(person))
-            {
-                var p = person.Trim();
-                query = query.Where(d => EF.Functions.Like(d.PersonName, $"%{p}%"));
-            }
+                query = query.Where(d => d.PersonName == person);   // exact match from the dropdown
             // Hide fully-settled (outstanding 0) rows unless "show settled" is on.
             if (!showSettled)
                 query = query.Where(d => d.Amount - d.AmountPaid > 0m);
@@ -60,6 +57,16 @@ namespace ExpenseTracker.Controllers
             ViewData["IOwe"] = iOwe;
             ViewData["DebtNet"] = owedToMe - iOwe;
             ViewData["OverdueCount"] = overdue;
+
+            // Distinct people (across ALL the user's debts, regardless of the other
+            // filters) to populate the Person dropdown.
+            ViewData["PersonOptions"] = await _context.Debts
+                .Where(d => d.UserId == userId)
+                .Select(d => d.PersonName)
+                .Distinct()
+                .OrderBy(n => n)
+                .ToListAsync();
+
             ViewData["Person"] = person;
             ViewData["Direction"] = direction;
             ViewData["ShowSettled"] = showSettled;
@@ -197,10 +204,13 @@ namespace ExpenseTracker.Controllers
         {
             if (id != debt.Id) return NotFound();
 
-            // Verify ownership before trusting the posted row.
+            // Verify ownership + capture the previous paid amount (to detect a top-up).
             var userId = _userManager.GetUserId(User);
-            if (!await _context.Debts.AnyAsync(d => d.Id == id && d.UserId == userId))
-                return NotFound();
+            var oldPaid = await _context.Debts.AsNoTracking()
+                .Where(d => d.Id == id && d.UserId == userId)
+                .Select(d => (decimal?)d.AmountPaid)
+                .FirstOrDefaultAsync();
+            if (oldPaid == null) return NotFound();
 
             debt.UserId = userId!;
             debt.AmountPaid = Math.Clamp(debt.AmountPaid, 0m, debt.Amount);
@@ -209,9 +219,13 @@ namespace ExpenseTracker.Controllers
 
             if (ModelState.IsValid)
             {
+                // Increasing "amount paid" here is a repayment too — record the top-up
+                // as income (owed-to-me) / expense (I owe), same as the Repay action.
+                var delta = debt.AmountPaid - oldPaid.Value;
                 try
                 {
                     _context.Update(debt);
+                    if (delta > 0m) await RecordSettlementAsync(debt, delta);
                     await _context.SaveChangesAsync();
                 }
                 catch (DbUpdateConcurrencyException)
@@ -221,7 +235,11 @@ namespace ExpenseTracker.Controllers
                     else
                         throw;
                 }
-                TempData["SuccessMessage"] = "Debt updated successfully.";
+                var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+                var ledger = debt.Direction == DebtDirection.TheyOweMe ? "income" : "expenses";
+                TempData["SuccessMessage"] = delta > 0m
+                    ? $"Debt updated — {delta.ToString("C2", inr)} added to your {ledger}."
+                    : "Debt updated successfully.";
                 return RedirectToAction(nameof(Index));
             }
             TempData["ErrorMessage"] = string.Join(" ", ModelState.Values
@@ -254,8 +272,8 @@ namespace ExpenseTracker.Controllers
             var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
             var ledger = debt.Direction == DebtDirection.TheyOweMe ? "income" : "expenses";
             TempData["SuccessMessage"] = debt.Outstanding <= 0m
-                ? $"Recorded {applied.ToString("C0", inr)} to your {ledger} — {debt.PersonName}'s balance is now fully settled."
-                : $"Recorded {applied.ToString("C0", inr)} to your {ledger}. {debt.Outstanding.ToString("C0", inr)} still outstanding.";
+                ? $"Recorded {applied.ToString("C2", inr)} to your {ledger} — {debt.PersonName}'s balance is now fully settled."
+                : $"Recorded {applied.ToString("C2", inr)} to your {ledger}. {debt.Outstanding.ToString("C2", inr)} still outstanding.";
             return RedirectToAction(nameof(Details), new { id });
         }
 
@@ -277,7 +295,7 @@ namespace ExpenseTracker.Controllers
             var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
             var ledger = debt.Direction == DebtDirection.TheyOweMe ? "income" : "expenses";
             TempData["SuccessMessage"] = applied > 0m
-                ? $"Settled {debt.PersonName}'s debt — {applied.ToString("C0", inr)} added to your {ledger}."
+                ? $"Settled {debt.PersonName}'s debt — {applied.ToString("C2", inr)} added to your {ledger}."
                 : $"Marked {debt.PersonName}'s debt as fully settled.";
             return RedirectToAction(nameof(Index));
         }
