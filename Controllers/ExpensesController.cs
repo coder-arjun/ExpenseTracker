@@ -16,13 +16,15 @@ namespace ExpenseTracker.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly AttachmentStorage _attachments;
+        private readonly AccountBalanceService _balances;
 
         public ExpensesController(ApplicationDbContext context, UserManager<ApplicationUser> userManager,
-                                  AttachmentStorage attachments)
+                                  AttachmentStorage attachments, AccountBalanceService balances)
         {
             _context = context;
             _userManager = userManager;
             _attachments = attachments;
+            _balances = balances;
         }
 
         // GET: Expenses
@@ -213,6 +215,7 @@ namespace ExpenseTracker.Controllers
             await ValidateCategoryOwnershipAsync(expense.CategoryId, CategoryType.Expense, userId, nameof(Expense.CategoryId));
             if (expense.AccountId.HasValue)
                 await ValidateAccountOwnershipAsync(expense.AccountId.Value, userId, nameof(Expense.AccountId));
+            await ValidateExpenseAffordableAsync(expense, userId, nameof(Expense.Amount));
 
             // Validate the upload (if any) before we commit the expense row.
             if (receipt != null && !_attachments.IsAccepted(receipt, out var why))
@@ -270,6 +273,7 @@ namespace ExpenseTracker.Controllers
             await ValidateCategoryOwnershipAsync(expense.CategoryId, CategoryType.Expense, userId, nameof(Expense.CategoryId));
             if (expense.AccountId.HasValue)
                 await ValidateAccountOwnershipAsync(expense.AccountId.Value, userId, nameof(Expense.AccountId));
+            await ValidateExpenseAffordableAsync(expense, userId, nameof(Expense.Amount));
 
             if (receipt != null && !_attachments.IsAccepted(receipt, out var why))
                 ModelState.AddModelError("receipt", why!);
@@ -393,6 +397,35 @@ namespace ExpenseTracker.Controllers
         {
             var ok = await _context.Accounts.AnyAsync(a => a.Id == accountId && a.UserId == userId);
             if (!ok) ModelState.AddModelError(fieldKey, "Selected account is invalid.");
+        }
+
+        // When an expense is tied to an account, block it if it exceeds that account's
+        // available balance (opening + income − expenses ± transfers). No-ops when no
+        // account is chosen. On edit, the row's existing amount is added back so you can
+        // freely change an amount up to the true pre-edit balance.
+        private async Task ValidateExpenseAffordableAsync(Expense expense, string userId, string fieldKey)
+        {
+            if (!expense.AccountId.HasValue || expense.Amount <= 0m) return;
+
+            var balances = await _balances.GetBalancesAsync(userId);
+            if (!balances.TryGetValue(expense.AccountId.Value, out var available)) return; // unknown/foreign account
+
+            if (expense.Id != 0)
+            {
+                var old = await _context.Expenses.AsNoTracking()
+                    .Where(e => e.Id == expense.Id && e.UserId == userId)
+                    .Select(e => new { e.Amount, e.AccountId })
+                    .FirstOrDefaultAsync();
+                if (old != null && old.AccountId == expense.AccountId)
+                    available += old.Amount;   // this row is already subtracted in the balance; put it back
+            }
+
+            if (expense.Amount > available)
+            {
+                var inr = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+                ModelState.AddModelError(fieldKey,
+                    $"Amount {expense.Amount.ToString("C0", inr)} exceeds the account's available balance of {available.ToString("C0", inr)}.");
+            }
         }
 
         // Guard against users posting another user's category id (or wrong type).
