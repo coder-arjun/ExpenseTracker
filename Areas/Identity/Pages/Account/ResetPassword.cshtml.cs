@@ -6,6 +6,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
 using System.Threading.Tasks;
+using ExpenseTracker.Models.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -14,11 +15,17 @@ using Microsoft.AspNetCore.WebUtilities;
 
 namespace ExpenseTracker.Areas.Identity.Pages.Account
 {
+    // The user resetting their password is, by definition, logged out. Without this the
+    // app's global authorization filter (which also covers Razor Pages) would bounce the
+    // reset link straight to the login page, breaking the whole flow.
+    [AllowAnonymous]
     public class ResetPasswordModel : PageModel
     {
-        private readonly UserManager<IdentityUser> _userManager;
+        // The app registers UserManager<ApplicationUser> (not the IdentityUser the stock
+        // template scaffolds), so inject the matching type or DI activation fails.
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public ResetPasswordModel(UserManager<IdentityUser> userManager)
+        public ResetPasswordModel(UserManager<ApplicationUser> userManager)
         {
             _userManager = userManager;
         }

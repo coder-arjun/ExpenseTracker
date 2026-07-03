@@ -44,6 +44,10 @@ builder.Services.AddSingleton<ExpenseTracker.Services.AttachmentStorage>();
 // Email + monthly statements
 builder.Services.Configure<ExpenseTracker.Services.EmailOptions>(builder.Configuration.GetSection("Email"));
 builder.Services.AddScoped<ExpenseTracker.Services.EmailSender>();
+// Route ASP.NET Identity's email (password-reset link, email-confirmation link)
+// through the MailKit sender above. Without this, Identity uses its silent
+// NoOpEmailSender and reset emails never send. See IdentityEmailSender.
+builder.Services.AddTransient<Microsoft.AspNetCore.Identity.UI.Services.IEmailSender, ExpenseTracker.Services.IdentityEmailSender>();
 builder.Services.AddScoped<ExpenseTracker.Services.StatementService>();
 builder.Services.AddScoped<ExpenseTracker.Services.BackupService>();
 
