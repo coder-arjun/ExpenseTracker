@@ -40,6 +40,8 @@ namespace ExpenseTracker.Controllers
             ("Recurring",       "/Recurring",       "arrow-repeat"),
             ("Add Recurring",   "/Recurring/Create","plus-circle"),
             ("Owed to Me",      "/Debts",           "cash-coin"),
+            ("Event Budgets",   "/Events",          "calendar-event"),
+            ("New Event",       "/Events/Create",   "plus-circle"),
             ("Add Debt",        "/Debts/Create",    "plus-circle"),
             ("Insights",        "/Insights",        "lightbulb"),
         };
@@ -56,7 +58,7 @@ namespace ExpenseTracker.Controllers
         {
             q = (q ?? "").Trim();
             if (string.IsNullOrEmpty(q))
-                return Json(new { navigation = Array.Empty<object>(), categories = Array.Empty<object>(), expenses = Array.Empty<object>() });
+                return Json(new { navigation = Array.Empty<object>(), categories = Array.Empty<object>(), expenses = Array.Empty<object>(), debts = Array.Empty<object>(), events = Array.Empty<object>() });
 
             var data = await FindAsync(q);
             return Json(new
@@ -65,6 +67,7 @@ namespace ExpenseTracker.Controllers
                 categories = data.Categories.Select(c => new { name = c.name, type = c.type, url = c.url }),
                 expenses   = data.Expenses.Select(e => new { description = e.description, amount = e.amount, month = e.month, url = e.url }),
                 debts      = data.Debts.Select(d => new { person = d.person, direction = d.direction, outstanding = d.outstanding, url = d.url }),
+                events     = data.Events.Select(e => new { name = e.name, context = e.context, amount = e.amount, url = e.url }),
             });
         }
 
@@ -82,6 +85,7 @@ namespace ExpenseTracker.Controllers
             vm.Categories = data.Categories.Select(c => new SearchCategoryHit(c.name, c.type, c.url)).ToList();
             vm.Expenses = data.Expenses.Select(e => new SearchExpenseHit(e.description, e.amount, e.month, e.url)).ToList();
             vm.Debts = data.Debts.Select(d => new SearchDebtHit(d.person, d.direction, d.outstanding, d.theyOweMe, d.url)).ToList();
+            vm.Events = data.Events.Select(e => new SearchEventHit(e.name, e.context, e.amount, e.url)).ToList();
             return View(vm);
         }
 
@@ -147,7 +151,43 @@ namespace ExpenseTracker.Controllers
                     url: "/Debts/Details/" + d.Id))
                 .ToList();
 
-            return new SearchResults { Nav = nav, Categories = cats, Expenses = expenses, Debts = debts };
+            // Event budgets — match the event itself, then any sub-event inside one.
+            // Aggregates are projected raw and formatted after materialisation, per the
+            // EF/CultureInfo rule above.
+            var eventRaw = await _context.Events
+                .Where(e => e.UserId == userId && EF.Functions.Like(e.Name, $"%{q}%"))
+                .OrderByDescending(e => e.EventDate ?? e.CreatedAt)
+                .Take(6)
+                .Select(e => new
+                {
+                    e.Id,
+                    e.Name,
+                    e.EventType,
+                    Allocated = e.SubEvents.Sum(s => (decimal?)s.Allocated) ?? 0m
+                })
+                .ToListAsync();
+
+            var subEventRaw = await _context.SubEvents
+                .Where(s => s.Event!.UserId == userId && EF.Functions.Like(s.Name, $"%{q}%"))
+                .OrderBy(s => s.Name)
+                .Take(8)
+                .Select(s => new { s.Name, s.Allocated, s.EventId, EventName = s.Event!.Name })
+                .ToListAsync();
+
+            var events = eventRaw
+                .Select(e => (
+                    name: e.Name,
+                    context: ExpenseTracker.Data.EventTemplates.Label(e.EventType),
+                    amount: e.Allocated > 0m ? e.Allocated.ToString("C0", inr) + " allocated" : "no budget set",
+                    url: "/Events/Details/" + e.Id))
+                .Concat(subEventRaw.Select(s => (
+                    name: s.Name,
+                    context: "in " + s.EventName,
+                    amount: s.Allocated > 0m ? s.Allocated.ToString("C0", inr) + " allocated" : "no budget set",
+                    url: "/Events/Details/" + s.EventId)))
+                .ToList();
+
+            return new SearchResults { Nav = nav, Categories = cats, Expenses = expenses, Debts = debts, Events = events };
         }
 
         private class SearchResults
@@ -156,6 +196,7 @@ namespace ExpenseTracker.Controllers
             public List<(string name, string type, string url)> Categories { get; set; } = new();
             public List<(string? description, string amount, string month, string url)> Expenses { get; set; } = new();
             public List<(string person, string direction, string outstanding, bool theyOweMe, string url)> Debts { get; set; } = new();
+            public List<(string name, string context, string amount, string url)> Events { get; set; } = new();
         }
     }
 }

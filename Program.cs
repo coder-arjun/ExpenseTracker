@@ -39,6 +39,7 @@ builder.Services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, AppClai
 builder.Services.AddScoped<ExpenseTracker.Services.FinancialAnalyzer>();
 builder.Services.AddScoped<ExpenseTracker.Services.AccountBalanceService>();
 builder.Services.AddScoped<ExpenseTracker.Services.RecurringProcessor>();
+builder.Services.AddScoped<ExpenseTracker.Services.EventBudgetService>();
 builder.Services.AddSingleton<ExpenseTracker.Services.AttachmentStorage>();
 
 // Email + monthly statements

@@ -124,6 +124,14 @@
             return a;
         });
 
+        group('Event Budgets', data.events, function (e) {
+            var a = document.createElement('a');
+            a.href = e.url;
+            a.innerHTML = '<i class="bi bi-calendar-event"></i><span>' + escapeHtml(e.name)
+                          + '</span><span class="cmdk-item-meta">' + escapeHtml(e.context) + ' · ' + escapeHtml(e.amount) + '</span>';
+            return a;
+        });
+
         if (!any) renderEmpty('No matches for "' + lastQuery + '"');
         else setActive(0);
     }

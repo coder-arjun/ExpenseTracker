@@ -1,0 +1,82 @@
+@using ExpenseTracker.Data
+@using ExpenseTracker.Models.Domain
+@model ExpenseTracker.Models.Domain.Event
+
+@{
+    ViewData["Title"] = "Edit Event";
+    var types = new[]
+    {
+        EventType.Wedding, EventType.BirthdayParty, EventType.HouseWarming,
+        EventType.BabyShower, EventType.Festival, EventType.Trip, EventType.Custom
+    };
+}
+
+<div class="create-page-header">
+    <i class="bi bi-pencil-square header-icon"></i>
+    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Event settings</div>
+    <h1>Edit Event</h1>
+</div>
+
+<div class="row g-4 align-items-start">
+    <div class="col-lg-7">
+        <div class="card create-form-card">
+            <div class="card-body">
+                <form asp-action="Edit" method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <input type="hidden" asp-for="Id" />
+
+                    <div class="ev-field-grid">
+                        <label class="ev-field ev-field-wide">
+                            <span>Event name</span>
+                            <input asp-for="Name" class="form-control" maxlength="100" />
+                            <span asp-validation-for="Name" class="text-danger"></span>
+                        </label>
+
+                        <label class="ev-field">
+                            <span>Event type</span>
+                            <select asp-for="EventType" class="form-select">
+                                @foreach (var t in types)
+                                {
+                                    <option value="@t" selected="@(Model.EventType == t ? "selected" : null)">@EventTemplates.Label(t)</option>
+                                }
+                            </select>
+                            <small class="ev-help">Changes the icon only — your sub-events stay as they are.</small>
+                        </label>
+
+                        <label class="ev-field">
+                            <span>Event date <em>(optional)</em></span>
+                            <input asp-for="EventDate" type="date" class="form-control" />
+                            <span asp-validation-for="EventDate" class="text-danger"></span>
+                        </label>
+
+                        <label class="ev-field">
+                            <span>Status</span>
+                            <select asp-for="Status" class="form-select">
+                                <option value="Planning">Planning</option>
+                                <option value="Active">Active</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                            <small class="ev-help">Completed and cancelled events are archived out of the main list.</small>
+                        </label>
+
+                        <label class="ev-field ev-field-wide">
+                            <span>Note <em>(optional)</em></span>
+                            <input asp-for="Note" class="form-control" maxlength="500" />
+                            <span asp-validation-for="Note" class="text-danger"></span>
+                        </label>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save changes</button>
+                        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

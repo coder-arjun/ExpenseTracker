@@ -1,0 +1,85 @@
+@using ExpenseTracker.Data
+@using ExpenseTracker.Models.Domain
+@model ExpenseTracker.Models.Domain.Event
+
+@{
+    ViewData["Title"] = "New Event";
+    var types = new[]
+    {
+        EventType.Wedding, EventType.BirthdayParty, EventType.HouseWarming,
+        EventType.BabyShower, EventType.Festival, EventType.Trip, EventType.Custom
+    };
+    var today = DateTime.Today.ToString("yyyy-MM-dd");
+}
+
+<div class="create-page-header">
+    <i class="bi bi-calendar-event header-icon"></i>
+    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> New project budget</div>
+    <h1>New Event</h1>
+</div>
+
+<form asp-action="Create" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="card create-form-card mb-4">
+        <div class="card-body">
+            <div class="ev-field-grid">
+                <label class="ev-field ev-field-wide">
+                    <span>Event name</span>
+                    <input asp-for="Name" class="form-control" maxlength="100"
+                           placeholder="e.g. Meera &amp; Arjun's Wedding, Aarav's 1st Birthday" autofocus />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </label>
+                <label class="ev-field">
+                    <span>Event date <em>(optional)</em></span>
+                    <input asp-for="EventDate" type="date" class="form-control" value="@today" />
+                    <span asp-validation-for="EventDate" class="text-danger"></span>
+                </label>
+                <label class="ev-field ev-field-wide">
+                    <span>Note <em>(optional)</em></span>
+                    <input asp-for="Note" class="form-control" maxlength="500"
+                           placeholder="Venue, guest count, anything worth remembering" />
+                    <span asp-validation-for="Note" class="text-danger"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <fieldset class="ev-templates mb-4">
+        <legend>
+            Start from a template
+            <small>Sub-events are created at zero budget — rename, delete or add your own afterwards.</small>
+        </legend>
+        <div class="ev-template-grid">
+            @foreach (var t in types)
+            {
+                var count = EventTemplates.SubEvents.TryGetValue(t, out var names) ? names.Length : 0;
+                var id = $"tpl-{t}";
+                <div class="ev-template">
+                    <input class="ev-template-input" type="radio" asp-for="EventType" value="@t" id="@id"
+                           checked="@(Model.EventType == t ? "checked" : null)" />
+                    <label class="ev-template-card" for="@id">
+                        <span class="ev-template-icon"><i class="bi bi-@EventTemplates.Icon(t)" aria-hidden="true"></i></span>
+                        <span class="ev-template-name">@EventTemplates.Label(t)</span>
+                        <span class="ev-template-count">
+                            @(count > 0 ? $"{count} starter sub-events" : "Start from scratch")
+                        </span>
+                        @if (count > 0)
+                        {
+                            <span class="ev-template-peek">@string.Join(" · ", names!.Take(4))@(count > 4 ? " …" : "")</span>
+                        }
+                    </label>
+                </div>
+            }
+        </div>
+    </fieldset>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create event</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

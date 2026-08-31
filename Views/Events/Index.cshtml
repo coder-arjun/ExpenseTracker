@@ -1,0 +1,212 @@
+@using System.Globalization
+@using ExpenseTracker.Data
+@using ExpenseTracker.Models.Domain
+@using ExpenseTracker.Models.ViewModel
+@model ExpenseTracker.Models.PaginatedList<ExpenseTracker.Models.ViewModel.EventIndexRow>
+
+@{
+    ViewData["Title"] = "Event Budgets";
+    var inr = CultureInfo.GetCultureInfo("en-IN");
+    string Money(decimal a) => a.ToString("C2", inr);
+
+    var fStatus = ViewData["Status"]?.ToString();
+    var fShowArchived = (bool)(ViewData["ShowArchived"] ?? false);
+    var archivedCount = (int)(ViewData["ArchivedCount"] ?? 0);
+    var hasFilter = !string.IsNullOrEmpty(fStatus) || fShowArchived;
+
+    // Headline across the events currently on screen.
+    var pageAllocated = Model.Sum(r => r.Allocated);
+    var pageActual = Model.Sum(r => r.Actual);
+    var pageVariance = pageAllocated - pageActual;
+
+    (string cls, string label) StatusChip(EventStatus s) => s switch
+    {
+        EventStatus.Active => ("ev-st-active", "Active"),
+        EventStatus.Completed => ("ev-st-completed", "Completed"),
+        EventStatus.Cancelled => ("ev-st-cancelled", "Cancelled"),
+        _ => ("ev-st-planning", "Planning")
+    };
+}
+
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
+    <div class="page-header mb-0">
+        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Planned vs actual</div>
+        <h1><i class="bi bi-calendar-event me-2"></i>Event Budgets</h1>
+        <p>WEDDINGS, BIRTHDAYS AND EVERY OTHER ONE-OFF PROJECT</p>
+    </div>
+    <div class="d-flex gap-2">
+        <div class="btn-group flex-fill flex-sm-grow-0">
+            <button type="button" class="btn btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-download me-1"></i>Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="xlsx">
+                    <i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i>Excel (.xlsx)
+                </a></li>
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="pdf">
+                    <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF
+                </a></li>
+                <li><hr class="dropdown-divider" /></li>
+                <li><a class="dropdown-item" asp-action="Export" asp-route-format="csv">
+                    <i class="bi bi-filetype-csv me-2 text-secondary"></i>CSV (plain text)
+                </a></li>
+            </ul>
+        </div>
+        <a asp-action="Create" class="btn btn-primary flex-fill flex-sm-grow-0">
+            <i class="bi bi-plus-circle me-1"></i>New Event
+        </a>
+    </div>
+</div>
+
+@* Isolation reminder — event money is a side ledger, deliberately outside the books. *@
+<div class="ev-isolation-note mb-4">
+    <i class="bi bi-shield-check" aria-hidden="true"></i>
+    <span>Event budgets are a separate ledger. Nothing here affects your income, expenses, account balances or net worth.</span>
+</div>
+
+@if (Model.Any() || hasFilter)
+{
+    <div class="filter-bar sticky-filter mb-4">
+        <form method="get" asp-action="Index" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold" for="statusFilter">Status</label>
+                <select name="status" id="statusFilter" class="form-select">
+                    <option value="">All active</option>
+                    <option value="Planning" selected="@(fStatus == "Planning" ? "selected" : null)">Planning</option>
+                    <option value="Active" selected="@(fStatus == "Active" ? "selected" : null)">Active</option>
+                    <option value="Completed" selected="@(fStatus == "Completed" ? "selected" : null)">Completed</option>
+                    <option value="Cancelled" selected="@(fStatus == "Cancelled" ? "selected" : null)">Cancelled</option>
+                </select>
+            </div>
+            <div class="col-md-auto">
+                <div class="form-check pb-2">
+                    <input class="form-check-input" type="checkbox" name="showArchived" value="true" id="showArchived" @(fShowArchived ? "checked" : null) />
+                    <label class="form-check-label" for="showArchived">
+                        Show archived@(archivedCount > 0 ? $" ({archivedCount})" : "")
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-auto">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Apply</button>
+                @if (hasFilter)
+                {
+                    <a asp-action="Index" class="btn btn-outline-secondary ms-1"><i class="bi bi-x-circle me-1"></i>Clear</a>
+                }
+            </div>
+        </form>
+    </div>
+}
+
+@if (Model.Any())
+{
+    <div class="ev-summary mb-4">
+        <div class="ev-stat">
+            <div class="l"><i class="bi bi-clipboard-check"></i> Allocated</div>
+            <div class="v">@Money(pageAllocated)</div>
+        </div>
+        <div class="ev-stat">
+            <div class="l"><i class="bi bi-cash-stack"></i> Actual spent</div>
+            <div class="v debit">@Money(pageActual)</div>
+        </div>
+        <div class="ev-stat ev-stat-net">
+            <div class="l"><i class="bi bi-rulers"></i> Variance</div>
+            <div class="v @(pageVariance >= 0 ? "credit" : "debit")">
+                @(pageVariance >= 0 ? "+" : "−")@Money(Math.Abs(pageVariance))
+            </div>
+            <div class="ev-stat-cap">@(pageVariance >= 0 ? "under budget" : "over budget")</div>
+        </div>
+    </div>
+}
+
+@if (!Model.Any() && hasFilter)
+{
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-funnel"></i></div>
+        <div class="es-title">No events match these filters</div>
+        <p class="es-body">Try a different status, or turn on “Show archived”.</p>
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-x-circle me-1"></i>Clear filters</a>
+    </div>
+}
+else if (!Model.Any())
+{
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-calendar-event"></i></div>
+        <div class="es-title">No events budgeted yet</div>
+        <p class="es-body">
+            Planning a wedding, a birthday or a house warming? Create an event, break it into
+            sub-events like <em>Stage decoration</em> or <em>Wedding hall</em>, allocate a budget
+            to each, and log what you actually spend.
+        </p>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>Create your first event</a>
+    </div>
+}
+else
+{
+    <div class="ev-grid">
+        @foreach (var e in Model)
+        {
+            var chip = StatusChip(e.Status);
+            <a class="ev-card @(e.IsArchived ? "is-archived" : "")" asp-action="Details" asp-route-id="@e.Id">
+                <div class="ev-card-head">
+                    <span class="ev-card-icon"><i class="bi bi-@EventTemplates.Icon(e.EventType)" aria-hidden="true"></i></span>
+                    <div class="ev-card-id">
+                        <h2 class="ev-card-name">@e.Name</h2>
+                        <div class="ev-card-meta">
+                            @EventTemplates.Label(e.EventType)
+                            @if (e.EventDate.HasValue)
+                            {
+                                <span class="ev-dot">·</span>
+                                <span>@e.EventDate.Value.ToString("d MMM yyyy", inr)</span>
+                            }
+                        </div>
+                    </div>
+                    <span class="ev-chip @chip.cls">@chip.label</span>
+                </div>
+
+                <div class="ev-card-figures">
+                    <div>
+                        <div class="ev-fig-l">Allocated</div>
+                        <div class="ev-fig-v">@Money(e.Allocated)</div>
+                    </div>
+                    <div>
+                        <div class="ev-fig-l">Actual</div>
+                        <div class="ev-fig-v debit">@Money(e.Actual)</div>
+                    </div>
+                </div>
+
+                @if (e.HasAllocation)
+                {
+                    <div class="progress" role="progressbar" aria-label="Spent against allocation"
+                         aria-valuenow="@e.RawPercent" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar @e.ProgressClass" style="width:@(e.ProgressPercent.ToString(CultureInfo.InvariantCulture))%"></div>
+                    </div>
+                }
+                else
+                {
+                    <div class="ev-unbudgeted">Nothing allocated yet</div>
+                }
+
+                <div class="ev-card-foot">
+                    <span class="ev-variance @(e.IsOverBudget ? "debit" : "credit")">
+                        @(e.IsOverBudget ? "−" : "+")@Money(Math.Abs(e.Variance))
+                        <small>@(e.IsOverBudget ? "over" : "left")</small>
+                    </span>
+                    <span class="ev-card-count">
+                        @e.SubEventCount sub-event@(e.SubEventCount == 1 ? "" : "s")
+                        @if (e.Received > 0)
+                        {
+                            <span class="ev-dot">·</span><span class="credit">@Money(e.Received) received</span>
+                        }
+                    </span>
+                </div>
+            </a>
+        }
+    </div>
+
+    ViewData["PageIndex"] = Model.PageIndex;
+    ViewData["TotalPages"] = Model.TotalPages;
+    ViewData["HasPreviousPage"] = Model.HasPreviousPage;
+    ViewData["HasNextPage"] = Model.HasNextPage;
+
+    <partial name="_PaginationPartial" />
+}

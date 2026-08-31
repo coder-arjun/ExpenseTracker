@@ -24,6 +24,10 @@ namespace ExpenseTracker.Data
         public DbSet<Attachment> Attachments => Set<Attachment>();
         public DbSet<StatementDelivery> StatementDeliveries => Set<StatementDelivery>();
         public DbSet<Debt> Debts => Set<Debt>();
+        public DbSet<Event> Events => Set<Event>();
+        public DbSet<SubEvent> SubEvents => Set<SubEvent>();
+        public DbSet<EventSpend> EventSpends => Set<EventSpend>();
+        public DbSet<EventContribution> EventContributions => Set<EventContribution>();
 
         // Data-protection keys persisted in the DB (backs IDataProtectionKeyContext)
         // so auth/"remember me" cookies survive app restarts and redeploys on hosts
@@ -60,6 +64,9 @@ namespace ExpenseTracker.Data
             builder.Entity<RecurringRule>().Property(r => r.Amount).HasPrecision(18, 2);
             builder.Entity<Debt>().Property(d => d.Amount).HasPrecision(18, 2);
             builder.Entity<Debt>().Property(d => d.AmountPaid).HasPrecision(18, 2);
+            builder.Entity<SubEvent>().Property(s => s.Allocated).HasPrecision(18, 2);
+            builder.Entity<EventSpend>().Property(s => s.Amount).HasPrecision(18, 2);
+            builder.Entity<EventContribution>().Property(c => c.Amount).HasPrecision(18, 2);
 
             // One name per (user, type). Filtered index so different users can have
             // identically-named categories.
@@ -142,6 +149,39 @@ namespace ExpenseTracker.Data
             // ---- Debts (money owed to/by the user) ----------------------
             builder.Entity<Debt>().HasIndex(d => new { d.UserId, d.Direction });
             builder.Entity<Debt>().HasIndex(d => new { d.UserId, d.YearMonth });
+
+            // ---- Event budgets (isolated project ledger) ----------------
+            // One-off project budgets (wedding, birthday, house warming) with
+            // per-sub-event allocations and dated spend rows. DELIBERATELY has no FK
+            // into Expense/Income/Account/Transfer and EventSpend carries no AccountId,
+            // so nothing here can reach the monthly totals, the dashboard, account
+            // balances or net worth. Keep it that way.
+            builder.Entity<Event>().HasIndex(e => new { e.UserId, e.Status });
+            builder.Entity<Event>().HasIndex(e => new { e.UserId, e.EventDate });
+
+            builder.Entity<SubEvent>()
+                .HasOne(s => s.Event)
+                .WithMany(e => e.SubEvents)
+                .HasForeignKey(s => s.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.Entity<SubEvent>().HasIndex(s => s.EventId);
+            // One sub-event name per event — the controller pre-checks for a friendly message.
+            builder.Entity<SubEvent>().HasIndex(s => new { s.EventId, s.Name }).IsUnique();
+
+            builder.Entity<EventSpend>()
+                .HasOne(s => s.SubEvent)
+                .WithMany(se => se.Spends)
+                .HasForeignKey(s => s.SubEventId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.Entity<EventSpend>().HasIndex(s => s.SubEventId);
+            builder.Entity<EventSpend>().HasIndex(s => new { s.UserId, s.Date });
+
+            builder.Entity<EventContribution>()
+                .HasOne(c => c.Event)
+                .WithMany(e => e.Contributions)
+                .HasForeignKey(c => c.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.Entity<EventContribution>().HasIndex(c => c.EventId);
 
             // ---- Existing Category cascading rules (unchanged) ---------
             builder.Entity<Expense>()

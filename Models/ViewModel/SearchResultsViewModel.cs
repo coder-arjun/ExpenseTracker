@@ -14,6 +14,9 @@ namespace ExpenseTracker.Models.ViewModel
 
     public record SearchDebtHit(string Person, string Direction, string Outstanding, bool TheyOweMe, string Url);
 
+    /// <summary>An event budget, or a sub-event inside one, matched by name.</summary>
+    public record SearchEventHit(string Name, string Context, string Amount, string Url);
+
     public class SearchResultsViewModel
     {
         public string Query { get; set; } = "";
@@ -21,8 +24,9 @@ namespace ExpenseTracker.Models.ViewModel
         public List<SearchCategoryHit> Categories { get; set; } = new();
         public List<SearchExpenseHit> Expenses { get; set; } = new();
         public List<SearchDebtHit> Debts { get; set; } = new();
+        public List<SearchEventHit> Events { get; set; } = new();
 
-        public int TotalCount => Nav.Count + Categories.Count + Expenses.Count + Debts.Count;
+        public int TotalCount => Nav.Count + Categories.Count + Expenses.Count + Debts.Count + Events.Count;
         public bool HasAny => TotalCount > 0;
     }
 }

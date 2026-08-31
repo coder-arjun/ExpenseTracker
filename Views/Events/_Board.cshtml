@@ -1,0 +1,285 @@
+@using System.Globalization
+@using ExpenseTracker.Models.ViewModel
+@model ExpenseTracker.Models.ViewModel.EventDetailsViewModel
+
+@*
+    The live region of the event workspace: totals, the sub-event ledger, and money
+    received. Re-rendered wholesale by /Events/Board/{id} after every mutation, so
+    Razor remains the single source of truth — there is no duplicate rendering in JS.
+
+    Every control degrades: each is a real <form> posting to a real MVC action.
+*@
+
+@{
+    var inr = CultureInfo.GetCultureInfo("en-IN");
+    string Money(decimal a) => a.ToString("C2", inr);
+    string Signed(decimal a) => (a < 0 ? "−" : "+") + Money(Math.Abs(a));
+    var t = Model.Totals;
+    var flash = ViewData["Flash"] as string;
+}
+
+<div class="ev-board" data-ev-flash="@flash" data-event-id="@Model.Event.Id">
+
+    @* ── Event totals: the closing statement ──────────────────────────── *@
+    <section class="statement ev-statement mb-4" aria-label="Event totals">
+        <div class="statement-eyebrow"><span class="seal-dot">&#9679;</span> Variance to date</div>
+        <span class="statement-figure @(t.IsOverBudget ? "t-expense" : "t-income")">@Signed(t.Variance)</span>
+        <div class="statement-sub">
+            @if (!t.HasAllocation)
+            {
+                <text>Nothing allocated yet — set a budget on the sub-events below.</text>
+            }
+            else if (t.IsOverBudget)
+            {
+                <text>Over budget by @Money(Math.Abs(t.Variance)) — @t.RawPercent.ToString("0.#", inr)% of the plan spent.</text>
+            }
+            else
+            {
+                <text>@Money(t.Variance) still unspent — @t.RawPercent.ToString("0.#", inr)% of the plan used.</text>
+            }
+        </div>
+
+        @if (t.HasAllocation)
+        {
+            <div class="ev-statement-bar progress mt-3" role="progressbar" aria-label="Spent against allocation"
+                 aria-valuenow="@t.RawPercent" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar @t.ProgressClass" style="width:@(t.ProgressPercent.ToString(CultureInfo.InvariantCulture))%"></div>
+            </div>
+        }
+
+        <div class="statement-meta">
+            <div class="sm-item">
+                <div class="sm-label">Allocated</div>
+                <div class="sm-value" data-ev-total="allocated">@Money(t.Allocated)</div>
+            </div>
+            <div class="sm-item">
+                <div class="sm-label">Actual spent</div>
+                <div class="sm-value t-expense" data-ev-total="actual">@Money(t.Actual)</div>
+            </div>
+            <div class="sm-item">
+                <div class="sm-label">Received</div>
+                <div class="sm-value t-income" data-ev-total="received">@Money(t.Received)</div>
+            </div>
+            <div class="sm-item">
+                <div class="sm-label">Net outlay</div>
+                <div class="sm-value" data-ev-total="net">@Money(t.NetOutlay)</div>
+            </div>
+        </div>
+    </section>
+
+    @* ── Sub-event ledger ────────────────────────────────────────────── *@
+    <section class="ev-ledger mb-4" aria-label="Sub-events">
+        <div class="ev-ledger-head">
+            <h2><i class="bi bi-list-columns-reverse me-2"></i>Sub-events</h2>
+            <div class="d-flex gap-2 flex-wrap">
+                @if (Model.SubEvents.Count > 0)
+                {
+                    <button type="button" class="btn btn-sm btn-primary" data-ev-open="spend">
+                        <i class="bi bi-cash-stack me-1"></i>Log spend
+                    </button>
+                }
+                <button type="button" class="btn btn-sm btn-outline-primary" data-ev-open="subevent">
+                    <i class="bi bi-plus-circle me-1"></i>Add sub-event
+                </button>
+            </div>
+        </div>
+
+        @if (Model.SubEvents.Count == 0)
+        {
+            <div class="ev-ledger-empty">
+                <i class="bi bi-signpost-split" aria-hidden="true"></i>
+                <p>
+                    No sub-events yet. Break the event into the parts you actually pay for —
+                    <em>Wedding hall</em>, <em>Stage decoration</em>, <em>Ornaments</em> — and give each one a budget.
+                </p>
+                <button type="button" class="btn btn-primary btn-sm" data-ev-open="subevent">
+                    <i class="bi bi-plus-circle me-1"></i>Add the first sub-event
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="ev-ledger-cols" aria-hidden="true">
+                <span>Sub-event</span>
+                <span class="num">Allocated</span>
+                <span class="num">Actual</span>
+                <span class="num">Variance</span>
+            </div>
+
+            foreach (var s in Model.SubEvents)
+            {
+                <details class="ev-row @(s.IsOverBudget ? "is-over" : "")"
+                         data-subevent-id="@s.Id" data-subevent-name="@s.Name">
+                    <summary class="ev-row-head">
+                        <span class="ev-row-name">
+                            @s.Name
+                            @if (!string.IsNullOrEmpty(s.Note))
+                            {
+                                <small>@s.Note</small>
+                            }
+                        </span>
+                        <span class="ev-row-fig num" data-l="Allocated">@Money(s.Allocated)</span>
+                        <span class="ev-row-fig num debit" data-l="Actual">@Money(s.Actual)</span>
+                        <span class="ev-row-fig num @(s.IsOverBudget ? "debit" : "credit")" data-l="Variance">@Signed(s.Variance)</span>
+                        <span class="ev-row-bar">
+                            @if (s.HasAllocation)
+                            {
+                                <span class="progress" role="progressbar" aria-label="@s.Name spent against allocation"
+                                      aria-valuenow="@s.RawPercent" aria-valuemin="0" aria-valuemax="100">
+                                    <span class="progress-bar @s.ProgressClass" style="width:@(s.ProgressPercent.ToString(CultureInfo.InvariantCulture))%"></span>
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="ev-unbudgeted-mini">unbudgeted</span>
+                            }
+                        </span>
+                        <i class="bi bi-chevron-down ev-row-caret" aria-hidden="true"></i>
+                    </summary>
+
+                    <div class="ev-row-body">
+                        <div class="ev-row-tools">
+                            <form asp-controller="EventLedger" asp-action="UpdateSubEvent" method="post" class="ev-inline-form js-ev-form">
+                                <input type="hidden" name="id" value="@s.Id" />
+                                <label class="ev-field">
+                                    <span>Name</span>
+                                    <input type="text" name="name" value="@s.Name" maxlength="100" required class="form-control form-control-sm" />
+                                </label>
+                                <label class="ev-field ev-field-amount">
+                                    <span>Allocated</span>
+                                    <input type="number" name="allocated" value="@s.Allocated.ToString(CultureInfo.InvariantCulture)"
+                                           min="0" step="0.01" inputmode="decimal" class="form-control form-control-sm" />
+                                </label>
+                                <label class="ev-field">
+                                    <span>Note</span>
+                                    <input type="text" name="note" value="@s.Note" maxlength="200" class="form-control form-control-sm" placeholder="optional" />
+                                </label>
+                                <button type="submit" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-check-lg me-1"></i>Save
+                                </button>
+                            </form>
+
+                            <div class="ev-row-actions">
+                                <button type="button" class="btn btn-sm btn-primary"
+                                        data-ev-open="spend" data-sub-id="@s.Id" data-sub-name="@s.Name">
+                                    <i class="bi bi-plus-circle me-1"></i>Log spend
+                                </button>
+                                <form asp-controller="EventLedger" asp-action="DeleteSubEvent" method="post"
+                                      class="js-ev-form d-inline"
+                                      data-confirm="Delete '@s.Name'@(s.Spends.Count > 0 ? $" and its {s.Spends.Count} spend entries" : "")? This can't be undone.">
+                                    <input type="hidden" name="id" value="@s.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash me-1"></i>Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        @if (s.Spends.Count == 0)
+                        {
+                            <p class="ev-spends-empty">No payments logged against this sub-event yet.</p>
+                        }
+                        else
+                        {
+                            <ul class="ev-spends">
+                                @foreach (var sp in s.Spends)
+                                {
+                                    <li class="ev-spend">
+                                        <span class="ev-spend-date">@sp.Date.ToString("d MMM yyyy", inr)</span>
+                                        <span class="ev-spend-desc">
+                                            @(string.IsNullOrEmpty(sp.PaidTo) ? "Payment" : sp.PaidTo)
+                                            @if (!string.IsNullOrEmpty(sp.Note))
+                                            {
+                                                <small>@sp.Note</small>
+                                            }
+                                        </span>
+                                        <span class="ev-spend-amt debit">@Money(sp.Amount)</span>
+                                        <span class="ev-spend-act">
+                                            <button type="button" class="btn btn-sm btn-link ev-icon-btn"
+                                                    data-ev-open="edit-spend"
+                                                    data-spend-id="@sp.Id"
+                                                    data-amount="@sp.Amount.ToString(CultureInfo.InvariantCulture)"
+                                                    data-date="@sp.Date.ToString("yyyy-MM-dd")"
+                                                    data-paid-to="@sp.PaidTo"
+                                                    data-note="@sp.Note"
+                                                    aria-label="Edit this payment">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <form asp-controller="EventLedger" asp-action="DeleteSpend" method="post"
+                                                  class="js-ev-form d-inline" data-confirm="Delete this @Money(sp.Amount) payment?">
+                                                <input type="hidden" name="id" value="@sp.Id" />
+                                                <button type="submit" class="btn btn-sm btn-link ev-icon-btn text-danger" aria-label="Delete this payment">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </form>
+                                        </span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </details>
+            }
+
+            <div class="ev-ledger-total">
+                <span>Total</span>
+                <span class="num" data-l="Allocated">@Money(t.Allocated)</span>
+                <span class="num debit" data-l="Actual">@Money(t.Actual)</span>
+                <span class="num @(t.IsOverBudget ? "debit" : "credit")" data-l="Variance">@Signed(t.Variance)</span>
+                <span></span>
+            </div>
+        }
+    </section>
+
+    @* ── Money received ──────────────────────────────────────────────── *@
+    <section class="ev-ledger" aria-label="Money received">
+        <div class="ev-ledger-head">
+            <h2><i class="bi bi-gift me-2"></i>Money received</h2>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-ev-open="contribution">
+                <i class="bi bi-plus-circle me-1"></i>Add contribution
+            </button>
+        </div>
+
+        @if (Model.Contributions.Count == 0)
+        {
+            <div class="ev-ledger-empty">
+                <i class="bi bi-gift" aria-hidden="true"></i>
+                <p>Gifts, cash from relatives or a sponsor's share go here. They offset the event's cost without touching your income ledger.</p>
+            </div>
+        }
+        else
+        {
+            <ul class="ev-spends ev-contribs">
+                @foreach (var c in Model.Contributions)
+                {
+                    <li class="ev-spend">
+                        <span class="ev-spend-date">@c.Date.ToString("d MMM yyyy", inr)</span>
+                        <span class="ev-spend-desc">
+                            @(string.IsNullOrEmpty(c.FromWhom) ? "Contribution" : c.FromWhom)
+                            @if (!string.IsNullOrEmpty(c.Note))
+                            {
+                                <small>@c.Note</small>
+                            }
+                        </span>
+                        <span class="ev-spend-amt credit">@Money(c.Amount)</span>
+                        <span class="ev-spend-act">
+                            <form asp-controller="EventLedger" asp-action="DeleteContribution" method="post"
+                                  class="js-ev-form d-inline" data-confirm="Delete this @Money(c.Amount) contribution?">
+                                <input type="hidden" name="id" value="@c.Id" />
+                                <button type="submit" class="btn btn-sm btn-link ev-icon-btn text-danger" aria-label="Delete this contribution">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </span>
+                    </li>
+                }
+                <li class="ev-spend ev-spend-total">
+                    <span class="ev-spend-date"></span>
+                    <span class="ev-spend-desc">Total received</span>
+                    <span class="ev-spend-amt credit">@Money(t.Received)</span>
+                    <span class="ev-spend-act"></span>
+                </li>
+            </ul>
+        }
+    </section>
+</div>
