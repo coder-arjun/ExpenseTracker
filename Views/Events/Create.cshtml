@@ -3,80 +3,92 @@
 @model ExpenseTracker.Models.Domain.Event
 
 @{
-    ViewData["Title"] = "New Event";
-    var types = new[]
+    ViewData["Title"] = "New event";
+    var templated = new[]
     {
         EventType.Wedding, EventType.BirthdayParty, EventType.HouseWarming,
-        EventType.BabyShower, EventType.Festival, EventType.Trip, EventType.Custom
+        EventType.BabyShower, EventType.Festival, EventType.Trip
     };
     var today = DateTime.Today.ToString("yyyy-MM-dd");
 }
 
-<div class="create-page-header">
-    <i class="bi bi-calendar-event header-icon"></i>
-    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> New project budget</div>
-    <h1>New Event</h1>
-</div>
+<a asp-action="Index" class="ev-back"><i class="bi bi-arrow-left"></i> All events</a>
+
+<header class="mb-5" style="max-width:44rem;">
+    <h1 class="ev-title" style="font-size:clamp(2rem,1.4rem+2.4vw,3rem);">New event</h1>
+    <p class="ev-lede">Give it a name and a date. Everything else — sub-events, budgets, spending — comes next.</p>
+</header>
 
 <form asp-action="Create" method="post">
     <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
-    <div class="card create-form-card mb-4">
-        <div class="card-body">
-            <div class="ev-field-grid">
-                <label class="ev-field ev-field-wide">
-                    <span>Event name</span>
-                    <input asp-for="Name" class="form-control" maxlength="100"
-                           placeholder="e.g. Meera &amp; Arjun's Wedding, Aarav's 1st Birthday" autofocus />
-                    <span asp-validation-for="Name" class="text-danger"></span>
-                </label>
-                <label class="ev-field">
-                    <span>Event date <em>(optional)</em></span>
-                    <input asp-for="EventDate" type="date" class="form-control" value="@today" />
-                    <span asp-validation-for="EventDate" class="text-danger"></span>
-                </label>
-                <label class="ev-field ev-field-wide">
-                    <span>Note <em>(optional)</em></span>
-                    <input asp-for="Note" class="form-control" maxlength="500"
-                           placeholder="Venue, guest count, anything worth remembering" />
-                    <span asp-validation-for="Note" class="text-danger"></span>
-                </label>
-            </div>
-        </div>
+    <div class="ev-field-grid" style="max-width:44rem;">
+        <label class="ev-field ev-field-wide">
+            <span>Event name</span>
+            <input asp-for="Name" class="form-control form-control-lg" maxlength="100"
+                   placeholder="e.g. Meera &amp; Arjun's Wedding" autofocus />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </label>
+        <label class="ev-field">
+            <span>Event date <em>(optional)</em></span>
+            <input asp-for="EventDate" type="date" class="form-control" value="@today" />
+            <span asp-validation-for="EventDate" class="text-danger"></span>
+        </label>
+        <label class="ev-field ev-field-wide">
+            <span>Note <em>(optional)</em></span>
+            <input asp-for="Note" class="form-control" maxlength="500"
+                   placeholder="Venue, guest count, anything worth remembering" />
+            <span asp-validation-for="Note" class="text-danger"></span>
+        </label>
     </div>
 
-    <fieldset class="ev-templates mb-4">
+    <fieldset class="ev-templates ev-section">
         <legend>
-            Start from a template
-            <small>Sub-events are created at zero budget — rename, delete or add your own afterwards.</small>
+            <span class="ev-eyebrow">Start with a template</span>
+            <h2 class="mt-2 mb-0" style="font-family:var(--font-display);font-size:var(--fs-xl);letter-spacing:-0.02em;">
+                Choose a structure for your event
+            </h2>
+            <p class="ev-lede">You can rename, delete or add sub-events at any time.</p>
         </legend>
+
         <div class="ev-template-grid">
-            @foreach (var t in types)
+            @foreach (var t in templated)
             {
-                var count = EventTemplates.SubEvents.TryGetValue(t, out var names) ? names.Length : 0;
+                var names = EventTemplates.SubEvents.TryGetValue(t, out var n) ? n : Array.Empty<string>();
                 var id = $"tpl-{t}";
-                <div class="ev-template">
+                <div class="ev-id" data-ev-type="@t">
                     <input class="ev-template-input" type="radio" asp-for="EventType" value="@t" id="@id"
                            checked="@(Model.EventType == t ? "checked" : null)" />
                     <label class="ev-template-card" for="@id">
-                        <span class="ev-template-icon"><i class="bi bi-@EventTemplates.Icon(t)" aria-hidden="true"></i></span>
+                        <span class="ev-template-tick"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
+                        <span class="ev-template-mark"><i class="bi bi-@EventTemplates.Icon(t)" aria-hidden="true"></i></span>
                         <span class="ev-template-name">@EventTemplates.Label(t)</span>
-                        <span class="ev-template-count">
-                            @(count > 0 ? $"{count} starter sub-events" : "Start from scratch")
-                        </span>
-                        @if (count > 0)
-                        {
-                            <span class="ev-template-peek">@string.Join(" · ", names!.Take(4))@(count > 4 ? " …" : "")</span>
-                        }
+                        <span class="ev-template-count">@names.Length categories</span>
+                        <span class="ev-template-peek">@string.Join(" · ", names.Take(5))</span>
+                        <i class="bi bi-arrow-right ev-template-go" aria-hidden="true"></i>
                     </label>
                 </div>
             }
+
+            @* Start from scratch is a different kind of choice, and looks like one. *@
+            <div class="ev-id" data-ev-type="Custom">
+                <input class="ev-template-input" type="radio" asp-for="EventType" value="@EventType.Custom" id="tpl-Custom"
+                       checked="@(Model.EventType == EventType.Custom ? "checked" : null)" />
+                <label class="ev-template-card is-scratch" for="tpl-Custom">
+                    <span class="ev-template-tick"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
+                    <span class="ev-template-mark"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>
+                    <span class="ev-template-name">Start from scratch</span>
+                    <span class="ev-template-count">Build your own budget</span>
+                    <span class="ev-template-peek">No sub-events to begin with — you add exactly what you need.</span>
+                    <i class="bi bi-arrow-right ev-template-go" aria-hidden="true"></i>
+                </label>
+            </div>
         </div>
     </fieldset>
 
-    <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create event</button>
-        <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+    <div class="d-flex gap-2 mt-5">
+        <button type="submit" class="btn btn-primary btn-lg">Create event</button>
+        <a asp-action="Index" class="btn btn-outline-secondary btn-lg">Cancel</a>
     </div>
 </form>
 

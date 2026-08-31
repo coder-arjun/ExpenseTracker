@@ -9,215 +9,231 @@
     var ev = Model.Event;
     var today = DateTime.Today.ToString("yyyy-MM-dd");
 
-    (string cls, string label) chip = ev.Status switch
+    var justCreated = TempData["EventJustCreated"] as string;
+    var seededCount = TempData["EventSeededCount"] as int?;
+
+    var statusWord = ev.Status switch
     {
-        EventStatus.Active => ("ev-st-active", "Active"),
-        EventStatus.Completed => ("ev-st-completed", "Completed"),
-        EventStatus.Cancelled => ("ev-st-cancelled", "Cancelled"),
-        _ => ("ev-st-planning", "Planning")
+        EventStatus.Active => "Active",
+        EventStatus.Completed => "Completed",
+        EventStatus.Cancelled => "Cancelled",
+        _ => "Planning"
     };
 }
 
-<div class="ev-head">
-    <div class="ev-head-main">
-        <a asp-action="Index" class="ev-back"><i class="bi bi-arrow-left"></i> All events</a>
-        <div class="ev-head-title">
-            <span class="ev-card-icon lg"><i class="bi bi-@EventTemplates.Icon(ev.EventType)" aria-hidden="true"></i></span>
-            <div>
-                <h1>@ev.Name</h1>
-                <div class="ev-head-meta">
-                    <span class="ev-chip @chip.cls">@chip.label</span>
-                    <span>@EventTemplates.Label(ev.EventType)</span>
-                    @if (ev.EventDate.HasValue)
-                    {
-                        <span class="ev-dot">·</span>
-                        <span><i class="bi bi-calendar3 me-1"></i>@ev.EventDate.Value.ToString("d MMMM yyyy", inr)</span>
-                    }
-                </div>
-                @if (!string.IsNullOrEmpty(ev.Note))
+<div class="ev-id" data-ev-type="@ev.EventType">
+
+    <a asp-action="Index" class="ev-back"><i class="bi bi-arrow-left"></i> All events</a>
+
+    <header class="ev-head">
+        <div class="ev-head-main">
+            <h1 class="ev-title ev-head-title">
+                <span class="ev-head-mark"><i class="bi bi-@EventTemplates.Icon(ev.EventType)" aria-hidden="true"></i></span>@ev.Name
+            </h1>
+            <div class="ev-meta">
+                @EventTemplates.Label(ev.EventType)
+                @if (ev.EventDate.HasValue)
                 {
-                    <p class="ev-head-note">@ev.Note</p>
+                    <span class="ev-sep">·</span>
+                    <text>@ev.EventDate.Value.ToString("d MMMM yyyy", inr)</text>
                 }
+                <span class="ev-sep">·</span>
+                <text>@statusWord</text>
             </div>
+            @if (!string.IsNullOrEmpty(ev.Note))
+            {
+                <p class="ev-head-note">@ev.Note</p>
+            }
         </div>
+        <div class="ev-head-actions">
+            <a asp-action="Edit" asp-route-id="@ev.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+            <a asp-action="Delete" asp-route-id="@ev.Id" class="btn btn-sm btn-outline-danger">Delete</a>
+        </div>
+    </header>
+
+    @if (justCreated != null)
+    {
+        <div class="ev-created" role="status">
+            <span><i class="bi bi-check-lg"></i> Event created</span>
+            @if (seededCount is > 0)
+            {
+                <span><i class="bi bi-check-lg"></i> @seededCount budget categories added</span>
+            }
+        </div>
+    }
+
+    @* The swap target. /Events/Board/@ev.Id re-renders exactly this partial. *@
+    <div id="ev-board">
+        <partial name="_Board" model="Model" />
     </div>
-    <div class="ev-head-actions">
-        <a asp-action="Edit" asp-route-id="@ev.Id" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-pencil me-1"></i>Edit event
-        </a>
-        <a asp-action="Delete" asp-route-id="@ev.Id" class="btn btn-outline-danger btn-sm">
-            <i class="bi bi-trash me-1"></i>Delete
-        </a>
+
+    @*
+        Entry sheets. Each <dialog> ships with `open` so that WITHOUT JavaScript it lays
+        out inline as an ordinary panel and every form still works as a plain POST.
+        events.js closes them on load and reopens them as real modals.
+    *@
+    <div class="ev-sheets">
+
+        <dialog id="dlgSubEvent" class="ev-dialog" open>
+            <div class="ev-dialog-head">
+                <h2>Add sub-event</h2>
+                <button type="button" class="ev-dialog-x" data-ev-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <form asp-controller="EventLedger" asp-action="AddSubEvent" method="post" class="js-ev-form ev-dialog-form">
+                <input type="hidden" name="eventId" value="@ev.Id" />
+                <div class="ev-field-grid">
+                    <label class="ev-field ev-field-wide">
+                        <span>Sub-event name</span>
+                        <input type="text" name="name" class="form-control" maxlength="100" required
+                               placeholder="e.g. Stage decoration, Wedding hall, Ornaments" />
+                    </label>
+                    <label class="ev-field">
+                        <span>Allocated budget</span>
+                        <input type="number" name="allocated" class="form-control" min="0" step="0.01"
+                               inputmode="decimal" value="0" />
+                    </label>
+                    <label class="ev-field ev-field-wide">
+                        <span>Note <em>(optional)</em></span>
+                        <input type="text" name="note" class="form-control" maxlength="200"
+                               placeholder="Vendor, quote reference, anything worth remembering" />
+                    </label>
+                </div>
+                <div class="ev-dialog-foot">
+                    <button type="submit" class="btn btn-primary">Add sub-event</button>
+                    <button type="button" class="btn btn-outline-secondary" data-ev-close>Cancel</button>
+                </div>
+            </form>
+        </dialog>
+
+        <dialog id="dlgSpend" class="ev-dialog" open>
+            <div class="ev-dialog-head">
+                <h2>Log spend</h2>
+                <button type="button" class="ev-dialog-x" data-ev-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <form asp-controller="EventLedger" asp-action="AddSpend" method="post" class="js-ev-form ev-dialog-form">
+                <div class="ev-field-grid">
+                    <div class="ev-field ev-field-wide">
+                        <span>Is this money gone, or promised?</span>
+                        <div class="ev-choice">
+                            <input type="radio" name="status" id="spPaid" value="Paid" checked />
+                            <label for="spPaid"><strong>Paid</strong><small>Money has left</small></label>
+                            <input type="radio" name="status" id="spCommitted" value="Committed" />
+                            <label for="spCommitted"><strong>Committed</strong><small>Agreed, not yet paid</small></label>
+                        </div>
+                    </div>
+                    <label class="ev-field ev-field-wide">
+                        <span>Sub-event</span>
+                        <select name="subEventId" class="form-select" required data-ev-subselect>
+                            @if (Model.SubEvents.Count == 0)
+                            {
+                                <option value="">Add a sub-event first</option>
+                            }
+                            @foreach (var s in Model.SubEvents)
+                            {
+                                <option value="@s.Id">@s.Name</option>
+                            }
+                        </select>
+                    </label>
+                    <label class="ev-field">
+                        <span>Amount</span>
+                        <input type="number" name="amount" class="form-control" min="0.01" step="0.01"
+                               inputmode="decimal" required placeholder="0.00" />
+                    </label>
+                    <label class="ev-field">
+                        <span>Date</span>
+                        <input type="date" name="date" class="form-control" value="@today" max="@today" required />
+                    </label>
+                    <label class="ev-field">
+                        <span>Paid to <em>(optional)</em></span>
+                        <input type="text" name="paidTo" class="form-control" maxlength="120" placeholder="Vendor or person" />
+                    </label>
+                    <label class="ev-field ev-field-wide">
+                        <span>Note <em>(optional)</em></span>
+                        <input type="text" name="note" class="form-control" maxlength="200" placeholder="Advance, final settlement, extras…" />
+                    </label>
+                </div>
+                <div class="ev-dialog-foot">
+                    <button type="submit" class="btn btn-primary">Record entry</button>
+                    <button type="button" class="btn btn-outline-secondary" data-ev-close>Cancel</button>
+                </div>
+            </form>
+        </dialog>
+
+        <dialog id="dlgEditSpend" class="ev-dialog" open>
+            <div class="ev-dialog-head">
+                <h2>Edit entry</h2>
+                <button type="button" class="ev-dialog-x" data-ev-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <form asp-controller="EventLedger" asp-action="UpdateSpend" method="post" class="js-ev-form ev-dialog-form">
+                <input type="hidden" name="id" value="" data-ev-field="id" />
+                <div class="ev-field-grid">
+                    <div class="ev-field ev-field-wide">
+                        <span>Status</span>
+                        <div class="ev-choice">
+                            <input type="radio" name="status" id="edPaid" value="Paid" data-ev-field="statusPaid" checked />
+                            <label for="edPaid"><strong>Paid</strong><small>Money has left</small></label>
+                            <input type="radio" name="status" id="edCommitted" value="Committed" data-ev-field="statusCommitted" />
+                            <label for="edCommitted"><strong>Committed</strong><small>Agreed, not yet paid</small></label>
+                        </div>
+                    </div>
+                    <label class="ev-field">
+                        <span>Amount</span>
+                        <input type="number" name="amount" class="form-control" min="0.01" step="0.01"
+                               inputmode="decimal" required data-ev-field="amount" />
+                    </label>
+                    <label class="ev-field">
+                        <span>Date</span>
+                        <input type="date" name="date" class="form-control" max="@today" required data-ev-field="date" />
+                    </label>
+                    <label class="ev-field">
+                        <span>Paid to <em>(optional)</em></span>
+                        <input type="text" name="paidTo" class="form-control" maxlength="120" data-ev-field="paidTo" />
+                    </label>
+                    <label class="ev-field ev-field-wide">
+                        <span>Note <em>(optional)</em></span>
+                        <input type="text" name="note" class="form-control" maxlength="200" data-ev-field="note" />
+                    </label>
+                </div>
+                <div class="ev-dialog-foot">
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                    <button type="button" class="btn btn-outline-secondary" data-ev-close>Cancel</button>
+                </div>
+            </form>
+        </dialog>
+
+        <dialog id="dlgContribution" class="ev-dialog" open>
+            <div class="ev-dialog-head">
+                <h2>Add contribution</h2>
+                <button type="button" class="ev-dialog-x" data-ev-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <form asp-controller="EventLedger" asp-action="AddContribution" method="post" class="js-ev-form ev-dialog-form">
+                <input type="hidden" name="eventId" value="@ev.Id" />
+                <div class="ev-field-grid">
+                    <label class="ev-field">
+                        <span>Amount</span>
+                        <input type="number" name="amount" class="form-control" min="0.01" step="0.01"
+                               inputmode="decimal" required placeholder="0.00" />
+                    </label>
+                    <label class="ev-field">
+                        <span>Date</span>
+                        <input type="date" name="date" class="form-control" value="@today" max="@today" required />
+                    </label>
+                    <label class="ev-field">
+                        <span>From <em>(optional)</em></span>
+                        <input type="text" name="fromWhom" class="form-control" maxlength="120" placeholder="Who gave it" />
+                    </label>
+                    <label class="ev-field ev-field-wide">
+                        <span>Note <em>(optional)</em></span>
+                        <input type="text" name="note" class="form-control" maxlength="200" placeholder="Gift, sponsorship, shared cost…" />
+                    </label>
+                </div>
+                <div class="ev-dialog-foot">
+                    <button type="submit" class="btn btn-primary">Record contribution</button>
+                    <button type="button" class="btn btn-outline-secondary" data-ev-close>Cancel</button>
+                </div>
+            </form>
+        </dialog>
     </div>
-</div>
-
-<div class="ev-isolation-note mb-4">
-    <i class="bi bi-shield-check" aria-hidden="true"></i>
-    <span>This ledger is kept separately — none of these figures reach your expenses, income, account balances or net worth.</span>
-</div>
-
-@* The swap target. /Events/Board/@ev.Id re-renders exactly this partial after each change. *@
-<div id="ev-board">
-    <partial name="_Board" model="Model" />
-</div>
-
-@*
-    Entry forms. Each <dialog> is rendered with the `open` attribute so that WITHOUT
-    JavaScript it lays out inline as an ordinary panel and every form still works as a
-    plain POST. events.js closes them on load and reopens them as real modals, which is
-    the progressive-enhancement path.
-*@
-<div class="ev-sheets">
-
-    <dialog id="dlgSubEvent" class="ev-dialog" open>
-        <div class="ev-dialog-head">
-            <h2><i class="bi bi-plus-circle me-2"></i>Add sub-event</h2>
-            <button type="button" class="ev-dialog-x" data-ev-close aria-label="Close">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-        <form asp-controller="EventLedger" asp-action="AddSubEvent" method="post" class="js-ev-form ev-dialog-form">
-            <input type="hidden" name="eventId" value="@ev.Id" />
-            <div class="ev-field-grid">
-                <label class="ev-field ev-field-wide">
-                    <span>Sub-event name</span>
-                    <input type="text" name="name" class="form-control" maxlength="100" required
-                           placeholder="e.g. Stage decoration, Wedding hall, Ornaments" />
-                </label>
-                <label class="ev-field">
-                    <span>Allocated budget</span>
-                    <input type="number" name="allocated" class="form-control" min="0" step="0.01"
-                           inputmode="decimal" value="0" />
-                </label>
-                <label class="ev-field ev-field-wide">
-                    <span>Note <em>(optional)</em></span>
-                    <input type="text" name="note" class="form-control" maxlength="200"
-                           placeholder="Vendor, quote reference, anything worth remembering" />
-                </label>
-            </div>
-            <div class="ev-dialog-foot">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Add sub-event</button>
-                <button type="button" class="btn btn-outline-secondary" data-ev-close>Cancel</button>
-            </div>
-        </form>
-    </dialog>
-
-    <dialog id="dlgSpend" class="ev-dialog" open>
-        <div class="ev-dialog-head">
-            <h2><i class="bi bi-cash-stack me-2"></i>Log spend</h2>
-            <button type="button" class="ev-dialog-x" data-ev-close aria-label="Close">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-        <form asp-controller="EventLedger" asp-action="AddSpend" method="post" class="js-ev-form ev-dialog-form">
-            <div class="ev-field-grid">
-                <label class="ev-field ev-field-wide">
-                    <span>Sub-event</span>
-                    <select name="subEventId" class="form-select" required data-ev-subselect>
-                        @if (Model.SubEvents.Count == 0)
-                        {
-                            <option value="">Add a sub-event first</option>
-                        }
-                        @foreach (var s in Model.SubEvents)
-                        {
-                            <option value="@s.Id">@s.Name</option>
-                        }
-                    </select>
-                </label>
-                <label class="ev-field">
-                    <span>Amount</span>
-                    <input type="number" name="amount" class="form-control" min="0.01" step="0.01"
-                           inputmode="decimal" required placeholder="0.00" />
-                </label>
-                <label class="ev-field">
-                    <span>Date</span>
-                    <input type="date" name="date" class="form-control" value="@today" max="@today" required />
-                </label>
-                <label class="ev-field">
-                    <span>Paid to <em>(optional)</em></span>
-                    <input type="text" name="paidTo" class="form-control" maxlength="120" placeholder="Vendor or person" />
-                </label>
-                <label class="ev-field ev-field-wide">
-                    <span>Note <em>(optional)</em></span>
-                    <input type="text" name="note" class="form-control" maxlength="200" placeholder="Advance, final settlement, extras…" />
-                </label>
-            </div>
-            <div class="ev-dialog-foot">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Record spend</button>
-                <button type="button" class="btn btn-outline-secondary" data-ev-close>Cancel</button>
-            </div>
-        </form>
-    </dialog>
-
-    <dialog id="dlgEditSpend" class="ev-dialog" open>
-        <div class="ev-dialog-head">
-            <h2><i class="bi bi-pencil-square me-2"></i>Edit payment</h2>
-            <button type="button" class="ev-dialog-x" data-ev-close aria-label="Close">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-        <form asp-controller="EventLedger" asp-action="UpdateSpend" method="post" class="js-ev-form ev-dialog-form">
-            <input type="hidden" name="id" value="" data-ev-field="id" />
-            <div class="ev-field-grid">
-                <label class="ev-field">
-                    <span>Amount</span>
-                    <input type="number" name="amount" class="form-control" min="0.01" step="0.01"
-                           inputmode="decimal" required data-ev-field="amount" />
-                </label>
-                <label class="ev-field">
-                    <span>Date</span>
-                    <input type="date" name="date" class="form-control" max="@today" required data-ev-field="date" />
-                </label>
-                <label class="ev-field">
-                    <span>Paid to <em>(optional)</em></span>
-                    <input type="text" name="paidTo" class="form-control" maxlength="120" data-ev-field="paidTo" />
-                </label>
-                <label class="ev-field ev-field-wide">
-                    <span>Note <em>(optional)</em></span>
-                    <input type="text" name="note" class="form-control" maxlength="200" data-ev-field="note" />
-                </label>
-            </div>
-            <div class="ev-dialog-foot">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save changes</button>
-                <button type="button" class="btn btn-outline-secondary" data-ev-close>Cancel</button>
-            </div>
-        </form>
-    </dialog>
-
-    <dialog id="dlgContribution" class="ev-dialog" open>
-        <div class="ev-dialog-head">
-            <h2><i class="bi bi-gift me-2"></i>Add contribution</h2>
-            <button type="button" class="ev-dialog-x" data-ev-close aria-label="Close">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-        <form asp-controller="EventLedger" asp-action="AddContribution" method="post" class="js-ev-form ev-dialog-form">
-            <input type="hidden" name="eventId" value="@ev.Id" />
-            <div class="ev-field-grid">
-                <label class="ev-field">
-                    <span>Amount</span>
-                    <input type="number" name="amount" class="form-control" min="0.01" step="0.01"
-                           inputmode="decimal" required placeholder="0.00" />
-                </label>
-                <label class="ev-field">
-                    <span>Date</span>
-                    <input type="date" name="date" class="form-control" value="@today" max="@today" required />
-                </label>
-                <label class="ev-field">
-                    <span>From <em>(optional)</em></span>
-                    <input type="text" name="fromWhom" class="form-control" maxlength="120" placeholder="Who gave it" />
-                </label>
-                <label class="ev-field ev-field-wide">
-                    <span>Note <em>(optional)</em></span>
-                    <input type="text" name="note" class="form-control" maxlength="200" placeholder="Gift, sponsorship, shared cost…" />
-                </label>
-            </div>
-            <div class="ev-dialog-foot">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Record contribution</button>
-                <button type="button" class="btn btn-outline-secondary" data-ev-close>Cancel</button>
-            </div>
-        </form>
-    </dialog>
 </div>
 
 @section Scripts {

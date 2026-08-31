@@ -17,9 +17,8 @@
     var direction = ViewData["Direction"]?.ToString();
     var showSettled = ViewData["ShowSettled"]?.ToString();
 
-    // Events (Event Budgets) filters
-    var eventStatus = ViewData["Status"]?.ToString();
-    var showArchived = ViewData["ShowArchived"]?.ToString();
+    // Events filter rail
+    var eventFilter = ViewData["Filter"]?.ToString();
 
     // Windowed pagination: show at most 5 page numbers around the current page,
     // with first/last shortcuts + ellipses, plus Prev/Next. No long number runs.
@@ -40,8 +39,7 @@
         if (!string.IsNullOrEmpty(person)) queryParams.Add($"person={Uri.EscapeDataString(person)}");
         if (!string.IsNullOrEmpty(direction)) queryParams.Add($"direction={direction}");
         if (string.Equals(showSettled, "True", StringComparison.OrdinalIgnoreCase)) queryParams.Add("showSettled=true");
-        if (!string.IsNullOrEmpty(eventStatus)) queryParams.Add($"status={eventStatus}");
-        if (string.Equals(showArchived, "True", StringComparison.OrdinalIgnoreCase)) queryParams.Add("showArchived=true");
+        if (!string.IsNullOrEmpty(eventFilter)) queryParams.Add($"filter={eventFilter}");
         return "?" + string.Join("&", queryParams);
     }
 }

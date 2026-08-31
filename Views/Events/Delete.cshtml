@@ -2,47 +2,37 @@
 @model ExpenseTracker.Models.Domain.Event
 
 @{
-    ViewData["Title"] = "Delete Event";
+    ViewData["Title"] = "Delete event";
     var subCount = (int)(ViewData["SubEventCount"] ?? 0);
     var spendCount = (int)(ViewData["SpendCount"] ?? 0);
     var contribCount = (int)(ViewData["ContributionCount"] ?? 0);
 }
 
-<div class="create-page-header">
-    <i class="bi bi-exclamation-triangle header-icon"></i>
-    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Confirm removal</div>
-    <h1>Delete Event</h1>
-</div>
+<div class="ev-id" data-ev-type="@Model.EventType" style="max-width:40rem;">
+    <a asp-action="Details" asp-route-id="@Model.Id" class="ev-back"><i class="bi bi-arrow-left"></i> Back to event</a>
 
-<div class="row g-4 align-items-start">
-    <div class="col-lg-7">
-        <div class="card create-form-card" style="border-top-color: #C20E3A;">
-            <div class="card-body">
-                <h2 class="h4 mb-3">
-                    <i class="bi bi-@EventTemplates.Icon(Model.EventType) me-2"></i>@Model.Name
-                </h2>
+    <header class="mb-4">
+        <div class="ev-eyebrow">Confirm removal</div>
+        <h1 class="ev-title mt-2" style="font-size:clamp(1.9rem,1.3rem+2.2vw,2.8rem);">
+            <span class="ev-head-mark"><i class="bi bi-@EventTemplates.Icon(Model.EventType)" aria-hidden="true"></i></span>@Model.Name
+        </h1>
+    </header>
 
-                <p class="mb-3">Deleting this event also removes everything inside it:</p>
-                <ul class="ev-delete-list">
-                    <li><strong>@subCount</strong> sub-event@(subCount == 1 ? "" : "s")</li>
-                    <li><strong>@spendCount</strong> spend entr@(spendCount == 1 ? "y" : "ies")</li>
-                    <li><strong>@contribCount</strong> contribution@(contribCount == 1 ? "" : "s")</li>
-                </ul>
+    <p class="ev-meta mb-3">Deleting this event also removes everything inside it:</p>
+    <ul class="ev-delete-list">
+        <li><span>Sub-events</span><strong>@subCount</strong></li>
+        <li><span>Spend &amp; commitment entries</span><strong>@spendCount</strong></li>
+        <li><span>Contributions</span><strong>@contribCount</strong></li>
+    </ul>
 
-                <div class="alert alert-warning" role="alert">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    This can't be undone. Your expenses, income and account balances are untouched —
-                    event budgets are a separate ledger.
-                </div>
+    <p class="ev-meta mb-4">
+        This can't be undone. Your expenses, income and account balances are untouched —
+        events are a separate ledger.
+    </p>
 
-                <form asp-action="Delete" method="post">
-                    <input type="hidden" asp-for="Id" />
-                    <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash me-1"></i>Delete permanently
-                    </button>
-                    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary ms-2">Cancel</a>
-                </form>
-            </div>
-        </div>
-    </div>
+    <form asp-action="Delete" method="post" class="d-flex gap-2">
+        <input type="hidden" asp-for="Id" />
+        <button type="submit" class="btn btn-danger">Delete permanently</button>
+        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Cancel</a>
+    </form>
 </div>

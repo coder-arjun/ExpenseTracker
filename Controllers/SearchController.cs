@@ -40,7 +40,7 @@ namespace ExpenseTracker.Controllers
             ("Recurring",       "/Recurring",       "arrow-repeat"),
             ("Add Recurring",   "/Recurring/Create","plus-circle"),
             ("Owed to Me",      "/Debts",           "cash-coin"),
-            ("Event Budgets",   "/Events",          "calendar-event"),
+            ("Events",          "/Events",          "calendar-event"),
             ("New Event",       "/Events/Create",   "plus-circle"),
             ("Add Debt",        "/Debts/Create",    "plus-circle"),
             ("Insights",        "/Insights",        "lightbulb"),

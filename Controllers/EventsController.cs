@@ -33,18 +33,15 @@ namespace ExpenseTracker.Controllers
             _events = events;
         }
 
-        // GET: /Events
-        public async Task<IActionResult> Index(int page = 1, EventStatus? status = null, bool showArchived = false)
+        // GET: /Events?filter=all|upcoming|planning|active|completed|archived
+        public async Task<IActionResult> Index(int page = 1, string filter = "all")
         {
             var userId = _userManager.GetUserId(User)!;
-            var rows = await _events.GetIndexAsync(userId, page, status, showArchived);
+            var rows = await _events.GetIndexAsync(userId, page, filter);
 
-            // Headline strip across everything currently listed.
-            ViewData["Status"] = status?.ToString();
-            ViewData["ShowArchived"] = showArchived;
-            ViewData["ArchivedCount"] = await _context.Events.CountAsync(e =>
-                e.UserId == userId &&
-                (e.Status == EventStatus.Completed || e.Status == EventStatus.Cancelled));
+            ViewData["Filter"] = filter;
+            ViewData["Counts"] = await _events.GetFilterCountsAsync(userId);
+            ViewData["AnyEvents"] = await _context.Events.AnyAsync(e => e.UserId == userId);
 
             return View(rows);
         }
@@ -113,9 +110,10 @@ namespace ExpenseTracker.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            TempData["SuccessMessage"] = seeded.Count > 0
-                ? $"'{ev.Name}' created with {seeded.Count} starter sub-events. Set the allocations below."
-                : $"'{ev.Name}' created. Add your first sub-event to start budgeting.";
+            // Drives the one-time "created" sequence on the details page. Deliberately
+            // not a toast — the arrival on the workspace is the moment worth marking.
+            TempData["EventJustCreated"] = ev.Name;
+            TempData["EventSeededCount"] = seeded.Count;
 
             return RedirectToAction(nameof(Details), new { id = ev.Id });
         }
@@ -128,6 +126,10 @@ namespace ExpenseTracker.Controllers
             var userId = _userManager.GetUserId(User)!;
             var ev = await _context.Events.FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
             if (ev == null) return NotFound();
+
+            // The form is deliberately narrow; the space beside it carries a live summary.
+            var vm = await _events.GetDetailsAsync(userId, ev.Id);
+            ViewData["Totals"] = vm?.Totals;
 
             return View(ev);
         }
@@ -212,7 +214,7 @@ namespace ExpenseTracker.Controllers
             switch ((format ?? "csv").ToLowerInvariant())
             {
                 case "xlsx":
-                    var xlsx = ExcelExporter.Build<EventExportRow>("Event Budgets", subtitle, rows, new[]
+                    var xlsx = ExcelExporter.Build<EventExportRow>("Events", subtitle, rows, new[]
                     {
                         new ExcelExporter.Column<EventExportRow>("Event",     r => r.EventName),
                         new ExcelExporter.Column<EventExportRow>("Type",      r => r.EventType),
@@ -220,20 +222,21 @@ namespace ExpenseTracker.Controllers
                         new ExcelExporter.Column<EventExportRow>("Date",      r => r.EventDate),
                         new ExcelExporter.Column<EventExportRow>("Sub-event", r => r.SubEvent),
                         new ExcelExporter.Column<EventExportRow>("Allocated", r => r.Allocated, IsCurrency: true),
-                        new ExcelExporter.Column<EventExportRow>("Actual",    r => r.Actual,    IsCurrency: true),
-                        new ExcelExporter.Column<EventExportRow>("Variance",  r => r.Variance,  IsCurrency: true),
+                        new ExcelExporter.Column<EventExportRow>("Paid",      r => r.Paid,      IsCurrency: true),
+                        new ExcelExporter.Column<EventExportRow>("Committed", r => r.Committed, IsCurrency: true),
+                        new ExcelExporter.Column<EventExportRow>("Available", r => r.Available, IsCurrency: true),
                     }, sheetName: "Events");
                     return File(xlsx, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"events-{dateStamp}.xlsx");
 
                 case "pdf":
-                    var pdf = PdfExporter.Build<EventExportRow>("Event Budgets", subtitle, rows, new[]
+                    var pdf = PdfExporter.Build<EventExportRow>("Events", subtitle, rows, new[]
                     {
                         new PdfExporter.Column<EventExportRow>("Event",     r => r.EventName,                    RelativeWidth: 1.6f),
-                        new PdfExporter.Column<EventExportRow>("Type",      r => r.EventType,                    RelativeWidth: 1.1f),
                         new PdfExporter.Column<EventExportRow>("Sub-event", r => r.SubEvent,                     RelativeWidth: 1.8f),
                         new PdfExporter.Column<EventExportRow>("Allocated", r => r.Allocated, IsCurrency: true,  RelativeWidth: 1.1f),
-                        new PdfExporter.Column<EventExportRow>("Actual",    r => r.Actual,    IsCurrency: true,  RelativeWidth: 1.1f),
-                        new PdfExporter.Column<EventExportRow>("Variance",  r => r.Variance,  IsCurrency: true,  RelativeWidth: 1.1f),
+                        new PdfExporter.Column<EventExportRow>("Paid",      r => r.Paid,      IsCurrency: true,  RelativeWidth: 1.1f),
+                        new PdfExporter.Column<EventExportRow>("Committed", r => r.Committed, IsCurrency: true,  RelativeWidth: 1.1f),
+                        new PdfExporter.Column<EventExportRow>("Available", r => r.Available, IsCurrency: true,  RelativeWidth: 1.1f),
                     });
                     return File(pdf, "application/pdf", $"events-{dateStamp}.pdf");
 
@@ -246,8 +249,9 @@ namespace ExpenseTracker.Controllers
                         ("Date",      r => r.EventDate),
                         ("Sub-event", r => r.SubEvent),
                         ("Allocated", r => r.Allocated),
-                        ("Actual",    r => r.Actual),
-                        ("Variance",  r => r.Variance),
+                        ("Paid",      r => r.Paid),
+                        ("Committed", r => r.Committed),
+                        ("Available", r => r.Available),
                     });
                     return File(csv, "text/csv", $"events-{dateStamp}.csv");
             }

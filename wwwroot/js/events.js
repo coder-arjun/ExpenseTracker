@@ -1,13 +1,13 @@
 /*
-    Event budgets — workspace behaviour for /Events/Details.
+    Events — workspace behaviour for /Events/Details.
 
     Progressive enhancement, not a JS app:
-      • Every control on the page is a real <form> posting to a real MVC action, so the
-        whole feature works with this file blocked or broken.
+      • Every control is a real <form> posting to a real MVC action, so the whole
+        feature works with this file blocked or broken.
       • The entry sheets are <dialog open>, which lay out inline as ordinary panels
         without JS. Here we close them and reopen them as true modals on demand.
-      • On submit we post the form's own FormData (the antiforgery token rides along in
-        it) with an X-Partial header. The server answers with the re-rendered board
+      • On submit we post the form's own FormData (the antiforgery token rides along
+        in it) with an X-Partial header. The server answers with the re-rendered board
         fragment, which we swap in. Razor stays the single source of truth for markup —
         there is no templating in this file.
 
@@ -19,7 +19,6 @@
     const board = document.getElementById('ev-board');
     if (!board) return;
 
-    const sheets = document.querySelector('.ev-sheets');
     const DIALOGS = {
         subevent: document.getElementById('dlgSubEvent'),
         spend: document.getElementById('dlgSpend'),
@@ -27,30 +26,57 @@
         contribution: document.getElementById('dlgContribution')
     };
 
-    // Tell CSS that the enhanced path is live, so the inline-fallback styling drops away.
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Tell CSS the enhanced path is live, so the inline-fallback layout drops away.
     document.documentElement.classList.add('ev-js');
 
     // The dialogs ship open (the no-JS fallback). Close them now that we can manage them.
-    Object.values(DIALOGS).forEach(function (d) {
-        if (d && d.open) d.close();
-    });
+    Object.values(DIALOGS).forEach(function (d) { if (d && d.open) d.close(); });
 
     const toast = function (text, kind) {
         if (typeof window.toast === 'function') window.toast(text, kind);
     };
 
+    // ── numbers ──────────────────────────────────────────────────────
+    function inr(n) {
+        try {
+            return n.toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+        } catch (_) {
+            return '₹' + Math.round(n).toLocaleString('en-IN');
+        }
+    }
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+    /** Tween the hero figure from its previous value to the new one. */
+    function tweenHero(el, from, to) {
+        if (reduced || from === to) { el.textContent = inr(Math.abs(to)); return; }
+        const started = performance.now();
+        const dur = 620;
+        (function step(now) {
+            const t = Math.min(1, (now - started) / dur);
+            el.textContent = inr(Math.abs(from + (to - from) * easeOutCubic(t)));
+            if (t < 1) requestAnimationFrame(step);
+        })(performance.now());
+    }
+
+    function availableNow() {
+        const root = board.querySelector('.ev-board');
+        return root ? parseFloat(root.dataset.evAvailable) : NaN;
+    }
+
     // ── opening a sheet ──────────────────────────────────────────────
     function openDialog(dialog) {
         if (!dialog) return;
         if (typeof dialog.showModal === 'function') dialog.showModal();
-        else dialog.setAttribute('open', '');           // very old browsers: inline panel
-        const first = dialog.querySelector('input:not([type=hidden]), select, textarea');
+        else dialog.setAttribute('open', '');
+        const first = dialog.querySelector('input:not([type=hidden]):not([type=radio]), select, textarea');
         if (first) first.focus();
     }
 
     /**
-     * Refill the spend sheet's sub-event picker straight from the board that is
-     * currently on screen, so it can never drift out of sync after a swap.
+     * Refill the spend sheet's sub-event picker from the board currently on screen,
+     * so it can never drift out of sync after a swap.
      */
     function syncSubEventOptions(preselectId) {
         const select = document.querySelector('[data-ev-subselect]');
@@ -75,6 +101,20 @@
         const opener = e.target.closest('[data-ev-open]');
         if (opener) {
             const key = opener.dataset.evOpen;
+
+            // "Allocate budget" isn't a sheet — it opens the first sub-event and puts
+            // the cursor straight in its amount field.
+            if (key === 'allocate') {
+                const first = board.querySelector('details.ev-line');
+                if (first) {
+                    first.open = true;
+                    first.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+                    const amount = first.querySelector('input[name=allocated]');
+                    if (amount) { amount.focus(); amount.select(); }
+                }
+                return;
+            }
+
             const dialog = DIALOGS[key];
             if (!dialog) return;
 
@@ -85,6 +125,8 @@
                     form.querySelector('[name=amount]').value = '';
                     form.querySelector('[name=paidTo]').value = '';
                     form.querySelector('[name=note]').value = '';
+                    const paid = form.querySelector('#spPaid');
+                    if (paid) paid.checked = true;
                 }
             }
 
@@ -96,6 +138,9 @@
                 form.querySelector('[data-ev-field=date]').value = d.date;
                 form.querySelector('[data-ev-field=paidTo]').value = d.paidTo || '';
                 form.querySelector('[data-ev-field=note]').value = d.note || '';
+                const committed = d.status === 'Committed';
+                form.querySelector('[data-ev-field=statusCommitted]').checked = committed;
+                form.querySelector('[data-ev-field=statusPaid]').checked = !committed;
             }
 
             openDialog(dialog);
@@ -118,30 +163,38 @@
     });
 
     // ── swapping the board ───────────────────────────────────────────
-    /** Which sub-events the user had expanded, so a swap doesn't collapse their place. */
+    /** Which sub-events the user had expanded, so a swap doesn't lose their place. */
     function openRowIds() {
-        return Array.from(board.querySelectorAll('details.ev-row[open]'))
+        return Array.from(board.querySelectorAll('details.ev-line[open]'))
             .map(function (d) { return d.dataset.subeventId; });
     }
 
     function restoreRows(ids) {
         ids.forEach(function (id) {
-            const row = board.querySelector('details.ev-row[data-subevent-id="' + id + '"]');
+            const row = board.querySelector('details.ev-line[data-subevent-id="' + id + '"]');
             if (row) row.open = true;
         });
     }
 
     function applyBoard(html) {
         const expanded = openRowIds();
+        const before = availableNow();
+
         const swap = function () {
             board.innerHTML = html;
             restoreRows(expanded);
-            const flash = board.querySelector('.ev-board');
-            const message = flash && flash.dataset.evFlash;
+
+            const root = board.querySelector('.ev-board');
+            const message = root && root.dataset.evFlash;
             if (message) toast(message, 'success');
+
+            // Let the headline figure travel to its new value rather than jump.
+            const hero = board.querySelector('[data-ev-hero]');
+            const after = availableNow();
+            if (hero && !isNaN(before) && !isNaN(after)) tweenHero(hero, before, after);
         };
 
-        if (typeof document.startViewTransition === 'function') {
+        if (!reduced && typeof document.startViewTransition === 'function') {
             document.startViewTransition(swap);
         } else {
             swap();

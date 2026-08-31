@@ -1,9 +1,14 @@
+@using System.Globalization
 @using ExpenseTracker.Data
 @using ExpenseTracker.Models.Domain
+@using ExpenseTracker.Models.ViewModel
+@using ExpenseTracker.Services
 @model ExpenseTracker.Models.Domain.Event
 
 @{
-    ViewData["Title"] = "Edit Event";
+    ViewData["Title"] = "Edit event";
+    var inr = CultureInfo.GetCultureInfo("en-IN");
+    var totals = ViewData["Totals"] as EventTotals;
     var types = new[]
     {
         EventType.Wedding, EventType.BirthdayParty, EventType.HouseWarming,
@@ -11,69 +16,125 @@
     };
 }
 
-<div class="create-page-header">
-    <i class="bi bi-pencil-square header-icon"></i>
-    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Event settings</div>
-    <h1>Edit Event</h1>
-</div>
+<div class="ev-id" data-ev-type="@Model.EventType">
+    <a asp-action="Details" asp-route-id="@Model.Id" class="ev-back"><i class="bi bi-arrow-left"></i> Back to event</a>
 
-<div class="row g-4 align-items-start">
-    <div class="col-lg-7">
-        <div class="card create-form-card">
-            <div class="card-body">
-                <form asp-action="Edit" method="post">
-                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-                    <input type="hidden" asp-for="Id" />
+    <header class="mb-5">
+        <h1 class="ev-title" style="font-size:clamp(2rem,1.4rem+2.4vw,3rem);">Edit event</h1>
+        <p class="ev-lede">Naming, dates and status. Budgets and spending live on the event itself.</p>
+    </header>
 
-                    <div class="ev-field-grid">
-                        <label class="ev-field ev-field-wide">
-                            <span>Event name</span>
-                            <input asp-for="Name" class="form-control" maxlength="100" />
-                            <span asp-validation-for="Name" class="text-danger"></span>
-                        </label>
+    <div class="ev-edit-grid">
+        <form asp-action="Edit" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <input type="hidden" asp-for="Id" />
 
-                        <label class="ev-field">
-                            <span>Event type</span>
-                            <select asp-for="EventType" class="form-select">
-                                @foreach (var t in types)
-                                {
-                                    <option value="@t" selected="@(Model.EventType == t ? "selected" : null)">@EventTemplates.Label(t)</option>
-                                }
-                            </select>
-                            <small class="ev-help">Changes the icon only — your sub-events stay as they are.</small>
-                        </label>
+            <div class="ev-field-grid">
+                <label class="ev-field ev-field-wide">
+                    <span>Event name</span>
+                    <input asp-for="Name" class="form-control form-control-lg" maxlength="100" />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </label>
 
-                        <label class="ev-field">
-                            <span>Event date <em>(optional)</em></span>
-                            <input asp-for="EventDate" type="date" class="form-control" />
-                            <span asp-validation-for="EventDate" class="text-danger"></span>
-                        </label>
+                <label class="ev-field">
+                    <span>Type</span>
+                    <select asp-for="EventType" class="form-select">
+                        @foreach (var t in types)
+                        {
+                            <option value="@t" selected="@(Model.EventType == t ? "selected" : null)">@EventTemplates.Label(t)</option>
+                        }
+                    </select>
+                    <small class="ev-help">Sets the mark and accent. Your sub-events stay as they are.</small>
+                </label>
 
-                        <label class="ev-field">
-                            <span>Status</span>
-                            <select asp-for="Status" class="form-select">
-                                <option value="Planning">Planning</option>
-                                <option value="Active">Active</option>
-                                <option value="Completed">Completed</option>
-                                <option value="Cancelled">Cancelled</option>
-                            </select>
-                            <small class="ev-help">Completed and cancelled events are archived out of the main list.</small>
-                        </label>
+                <label class="ev-field">
+                    <span>Date <em>(optional)</em></span>
+                    <input asp-for="EventDate" type="date" class="form-control" />
+                    <span asp-validation-for="EventDate" class="text-danger"></span>
+                </label>
 
-                        <label class="ev-field ev-field-wide">
-                            <span>Note <em>(optional)</em></span>
-                            <input asp-for="Note" class="form-control" maxlength="500" />
-                            <span asp-validation-for="Note" class="text-danger"></span>
-                        </label>
-                    </div>
+                <label class="ev-field ev-field-wide">
+                    <span>Status</span>
+                    <select asp-for="Status" class="form-select">
+                        <option value="Planning">Planning</option>
+                        <option value="Active">Active</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                    <small class="ev-help">Completed and cancelled events move to Archived.</small>
+                </label>
 
-                    <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save changes</button>
-                        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Cancel</a>
-                    </div>
-                </form>
+                <label class="ev-field ev-field-wide">
+                    <span>Note <em>(optional)</em></span>
+                    <input asp-for="Note" class="form-control" maxlength="500" />
+                    <span asp-validation-for="Note" class="text-danger"></span>
+                </label>
             </div>
-        </div>
+
+            <div class="d-flex gap-2 mt-4">
+                <button type="submit" class="btn btn-primary">Save changes</button>
+                <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+
+        @* The space beside the form earns its keep: a live summary of what's being edited. *@
+        <aside class="ev-summary">
+            <div class="ev-eyebrow">Event summary</div>
+            <h2 class="ev-title mt-3" style="font-size:1.75rem;">
+                <span class="ev-head-mark"><i class="bi bi-@EventTemplates.Icon(Model.EventType)" aria-hidden="true"></i></span>@Model.Name
+            </h2>
+            <div class="ev-meta mt-2">
+                @EventTemplates.Label(Model.EventType)
+                @if (Model.EventDate.HasValue)
+                {
+                    <span class="ev-sep">·</span>
+                    <text>@Model.EventDate.Value.ToString("d MMM yyyy", inr)</text>
+                }
+            </div>
+
+            @if (totals != null)
+            {
+                <dl>
+                    <div>
+                        <dt>Sub-events</dt>
+                        <dd>@totals.SubEventCount</dd>
+                    </div>
+                    <div>
+                        <dt>Allocated</dt>
+                        <dd title="@MoneyFormat.Full(totals.Allocated)">@MoneyFormat.Compact(totals.Allocated)</dd>
+                    </div>
+                    <div>
+                        <dt>Paid</dt>
+                        <dd title="@MoneyFormat.Full(totals.Paid)">@MoneyFormat.Compact(totals.Paid)</dd>
+                    </div>
+                    @if (totals.HasCommitted)
+                    {
+                        <div>
+                            <dt>Committed</dt>
+                            <dd title="@MoneyFormat.Full(totals.Committed)">@MoneyFormat.Compact(totals.Committed)</dd>
+                        </div>
+                    }
+                    <div>
+                        <dt>@(totals.IsOverBudget ? "Over plan" : "Still available")</dt>
+                        <dd title="@MoneyFormat.FullSigned(totals.Available)">@MoneyFormat.Compact(Math.Abs(totals.Available))</dd>
+                    </div>
+                </dl>
+
+                @if (totals.HasAllocation)
+                {
+                    <div class="mt-4">
+                        <span class="ev-health @totals.HealthClass">@totals.HealthLabel</span>
+                        <partial name="_Meter" model="@(new MeterModel(totals))" />
+                    </div>
+                }
+            }
+
+            <div class="mt-4">
+                <a asp-action="Details" asp-route-id="@Model.Id" class="ev-meta" style="text-decoration:none;">
+                    Open the event workspace <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+            </div>
+        </aside>
     </div>
 </div>
 

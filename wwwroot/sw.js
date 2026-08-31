@@ -8,7 +8,7 @@
 
 // Bump this whenever the shell changes — old caches with a different version
 // are dropped on activate.
-const VERSION = 'v1-2026-06-15';
+const VERSION = 'v2-2026-09-01';
 const SHELL_CACHE = `et-shell-${VERSION}`;
 const PAGES_CACHE = `et-pages-${VERSION}`;
 
@@ -18,6 +18,7 @@ const SHELL_ASSETS = [
     '/offline.html',
     '/css/site.css',
     '/js/site.js',
+    '/js/events.js',
     '/manifest.webmanifest',
     '/icons/icon.svg',
     '/lib/bootstrap/dist/css/bootstrap.min.css',

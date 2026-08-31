@@ -143,7 +143,8 @@ namespace ExpenseTracker.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> AddSpend(int subEventId, decimal amount, DateTime date, string? paidTo, string? note)
+        public async Task<IActionResult> AddSpend(
+            int subEventId, decimal amount, DateTime date, string? paidTo, string? note, SpendStatus status = SpendStatus.Paid)
         {
             var userId = _userManager.GetUserId(User)!;
             var sub = await _events.FindSubEventAsync(userId, subEventId);
@@ -159,16 +160,19 @@ namespace ExpenseTracker.Controllers
                 Date = date.Date,
                 PaidTo = Clean(paidTo, 120),
                 Note = Clean(note, 200),
+                Status = status,
                 UserId = userId
             });
             await _context.SaveChangesAsync();
 
-            return Done(sub.EventId, $"Spend recorded against '{sub.Name}'.");
+            var verb = status == SpendStatus.Committed ? "Commitment" : "Payment";
+            return Done(sub.EventId, $"{verb} recorded against '{sub.Name}'.");
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateSpend(int id, decimal amount, DateTime date, string? paidTo, string? note)
+        public async Task<IActionResult> UpdateSpend(
+            int id, decimal amount, DateTime date, string? paidTo, string? note, SpendStatus status = SpendStatus.Paid)
         {
             var userId = _userManager.GetUserId(User)!;
             var spend = await _events.FindSpendAsync(userId, id);
@@ -182,9 +186,25 @@ namespace ExpenseTracker.Controllers
             spend.Date = date.Date;
             spend.PaidTo = Clean(paidTo, 120);
             spend.Note = Clean(note, 200);
+            spend.Status = status;
             await _context.SaveChangesAsync();
 
-            return Done(eventId, "Spend entry updated.");
+            return Done(eventId, "Entry updated.");
+        }
+
+        /// <summary>One-tap "this commitment has now been paid".</summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MarkPaid(int id)
+        {
+            var userId = _userManager.GetUserId(User)!;
+            var spend = await _events.FindSpendAsync(userId, id);
+            if (spend == null || spend.SubEvent == null) return NotFound();
+
+            spend.Status = SpendStatus.Paid;
+            await _context.SaveChangesAsync();
+
+            return Done(spend.SubEvent.EventId, "Marked as paid.");
         }
 
         [HttpPost]

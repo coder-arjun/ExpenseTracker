@@ -17,6 +17,7 @@
   "shortcuts": [
     { "name": "Dashboard", "short_name": "Dashboard", "url": "/Dashboard", "description": "View this month's overview" },
     { "name": "Add Expense", "short_name": "Add", "url": "/Expenses/Create", "description": "Quickly log a new expense" },
-    { "name": "Insights", "short_name": "Insights", "url": "/Insights", "description": "Where your money is leaking" }
+    { "name": "Insights", "short_name": "Insights", "url": "/Insights", "description": "Where your money is leaking" },
+    { "name": "Events", "short_name": "Events", "url": "/Events", "description": "Budgets for weddings and other big moments" }
   ]
 }

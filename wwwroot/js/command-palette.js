@@ -124,7 +124,7 @@
             return a;
         });
 
-        group('Event Budgets', data.events, function (e) {
+        group('Events', data.events, function (e) {
             var a = document.createElement('a');
             a.href = e.url;
             a.innerHTML = '<i class="bi bi-calendar-event"></i><span>' + escapeHtml(e.name)

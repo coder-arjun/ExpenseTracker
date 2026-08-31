@@ -103,8 +103,22 @@ namespace ExpenseTracker.Models.Domain
     }
 
     /// <summary>
-    /// A dated payment against a sub-event — the advance, the balance, an extra.
-    /// Never mirrored into the Expense ledger; see the isolation note on <see cref="Event"/>.
+    /// Whether an <see cref="EventSpend"/> is money already gone, or money promised.
+    /// The distinction is what turns the module from bookkeeping into planning:
+    /// a signed quote you haven't paid still eats the budget.
+    /// </summary>
+    public enum SpendStatus
+    {
+        /// <summary>Money has actually left.</summary>
+        Paid = 1,
+        /// <summary>Agreed or quoted but not yet paid — still claims budget.</summary>
+        Committed = 2
+    }
+
+    /// <summary>
+    /// A dated entry against a sub-event — the advance, the balance, an extra, or a
+    /// commitment not yet paid. Never mirrored into the Expense ledger; see the
+    /// isolation note on <see cref="Event"/>.
     /// </summary>
     public class EventSpend
     {
@@ -112,6 +126,9 @@ namespace ExpenseTracker.Models.Domain
 
         public int SubEventId { get; set; }
         public SubEvent? SubEvent { get; set; }
+
+        /// <summary>Paid (money gone) or Committed (promised). Both consume the allocation.</summary>
+        public SpendStatus Status { get; set; } = SpendStatus.Paid;
 
         [Range(0.01, 999999999.99, ErrorMessage = "Amount must be greater than zero.")]
         public decimal Amount { get; set; }

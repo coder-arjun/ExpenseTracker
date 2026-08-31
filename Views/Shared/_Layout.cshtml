@@ -50,7 +50,7 @@
          figures  = IBM Plex Mono (tabular money columns) *@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
@@ -64,7 +64,7 @@
 <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
     <header>
-        <nav class="navbar navbar-expand-md navbar-light" aria-label="Primary">
+        <nav class="navbar navbar-expand-lg navbar-light" aria-label="Primary">
             <div class="container-fluid">
                 <a class="navbar-brand fw-bold" asp-area="" asp-controller="Dashboard" asp-action="Index">
                     <i class="bi bi-wallet2 me-2" aria-hidden="true"></i>Finoma
@@ -86,7 +86,7 @@
                     <div class="offcanvas-body">
                         @if (User.Identity?.IsAuthenticated == true)
                         {
-                            <form class="mobile-drawer-search d-md-none" role="search"
+                            <form class="mobile-drawer-search d-lg-none" role="search"
                                   asp-controller="Search" asp-action="Results" method="get">
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
@@ -94,80 +94,93 @@
                                            aria-label="Search" autocomplete="off" />
                                 </div>
                             </form>
-                            <div class="mobile-drawer-label d-md-none">Navigate</div>
+                            <div class="mobile-drawer-label d-lg-none">Navigate</div>
                         }
                     <ul class="navbar-nav flex-grow-1">
                         @if (User.Identity?.IsAuthenticated == true)
                         {
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Expenses" asp-action="Index">
-                                    <i class="bi bi-cash-stack me-1" aria-hidden="true"></i>Expenses
-                                </a>
+                            @* ---- Desktop: four destinations, grouped ---- *@
+                            <li class="nav-item d-none d-lg-block">
+                                <a class="nav-link" asp-area="" asp-controller="Dashboard" asp-action="Index">Overview</a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Incomes" asp-action="Index">
-                                    <i class="bi bi-graph-up-arrow me-1" aria-hidden="true"></i>Incomes
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Savings" asp-action="Index">
-                                    <i class="bi bi-piggy-bank me-1" aria-hidden="true"></i>Savings
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Budget" asp-action="Index">
-                                    <i class="bi bi-speedometer me-1" aria-hidden="true"></i>Budgets
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Categories" asp-action="Index">
-                                    <i class="bi bi-tags me-1" aria-hidden="true"></i>Categories
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Insights" asp-action="Index">
-                                    <i class="bi bi-lightbulb me-1" aria-hidden="true"></i>Insights
-                                </a>
-                            </li>
-                            <li class="nav-item dropdown">
+                            <li class="nav-item dropdown d-none d-lg-block">
                                 <a class="nav-link dropdown-toggle" href="#" id="moneyMenu" role="button"
-                                   data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="bi bi-three-dots me-1" aria-hidden="true"></i>More
-                                </a>
+                                   data-bs-toggle="dropdown" aria-expanded="false">Money</a>
                                 <ul class="dropdown-menu" aria-labelledby="moneyMenu">
+                                    <li><a class="dropdown-item" asp-controller="Expenses" asp-action="Index">
+                                        <i class="bi bi-cash-stack me-2" aria-hidden="true"></i>Expenses</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Incomes" asp-action="Index">
+                                        <i class="bi bi-graph-up-arrow me-2" aria-hidden="true"></i>Income</a></li>
                                     <li><a class="dropdown-item" asp-controller="Accounts" asp-action="Index">
-                                        <i class="bi bi-wallet2 me-2" aria-hidden="true"></i>Accounts
-                                    </a></li>
+                                        <i class="bi bi-wallet2 me-2" aria-hidden="true"></i>Accounts</a></li>
                                     <li><a class="dropdown-item" asp-controller="Transfers" asp-action="Index">
-                                        <i class="bi bi-arrow-left-right me-2" aria-hidden="true"></i>Transfers
-                                    </a></li>
-                                    <li><a class="dropdown-item" asp-controller="Goals" asp-action="Index">
-                                        <i class="bi bi-bullseye me-2" aria-hidden="true"></i>Goals
-                                    </a></li>
-                                    <li><a class="dropdown-item" asp-controller="Recurring" asp-action="Index">
-                                        <i class="bi bi-arrow-repeat me-2" aria-hidden="true"></i>Recurring
-                                    </a></li>
-                                    <li><a class="dropdown-item" asp-controller="Events" asp-action="Index">
-                                        <i class="bi bi-calendar-event me-2" aria-hidden="true"></i>Event Budgets
-                                    </a></li>
+                                        <i class="bi bi-arrow-left-right me-2" aria-hidden="true"></i>Transfers</a></li>
                                     <li><a class="dropdown-item" asp-controller="Debts" asp-action="Index">
-                                        <i class="bi bi-cash-coin me-2" aria-hidden="true"></i>Owed to Me
-                                    </a></li>
+                                        <i class="bi bi-cash-coin me-2" aria-hidden="true"></i>Owed to Me</a></li>
                                     <li><hr class="dropdown-divider" /></li>
-                                    <li>
-                                        <a class="dropdown-item" href="#" id="pwaInstallMenuItem" hidden>
-                                            <i class="bi bi-download me-2" aria-hidden="true"></i>Install app
-                                        </a>
-                                    </li>
+                                    <li><a class="dropdown-item" asp-controller="Categories" asp-action="Index">
+                                        <i class="bi bi-tags me-2" aria-hidden="true"></i>Categories</a></li>
                                 </ul>
                             </li>
+                            <li class="nav-item dropdown d-none d-lg-block">
+                                <a class="nav-link dropdown-toggle" href="#" id="planningMenu" role="button"
+                                   data-bs-toggle="dropdown" aria-expanded="false">Planning</a>
+                                <ul class="dropdown-menu" aria-labelledby="planningMenu">
+                                    <li><a class="dropdown-item" asp-controller="Budget" asp-action="Index">
+                                        <i class="bi bi-speedometer me-2" aria-hidden="true"></i>Budgets</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Savings" asp-action="Index">
+                                        <i class="bi bi-piggy-bank me-2" aria-hidden="true"></i>Savings</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Goals" asp-action="Index">
+                                        <i class="bi bi-bullseye me-2" aria-hidden="true"></i>Goals</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Events" asp-action="Index">
+                                        <i class="bi bi-calendar-event me-2" aria-hidden="true"></i>Events</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Recurring" asp-action="Index">
+                                        <i class="bi bi-arrow-repeat me-2" aria-hidden="true"></i>Recurring</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-item d-none d-lg-block">
+                                <a class="nav-link" asp-area="" asp-controller="Insights" asp-action="Index">Insights</a>
+                            </li>
+
+                            @* ---- Mobile drawer: flat and grouped by heading ---- *@
+                            <li class="nav-item d-lg-none">
+                                <a class="nav-link" asp-controller="Dashboard" asp-action="Index">
+                                    <i class="bi bi-house me-1" aria-hidden="true"></i>Overview</a>
+                            </li>
+                            <li class="d-lg-none"><div class="mobile-drawer-label">Money</div></li>
+                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Expenses" asp-action="Index">
+                                <i class="bi bi-cash-stack me-1" aria-hidden="true"></i>Expenses</a></li>
+                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Incomes" asp-action="Index">
+                                <i class="bi bi-graph-up-arrow me-1" aria-hidden="true"></i>Income</a></li>
+                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Accounts" asp-action="Index">
+                                <i class="bi bi-wallet2 me-1" aria-hidden="true"></i>Accounts</a></li>
+                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Transfers" asp-action="Index">
+                                <i class="bi bi-arrow-left-right me-1" aria-hidden="true"></i>Transfers</a></li>
+                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Debts" asp-action="Index">
+                                <i class="bi bi-cash-coin me-1" aria-hidden="true"></i>Owed to Me</a></li>
+                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Categories" asp-action="Index">
+                                <i class="bi bi-tags me-1" aria-hidden="true"></i>Categories</a></li>
+                            <li class="d-lg-none"><div class="mobile-drawer-label">Planning</div></li>
+                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Budget" asp-action="Index">
+                                <i class="bi bi-speedometer me-1" aria-hidden="true"></i>Budgets</a></li>
+                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Savings" asp-action="Index">
+                                <i class="bi bi-piggy-bank me-1" aria-hidden="true"></i>Savings</a></li>
+                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Goals" asp-action="Index">
+                                <i class="bi bi-bullseye me-1" aria-hidden="true"></i>Goals</a></li>
+                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Events" asp-action="Index">
+                                <i class="bi bi-calendar-event me-1" aria-hidden="true"></i>Events</a></li>
+                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Recurring" asp-action="Index">
+                                <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Recurring</a></li>
+                            <li class="d-lg-none"><div class="mobile-drawer-label">Understand</div></li>
+                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Insights" asp-action="Index">
+                                <i class="bi bi-lightbulb me-1" aria-hidden="true"></i>Insights</a></li>
                         }
                     </ul>
-                    <div class="mobile-drawer-label d-md-none">Settings</div>
+                    <div class="mobile-drawer-label d-lg-none">Settings</div>
                     <div class="d-flex align-items-center gap-2 nav-utility">
                         @if (User.Identity?.IsAuthenticated == true)
                         {
-                            <form class="navbar-search d-none d-md-flex" role="search"
+                            <form class="navbar-search d-none d-lg-flex" role="search"
                                   asp-controller="Search" asp-action="Results" method="get">
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
@@ -176,11 +189,16 @@
                                 </div>
                             </form>
                         }
+                        <button class="theme-toggle" id="pwaInstallMenuItem" type="button" hidden
+                                aria-label="Install Finoma as an app" title="Install app">
+                            <i class="bi bi-download" aria-hidden="true"></i>
+                            <span class="theme-toggle-text d-lg-none">Install app</span>
+                        </button>
                         <button class="theme-toggle" id="themeToggle" type="button"
                                 aria-pressed="false" aria-label="Switch to dark mode" title="Switch to dark mode">
                             <i class="bi bi-moon-fill" aria-hidden="true"></i>
                             <i class="bi bi-sun-fill" aria-hidden="true"></i>
-                            <span class="theme-toggle-text d-md-none">Appearance</span>
+                            <span class="theme-toggle-text d-lg-none">Appearance</span>
                         </button>
                         <partial name="_LoginPartial" />
                     </div>

@@ -1,0 +1,39 @@
+@using ExpenseTracker.Services
+@model ExpenseTracker.Models.ViewModel.MeterModel
+
+@*
+    The budget meter, defined once and reused by the hero, each sub-event line and
+    every index card.
+
+    The track spans max(allocated, actual), so an overrun is drawn running PAST the
+    plan tick rather than a bar silently pinned at 100%. Committed money is the same
+    hue at lower opacity — real enough to claim budget, not yet gone.
+*@
+
+@{
+    var r = Model.Roll;
+    var label = Model.AriaLabel ?? (r.HasAllocation
+        ? $"{MoneyFormat.Exact(r.Actual)} of {MoneyFormat.Exact(r.Allocated)} used, {MoneyFormat.Percent(r.RawPercent)}"
+        : "No budget allocated");
+    var style = $"--ev-paid:{MoneyFormat.Css(r.PaidPercent)}%;"
+              + $"--ev-committed:{MoneyFormat.Css(r.CommittedPercent)}%;"
+              + $"--ev-plan:{MoneyFormat.Css(r.PlanPercent)}%";
+}
+
+<span class="ev-meter @r.HealthClass" style="@style">
+    <span class="ev-meter-track" role="img" aria-label="@label">
+        <span class="ev-meter-paid"></span>
+        @if (r.HasCommitted)
+        {
+            <span class="ev-meter-committed"></span>
+        }
+        @if (r.HasAllocation)
+        {
+            <span class="ev-meter-plan"></span>
+        }
+    </span>
+    @if (!string.IsNullOrEmpty(Model.Hint))
+    {
+        <span class="ev-meter-hint">@Model.Hint</span>
+    }
+</span>
