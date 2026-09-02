@@ -186,6 +186,18 @@ namespace ExpenseTracker.Controllers
             var userId = _userManager.GetUserId(User);
             ViewData["Categories"] = await GetCategoryOptionsAsync(userId, null);
             ViewData["Accounts"] = await GetAccountOptionsAsync(userId, null);
+
+            // Read-only context for the summary panel beside the form, so it shows real
+            // figures rather than invented ones. Display data only — this does not affect
+            // how an income is validated or stored (see the POST below, unchanged).
+            var thisMonth = DateTime.Now.ToString("yyyy-MM");
+            ViewData["MonthTotal"] = await _context.Incomes
+                .Where(i => i.UserId == userId && i.YearMonth == thisMonth)
+                .SumAsync(i => (decimal?)i.Amount) ?? 0m;
+            ViewData["MonthCount"] = await _context.Incomes
+                .CountAsync(i => i.UserId == userId && i.YearMonth == thisMonth);
+            ViewData["MonthLabel"] = DateTime.Now.ToString("MMMM yyyy");
+
             return View();
         }
 

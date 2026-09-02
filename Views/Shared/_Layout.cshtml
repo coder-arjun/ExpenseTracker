@@ -1,3 +1,10 @@
+@{
+    // Active-section highlighting. Presentation only — derived from the current route.
+    var curCtrl = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    var moneySection = new[] { "Expenses", "Incomes", "Accounts", "Transfers", "Debts", "Categories" };
+    var planningSection = new[] { "Budget", "Savings", "Goals", "Events", "Recurring" };
+    string Act(params string[] ctrls) => ctrls.Contains(curCtrl, StringComparer.OrdinalIgnoreCase) ? " active" : "";
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -101,10 +108,10 @@
                         {
                             @* ---- Desktop: four destinations, grouped ---- *@
                             <li class="nav-item d-none d-lg-block">
-                                <a class="nav-link" asp-area="" asp-controller="Dashboard" asp-action="Index">Overview</a>
+                                <a class="nav-link@(Act("Dashboard"))" asp-area="" asp-controller="Dashboard" asp-action="Index">Overview</a>
                             </li>
                             <li class="nav-item dropdown d-none d-lg-block">
-                                <a class="nav-link dropdown-toggle" href="#" id="moneyMenu" role="button"
+                                <a class="nav-link dropdown-toggle@(Act(moneySection))" href="#" id="moneyMenu" role="button"
                                    data-bs-toggle="dropdown" aria-expanded="false">Money</a>
                                 <ul class="dropdown-menu" aria-labelledby="moneyMenu">
                                     <li><a class="dropdown-item" asp-controller="Expenses" asp-action="Index">
@@ -123,7 +130,7 @@
                                 </ul>
                             </li>
                             <li class="nav-item dropdown d-none d-lg-block">
-                                <a class="nav-link dropdown-toggle" href="#" id="planningMenu" role="button"
+                                <a class="nav-link dropdown-toggle@(Act(planningSection))" href="#" id="planningMenu" role="button"
                                    data-bs-toggle="dropdown" aria-expanded="false">Planning</a>
                                 <ul class="dropdown-menu" aria-labelledby="planningMenu">
                                     <li><a class="dropdown-item" asp-controller="Budget" asp-action="Index">
@@ -139,40 +146,40 @@
                                 </ul>
                             </li>
                             <li class="nav-item d-none d-lg-block">
-                                <a class="nav-link" asp-area="" asp-controller="Insights" asp-action="Index">Insights</a>
+                                <a class="nav-link@(Act("Insights"))" asp-area="" asp-controller="Insights" asp-action="Index">Insights</a>
                             </li>
 
                             @* ---- Mobile drawer: flat and grouped by heading ---- *@
                             <li class="nav-item d-lg-none">
-                                <a class="nav-link" asp-controller="Dashboard" asp-action="Index">
+                                <a class="nav-link@(Act("Dashboard"))" asp-controller="Dashboard" asp-action="Index">
                                     <i class="bi bi-house me-1" aria-hidden="true"></i>Overview</a>
                             </li>
                             <li class="d-lg-none"><div class="mobile-drawer-label">Money</div></li>
-                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Expenses" asp-action="Index">
+                            <li class="nav-item d-lg-none"><a class="nav-link@(Act("Expenses"))" asp-controller="Expenses" asp-action="Index">
                                 <i class="bi bi-cash-stack me-1" aria-hidden="true"></i>Expenses</a></li>
-                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Incomes" asp-action="Index">
+                            <li class="nav-item d-lg-none"><a class="nav-link@(Act("Incomes"))" asp-controller="Incomes" asp-action="Index">
                                 <i class="bi bi-graph-up-arrow me-1" aria-hidden="true"></i>Income</a></li>
-                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Accounts" asp-action="Index">
+                            <li class="nav-item d-lg-none"><a class="nav-link@(Act("Accounts"))" asp-controller="Accounts" asp-action="Index">
                                 <i class="bi bi-wallet2 me-1" aria-hidden="true"></i>Accounts</a></li>
-                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Transfers" asp-action="Index">
+                            <li class="nav-item d-lg-none"><a class="nav-link@(Act("Transfers"))" asp-controller="Transfers" asp-action="Index">
                                 <i class="bi bi-arrow-left-right me-1" aria-hidden="true"></i>Transfers</a></li>
-                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Debts" asp-action="Index">
+                            <li class="nav-item d-lg-none"><a class="nav-link@(Act("Debts"))" asp-controller="Debts" asp-action="Index">
                                 <i class="bi bi-cash-coin me-1" aria-hidden="true"></i>Owed to Me</a></li>
-                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Categories" asp-action="Index">
+                            <li class="nav-item d-lg-none"><a class="nav-link@(Act("Categories"))" asp-controller="Categories" asp-action="Index">
                                 <i class="bi bi-tags me-1" aria-hidden="true"></i>Categories</a></li>
                             <li class="d-lg-none"><div class="mobile-drawer-label">Planning</div></li>
-                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Budget" asp-action="Index">
+                            <li class="nav-item d-lg-none"><a class="nav-link@(Act("Budget"))" asp-controller="Budget" asp-action="Index">
                                 <i class="bi bi-speedometer me-1" aria-hidden="true"></i>Budgets</a></li>
-                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Savings" asp-action="Index">
+                            <li class="nav-item d-lg-none"><a class="nav-link@(Act("Savings"))" asp-controller="Savings" asp-action="Index">
                                 <i class="bi bi-piggy-bank me-1" aria-hidden="true"></i>Savings</a></li>
-                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Goals" asp-action="Index">
+                            <li class="nav-item d-lg-none"><a class="nav-link@(Act("Goals"))" asp-controller="Goals" asp-action="Index">
                                 <i class="bi bi-bullseye me-1" aria-hidden="true"></i>Goals</a></li>
-                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Events" asp-action="Index">
+                            <li class="nav-item d-lg-none"><a class="nav-link@(Act("Events"))" asp-controller="Events" asp-action="Index">
                                 <i class="bi bi-calendar-event me-1" aria-hidden="true"></i>Events</a></li>
-                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Recurring" asp-action="Index">
+                            <li class="nav-item d-lg-none"><a class="nav-link@(Act("Recurring"))" asp-controller="Recurring" asp-action="Index">
                                 <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Recurring</a></li>
                             <li class="d-lg-none"><div class="mobile-drawer-label">Understand</div></li>
-                            <li class="nav-item d-lg-none"><a class="nav-link" asp-controller="Insights" asp-action="Index">
+                            <li class="nav-item d-lg-none"><a class="nav-link@(Act("Insights"))" asp-controller="Insights" asp-action="Index">
                                 <i class="bi bi-lightbulb me-1" aria-hidden="true"></i>Insights</a></li>
                         }
                     </ul>

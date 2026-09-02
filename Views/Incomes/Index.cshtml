@@ -1,28 +1,51 @@
+@using System.Globalization
 @using Microsoft.AspNetCore.Mvc.Rendering
+@using ExpenseTracker.Services
 @model ExpenseTracker.Models.PaginatedList<ExpenseTracker.Models.Domain.Income>
+
+@*
+    Presentation only. Every form field name, route value and export parameter is
+    unchanged; the filter, pagination and CRUD links behave exactly as before.
+*@
 
 @{
     ViewData["Title"] = "Incomes";
+    var inr = CultureInfo.GetCultureInfo("en-IN");
     var selectedCategory = ViewData["SelectedCategory"] as int?;
     var selectedCategoryName = ViewData["SelectedCategoryName"] as string;
     var filteredTotal = (decimal)(ViewData["FilteredTotal"] ?? 0m);
     var filteredCount = (int)(ViewData["FilteredCount"] ?? 0);
     var categories = (SelectList)ViewData["Categories"]!;
-    var totalLabel = !string.IsNullOrEmpty(selectedCategoryName)
-        ? $"Total {selectedCategoryName} income"
-        : "Total income (filtered)";
+
+    var metricLabel = !string.IsNullOrEmpty(selectedCategoryName)
+        ? $"{selectedCategoryName} income"
+        : "Total income";
+
+    // Period caption comes only from the filter actually applied — never invented.
+    var filterType = ViewData["FilterType"]?.ToString();
+    var selMonth = ViewData["SelectedMonth"]?.ToString();
+    var selYear = ViewData["SelectedYear"]?.ToString();
+    string periodCaption;
+    if (filterType == "Month" && !string.IsNullOrEmpty(selMonth)
+        && DateTime.TryParseExact(selMonth, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var pm))
+        periodCaption = pm.ToString("MMMM yyyy", inr);
+    else if (filterType == "Year" && !string.IsNullOrEmpty(selYear)) periodCaption = selYear!;
+    else if (filterType == "DateRange") periodCaption = "Selected range";
+    else periodCaption = "All time";
+
+    var hasFilter = !string.IsNullOrEmpty(filterType) || selectedCategory.HasValue;
 }
 
-<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
-    <div class="page-header mb-0">
-        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Income ledger</div>
-        <h1><i class="bi bi-graph-up-arrow me-2"></i>Incomes</h1>
-        <p>Manage and track all your income sources</p>
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-end gap-3 mb-4">
+    <div class="page-head has-stroke mb-0">
+        <div class="page-eyebrow">Income ledger</div>
+        <h1>Incomes</h1>
+        <p class="page-lede">Every source. One clear picture.</p>
     </div>
     <div class="d-flex gap-2">
         <div class="btn-group flex-fill flex-sm-grow-0">
             <button type="button" class="btn btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-download me-1"></i>Export
+                Export
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
                 <li><a class="dropdown-item" asp-action="Export" asp-route-format="xlsx"
@@ -42,77 +65,146 @@
                        asp-route-filterType="@ViewData["FilterType"]" asp-route-selectedMonth="@ViewData["SelectedMonth"]"
                        asp-route-selectedYear="@ViewData["SelectedYear"]" asp-route-startDate="@ViewData["StartDate"]"
                        asp-route-endDate="@ViewData["EndDate"]" asp-route-selectedCategory="@(selectedCategory?.ToString())">
-                    <i class="bi bi-filetype-csv me-2 text-secondary"></i>CSV (plain text)
+                    <i class="bi bi-filetype-csv me-2 text-secondary"></i>CSV
                 </a></li>
             </ul>
         </div>
         <a asp-action="Create" class="btn btn-primary flex-fill flex-sm-grow-0">
-            <i class="bi bi-plus-circle me-1"></i>Add Income
+            <i class="bi bi-plus-lg me-1"></i>Add income
         </a>
     </div>
 </div>
 
-<!-- Filter Bar -->
-<div class="filter-bar sticky-filter mb-4">
+@* ── Filters: identical controls, a third of the height ───────────── *@
+<div class="xp-filters sticky-filter">
+    <div class="xp-filters-title">Filters</div>
     <form method="get" asp-action="Index" class="row g-3 align-items-end" data-persist-key="incomes">
-        <div class="col-md-2">
-            <label class="form-label fw-semibold">Filter By</label>
+        <div class="col-6 col-md-2">
+            <label class="form-label" for="filterType">Period</label>
             <select name="filterType" id="filterType" class="form-select" onchange="toggleFilterInputs()">
-                <option value="">All</option>
-                <option value="Month" selected="@(ViewData["FilterType"]?.ToString() == "Month" ? "selected" : null)">Month</option>
-                <option value="Year" selected="@(ViewData["FilterType"]?.ToString() == "Year" ? "selected" : null)">Year</option>
-                <option value="DateRange" selected="@(ViewData["FilterType"]?.ToString() == "DateRange" ? "selected" : null)">Date Range</option>
+                <option value="">All time</option>
+                <option value="Month" selected="@(filterType == "Month" ? "selected" : null)">Month</option>
+                <option value="Year" selected="@(filterType == "Year" ? "selected" : null)">Year</option>
+                <option value="DateRange" selected="@(filterType == "DateRange" ? "selected" : null)">Date range</option>
             </select>
         </div>
-        <div class="col-md-2" id="monthInput" style="display:none;">
-            <label class="form-label fw-semibold">Month</label>
+        <div class="col-6 col-md-2" id="monthInput" style="display:none;">
+            <label class="form-label">Month</label>
             <input type="month" name="selectedMonth" class="form-control" value="@ViewData["SelectedMonth"]" />
         </div>
-        <div class="col-md-2" id="yearInput" style="display:none;">
-            <label class="form-label fw-semibold">Year</label>
+        <div class="col-6 col-md-2" id="yearInput" style="display:none;">
+            <label class="form-label">Year</label>
             <input type="number" name="selectedYear" class="form-control" min="2020" max="2030" value="@ViewData["SelectedYear"]" />
         </div>
-        <div class="col-md-2">
-            <label class="form-label fw-semibold">Category</label>
+        <div class="col-6 col-md-2">
+            <label class="form-label">Category</label>
             <select name="selectedCategory" class="form-select" asp-items="@categories">
-                <option value="">All Categories</option>
+                <option value="">All categories</option>
             </select>
         </div>
-        <div class="col-md-2" id="startDateInput" style="display:none;">
-            <label class="form-label fw-semibold">Start Date</label>
+        <div class="col-6 col-md-2" id="startDateInput" style="display:none;">
+            <label class="form-label">Start date</label>
             <input type="date" name="startDate" class="form-control" value="@ViewData["StartDate"]" />
         </div>
-        <div class="col-md-2" id="endDateInput" style="display:none;">
-            <label class="form-label fw-semibold">End Date</label>
+        <div class="col-6 col-md-2" id="endDateInput" style="display:none;">
+            <label class="form-label">End date</label>
             <input type="date" name="endDate" class="form-control" value="@ViewData["EndDate"]" />
         </div>
-        <div class="col-md-auto">
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-funnel me-1"></i>Apply
-            </button>
-            @if (!string.IsNullOrEmpty(ViewData["FilterType"]?.ToString()) || selectedCategory.HasValue)
+        <div class="col-md-auto ms-md-auto">
+            <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+            @if (hasFilter)
             {
-                <a asp-action="Index" class="btn btn-outline-secondary ms-1">
-                    <i class="bi bi-x-circle me-1"></i>Clear
-                </a>
+                <a asp-action="Index" class="btn btn-sm btn-outline-secondary ms-1">Clear</a>
             }
         </div>
     </form>
 </div>
 
-<!-- Total summary card -->
+@* ── The hero figure ──────────────────────────────────────────────── *@
 @if (filteredCount > 0)
 {
-    <div class="card mb-4">
-        <div class="card-body d-flex justify-content-between align-items-end py-3">
-            <div>
-                <div class="eyebrow mb-1">@totalLabel</div>
-                <div class="ledger-total fs-3 t-income d-inline-block pt-2 ps-1">+@filteredTotal.ToString("C")</div>
-            </div>
-            <div class="folio">@filteredCount entr@(filteredCount == 1 ? "y" : "ies")</div>
+    <section class="xp-metric is-in" aria-label="@metricLabel">
+        <div>
+            <div class="xp-metric-label">@metricLabel</div>
+            <span class="xp-metric-value">+@filteredTotal.ToString("C0", inr)</span>
         </div>
+        <div class="xp-metric-meta">
+            <div class="xp-metric-count">@filteredCount.ToString("N0", inr) entr@(filteredCount == 1 ? "y" : "ies")</div>
+            <div class="xp-metric-period">@periodCaption</div>
+        </div>
+        <div class="xp-metric-rule" aria-hidden="true"></div>
+    </section>
+}
+
+@if (!Model.Any())
+{
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-graph-up-arrow"></i></div>
+        <div class="es-title">No income recorded yet</div>
+        <p class="es-body">Add your first income or change the filter above to start tracking your earnings.</p>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add income</a>
     </div>
 }
+else
+{
+    <table class="xp-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Source</th>
+                <th>Category</th>
+                <th class="xp-amount">Amount</th>
+                <th><span class="visually-hidden">Actions</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td class="xp-date" data-label="Date">
+                        @item.Date.ToString("dd MMM", inr)
+                        <small>@item.Date.ToString("yyyy", inr)</small>
+                    </td>
+                    <td class="xp-desc" data-label="Source">
+                        @if (string.IsNullOrWhiteSpace(item.Source))
+                        {
+                            <span class="none">No source</span>
+                        }
+                        else
+                        {
+                            @item.Source
+                        }
+                    </td>
+                    <td data-label="Category">
+                        <span class="xp-tag">@(item.Category?.Name ?? "—")</span>
+                    </td>
+                    <td class="xp-amount is-in" data-label="Amount">+@item.Amount.ToString("C2", inr)</td>
+                    <td data-label="Actions">
+                        <div class="xp-actions">
+                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm" aria-label="Edit" title="Edit">
+                                <i class="bi bi-pencil" aria-hidden="true"></i>
+                            </a>
+                            <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm" aria-label="View details" title="View details">
+                                <i class="bi bi-eye" aria-hidden="true"></i>
+                            </a>
+                            <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm" aria-label="Delete" title="Delete">
+                                <i class="bi bi-trash" aria-hidden="true"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@{
+    ViewData["PageIndex"] = Model.PageIndex;
+    ViewData["TotalPages"] = Model.TotalPages;
+    ViewData["HasPreviousPage"] = Model.HasPreviousPage;
+    ViewData["HasNextPage"] = Model.HasNextPage;
+}
+<partial name="_PaginationPartial" />
 
 @section Scripts {
     <script src="~/js/persistent-filters.js" asp-append-version="true"></script>
@@ -127,63 +219,3 @@
         toggleFilterInputs();
     </script>
 }
-
-@if (!Model.Any())
-{
-    <div class="empty-state-v2">
-        <div class="es-icon"><i class="bi bi-graph-up-arrow"></i></div>
-        <div class="es-title">No income recorded yet</div>
-        <p class="es-body">Add your first income or change the filter above to start tracking your earnings.</p>
-        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>Add Income</a>
-    </div>
-}
-else
-{
-    <div class="card">
-        <div class="card-body p-0">
-            <table class="table table-hover table-stack table-sticky mb-0 data-table">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th class="text-end">Amount</th>
-                        <th>Source</th>
-                        <th>Category</th>
-                        <th>Month</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var item in Model)
-                    {
-                        <tr>
-                            <td data-label="Date" class="folio">@item.Date.ToString("dd MMM yyyy")</td>
-                            <td data-label="Amount" class="text-end fw-semibold text-tabular t-income">+@item.Amount.ToString("C")</td>
-                            <td data-label="Source">@item.Source</td>
-                            <td data-label="Category"><span class="badge bg-secondary">@(item.Category?.Name ?? "—")</span></td>
-                            <td data-label="Month">@item.YearMonth</td>
-                            <td data-label="Actions">
-                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" aria-label="Edit">
-                                    <i class="bi bi-pencil" aria-hidden="true"></i>
-                                </a>
-                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info" aria-label="View details">
-                                    <i class="bi bi-eye" aria-hidden="true"></i>
-                                </a>
-                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger" aria-label="Delete">
-                                    <i class="bi bi-trash" aria-hidden="true"></i>
-                                </a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
-}
-
-@{
-    ViewData["PageIndex"] = Model.PageIndex;
-    ViewData["TotalPages"] = Model.TotalPages;
-    ViewData["HasPreviousPage"] = Model.HasPreviousPage;
-    ViewData["HasNextPage"] = Model.HasNextPage;
-}
-<partial name="_PaginationPartial" />

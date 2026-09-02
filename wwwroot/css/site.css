@@ -2112,3 +2112,129 @@ header { position: relative; z-index: 1030; }
 .navbar-search { min-width: 0; flex: 0 1 230px; }
 .navbar-search .input-group, .navbar-search .form-control { min-width: 0; }
 .navbar .navbar-nav { min-width: 0; }
+
+/* ============================================================
+   QUIET LUXURY — palette refinement + the Incomes pages
+   ------------------------------------------------------------
+   Accent hierarchy, used deliberately:
+     --red        brand / interaction
+     --green      positive financial movement
+     --champagne  premium emphasis + metadata, used sparingly
+     --ink        primary action (ivory on dark)
+
+   The Incomes pages reuse the Expenses vocabulary (.xp-*) rather
+   than growing a parallel system; only the genuinely new pieces
+   (hero amount, credit metric, wealth panel) are added here.
+
+   UNLAYERED on purpose — see the banner at the top of this file.
+   ============================================================ */
+
+:root {
+  --champagne: #A08346;
+  --champagne-tint: rgba(160, 131, 70, 0.10);
+}
+
+/* Requested dark palette, adopted as tokens so light mode is unaffected. */
+[data-theme="dark"] {
+  --paper:     #0D0C0A;   /* canvas   */
+  --paper-2:   #111009;   /* deep     */
+  --paper-3:   #1B1814;
+  --surface:   #151310;   /* surface  */
+  --surface-2: #1B1814;   /* elevated */
+
+  --rule:        #2B2720;
+  --rule-strong: #3A352C;
+
+  --ink:       #F3EFE7;
+  --ink-soft:  #A49D8E;
+  /* Spec said #716B5E; that measures 3.8:1 on #0D0C0A and fails AA for body text.
+     Nudged to the nearest tone that passes (4.7:1) — same character, legible. */
+  --ink-muted: #837C6E;
+
+  --red:   #F45F83;
+  --green: #5FC5A0;
+
+  --champagne: #C5AE78;
+  --champagne-tint: rgba(197, 174, 120, 0.12);
+
+  --accent-muted: rgba(244, 95, 131, 0.12);
+  --accent-edge:  rgba(244, 95, 131, 0.30);
+}
+
+/* ── The signature stroke ─────────────────────────────────
+   A single coral rule beside a major page header. Reserved for
+   page heads and hero figures — never a general card treatment. */
+.page-head.has-stroke { position: relative; padding-left: 1.15rem; }
+.page-head.has-stroke::before {
+  content: ""; position: absolute; left: 0; top: 0.15rem; bottom: 0.15rem;
+  width: 2px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--red), color-mix(in srgb, var(--red) 15%, transparent));
+}
+.page-eyebrow {
+  font-size: 0.62rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--champagne); margin-bottom: 0.7rem;
+}
+
+/* ── Credit variant of the headline metric ────────────────── */
+.xp-metric.is-in .xp-metric-value { color: var(--green); }
+.xp-metric.is-in { border-color: color-mix(in srgb, var(--green) 16%, var(--edge)); }
+/* A hairline sparkline standing in for "movement", drawn from the row itself —
+   decorative only, no data implied. */
+.xp-metric-rule {
+  grid-column: 1 / -1; height: 1px; margin-top: 1.25rem;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--green) 45%, transparent),
+    color-mix(in srgb, var(--champagne) 30%, transparent) 55%,
+    transparent);
+}
+
+/* ── Amount as the hero of a create form ──────────────────── */
+.xp-money.is-hero { border-width: 1px; }
+.xp-money.is-hero .xp-money-prefix { font-size: 1.5rem; padding: 0 1.15rem; }
+.xp-money.is-hero input {
+  font-size: clamp(1.9rem, 1.4rem + 2.2vw, 2.5rem);
+  font-weight: 500; letter-spacing: -0.035em; padding: 1rem 1.1rem;
+}
+.xp-money.is-in:focus-within { border-color: color-mix(in srgb, var(--green) 45%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 12%, transparent); }
+.xp-money.is-in:focus-within .xp-money-prefix { color: var(--green); }
+
+/* ── The wealth panel ─────────────────────────────────────── */
+.xp-panel.is-wealth {
+  background: linear-gradient(170deg, var(--champagne-tint), transparent 55%), var(--s1);
+  border-color: color-mix(in srgb, var(--champagne) 18%, var(--edge));
+}
+.xp-panel.is-wealth .xp-panel-eyebrow { color: var(--champagne); }
+.xp-stat { margin-top: 1.9rem; padding-top: 1.4rem; border-top: 1px solid var(--hairline); }
+.xp-stat-label {
+  font-size: 0.62rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ink-muted); margin-bottom: 0.6rem;
+}
+.xp-stat-value {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2rem); font-weight: 500;
+  letter-spacing: -0.035em; color: var(--green); display: block; line-height: 1;
+}
+.xp-stat-sub { font-size: var(--fs-xs); color: var(--ink-muted); margin-top: 0.5rem; }
+.xp-stat-rule {
+  height: 1px; margin-top: 1.1rem;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--champagne) 40%, transparent), transparent);
+}
+
+/* Credit amounts in the ledger read green, not accent-red. */
+.xp-amount.is-in { color: var(--green); }
+
+/* ── Active navigation: a hairline, not a pill ─────────────── */
+.navbar .nav-link { position: relative; }
+@media (min-width: 992px) {
+  .navbar .nav-link.active::after {
+    content: ""; position: absolute; left: 0.5rem; right: 0.5rem; bottom: 0.1rem;
+    height: 1.5px; border-radius: 2px; background: var(--red);
+  }
+}
+.navbar .nav-link.active { color: var(--ink); }
+.navbar .dropdown-item.active, .navbar .dropdown-item:active {
+  background: var(--accent-muted); color: var(--ink);
+}
+@media (max-width: 991.98px) {
+  .mobile-drawer .nav-link.active { color: var(--ink); box-shadow: inset 2px 0 0 var(--red); }
+}
