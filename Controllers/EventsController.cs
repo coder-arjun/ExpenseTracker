@@ -164,6 +164,29 @@ namespace ExpenseTracker.Controllers
             return RedirectToAction(nameof(Details), new { id = existing.Id });
         }
 
+        /// <summary>
+        /// POST /Events/Complete/5 — close an event once it has happened, or reopen it.
+        /// Same effect as changing Status in Edit, but reachable in one click from the
+        /// workspace, which is where you actually are when the event is over.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Complete(int id, bool reopen = false)
+        {
+            var userId = _userManager.GetUserId(User)!;
+            var ev = await _context.Events.FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+            if (ev == null) return NotFound();
+
+            ev.Status = reopen ? EventStatus.Active : EventStatus.Completed;
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = reopen
+                ? $"'{ev.Name}' reopened."
+                : $"'{ev.Name}' marked complete and moved to Archived.";
+
+            return RedirectToAction(nameof(Details), new { id = ev.Id });
+        }
+
         // GET: /Events/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {

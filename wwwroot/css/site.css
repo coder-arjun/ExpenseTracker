@@ -1278,7 +1278,7 @@ td.credit::before, .amount-in::before { content: "+"; }
 .ev-figures {
   display: grid; gap: 1.7rem 2.4rem; margin-top: 2.6rem; padding-top: 1.7rem;
   border-top: 1px solid var(--rule);
-  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
 }
 .ev-figure-v { font-size: clamp(1.25rem, 1.05rem + 0.85vw, 1.7rem); display: block; }
 .ev-figure-l { margin-top: 0.5rem; }
@@ -1509,7 +1509,7 @@ td.credit::before, .amount-in::before { content: "+"; }
 .ev-topline {
   display: grid; gap: 1.5rem 2.6rem; margin-bottom: 2.4rem; padding-bottom: 1.8rem;
   border-bottom: 1px solid var(--rule);
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
 }
 
 /* ── Create: template chooser ─────────────────────────────── */
@@ -1618,8 +1618,24 @@ form.is-busy { opacity: 0.55; pointer-events: none; }
 
 /* ── Narrow screens ───────────────────────────────────────── */
 @media (max-width: 400px) {
-  .ev-figures, .ev-topline { grid-template-columns: minmax(0, 1fr); gap: 1.15rem; }
   .ev-head-actions .btn { flex: 1 1 auto; }
+}
+
+/* Below 560px a grid of large figures reads as a long vertical run — the thing a
+   statement never does. Each figure becomes a ruled row instead: label left,
+   value right, aligned on a common right edge. DOM order is value-then-label, so
+   row-reverse puts the label first without touching the markup. */
+@media (max-width: 559.98px) {
+  .ev-topline, .ev-figures { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .ev-topline > div, .ev-figures > div {
+    display: flex; flex-direction: row-reverse; align-items: baseline;
+    justify-content: space-between; gap: 1rem;
+    padding: 0.8rem 0; border-bottom: 1px solid var(--hairline);
+  }
+  .ev-topline > div:last-child, .ev-figures > div:last-child { border-bottom: 0; padding-bottom: 0; }
+  .ev-topline > div:first-child, .ev-figures > div:first-child { padding-top: 0; }
+  .ev-figure-l { margin-top: 0; white-space: nowrap; }
+  .ev-figure-v { font-size: 1.2rem; text-align: right; }
 }
 
 @media (max-width: 640px) {
@@ -1654,13 +1670,18 @@ form.is-busy { opacity: 0.55; pointer-events: none; }
 
 /* — Ambient light, not a gradient. Larger, softer, further away. — */
 body {
+  /* Grain first, then the ambient light. A background layer, never an overlay
+     element — an overlay would need a stacking context and would sit between the
+     navbar and the page. */
   background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E"),
     radial-gradient(85% 55% at 50% -25%, rgba(255, 255, 255, 0.55), transparent 72%),
     radial-gradient(58% 46% at 112% -12%, var(--red-tint), transparent 74%),
     radial-gradient(50% 40% at -12% 8%, rgba(168, 122, 44, 0.045), transparent 76%);
 }
 [data-theme="dark"] body {
   background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E"),
     radial-gradient(85% 55% at 50% -25%, rgba(255, 255, 255, 0.028), transparent 72%),
     radial-gradient(58% 46% at 112% -12%, var(--red-tint), transparent 76%),
     radial-gradient(50% 40% at -12% 8%, rgba(220, 174, 84, 0.035), transparent 78%);
@@ -1720,6 +1741,11 @@ canvas { max-width: 100%; }
    which is exactly what pushed the navbar 140px wide at the md breakpoint. */
 [hidden] { display: none !important; }
 
+/* The header must always outrank page content, or an open dropdown renders
+   beneath it. Explicit, so a future overlay can't silently flatten them again. */
+header { position: relative; z-index: 1030; }
+.navbar .dropdown-menu { z-index: 1035; }
+
 /* — Grouped navigation — */
 .nav-group-label {
   font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.16em;
@@ -1728,3 +1754,361 @@ canvas { max-width: 100%; }
 .navbar .dropdown-menu { padding: 0.4rem; min-width: 13.5rem; }
 .navbar .dropdown-item { border-radius: var(--r-sm); padding: 0.52rem 0.7rem; }
 .navbar .dropdown-divider { margin: 0.35rem 0.4rem; }
+
+/* ============================================================
+   QUIET LUXURY — surface system + the Expenses pages
+   ------------------------------------------------------------
+   Four surface levels, hairline dividers, and depth you feel
+   rather than see. Implemented as TOKENS, not fixed hex, because
+   this app ships a light theme as well as a dark one — the same
+   component code has to hold up in both.
+
+     --s0  page          --s2  cards
+     --s1  deep surface  --s3  inputs / elevated controls
+
+   Borders step back: --hairline for dividers, --edge for the one
+   subtle outline a surface is allowed. Accent (--red) is reserved
+   for money, active state and focus — never decoration.
+
+   UNLAYERED on purpose — see the banner at the top of this file.
+   ============================================================ */
+
+:root {
+  --s0: var(--paper);
+  --s1: var(--paper-2);
+  --s2: var(--surface);
+  --s3: var(--surface-2);
+
+  --hairline: rgba(26, 24, 20, 0.075);
+  --edge: rgba(26, 24, 20, 0.10);
+  --inner-hi: rgba(255, 255, 255, 0.55);
+
+  --lift: 0 8px 30px rgba(26, 24, 20, 0.07), inset 0 1px 0 var(--inner-hi);
+  --lift-hover: 0 14px 40px rgba(26, 24, 20, 0.10), inset 0 1px 0 var(--inner-hi);
+
+  --accent: var(--red);
+  --accent-muted: rgba(194, 14, 58, 0.12);
+  --accent-edge: rgba(194, 14, 58, 0.28);
+}
+
+[data-theme="dark"] {
+  /* Nudged onto the requested ladder: page → nav → card → control. */
+  --paper:     #0F0E0B;
+  --paper-2:   #14120D;
+  --paper-3:   #1F1B14;
+  --surface:   #1A1712;
+  --surface-2: #211D16;
+
+  --hairline: rgba(255, 255, 255, 0.045);
+  --edge: rgba(255, 255, 255, 0.06);
+  --inner-hi: rgba(255, 255, 255, 0.025);
+
+  --lift: 0 8px 30px rgba(0, 0, 0, 0.14), inset 0 1px 0 var(--inner-hi);
+  --lift-hover: 0 14px 40px rgba(0, 0, 0, 0.20), inset 0 1px 0 var(--inner-hi);
+
+  --accent-muted: rgba(242, 106, 130, 0.12);
+  --accent-edge: rgba(242, 106, 130, 0.30);
+}
+
+/* A hairline, not a border. */
+.hairline { height: 1px; background: var(--hairline); border: 0; margin: 0; }
+
+/* ── Surfaces read by contrast first, outline second ──────── */
+.card, .filter-bar, .create-form-card {
+  background: var(--s2);
+  border: 1px solid var(--edge);
+  box-shadow: var(--lift);
+}
+.card:hover { border-color: var(--edge); box-shadow: var(--lift); }
+.form-control, .form-select, .input-group-text {
+  background: var(--s3);
+  border-color: var(--edge);
+}
+.form-control:focus, .form-select:focus {
+  background: var(--s3);
+  border-color: var(--accent-edge);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+.table > :not(caption) > * > * { background: transparent; }
+
+
+/* ── Editorial page header ────────────────────────────────── */
+.page-head { margin-bottom: 2rem; }
+.page-head h1 {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: clamp(2.1rem, 1.5rem + 2.6vw, 3.35rem);
+  letter-spacing: -0.035em; line-height: 1.02; margin: 0 0 0.5rem; color: var(--ink);
+}
+/* Sentence case. The all-caps deck read as dashboard boilerplate. */
+.page-lede {
+  font-size: var(--fs-md); color: var(--ink-muted); margin: 0;
+  text-transform: none; letter-spacing: 0; font-weight: 400; max-width: 40rem;
+}
+
+/* ── Filter toolbar: a control console, not a panel ───────── */
+.xp-filters {
+  background: var(--s1); border: 1px solid var(--edge); border-radius: var(--r-card);
+  padding: 0.9rem 1.1rem; margin-bottom: 1.5rem; box-shadow: none;
+}
+.xp-filters .form-label {
+  font-size: 0.66rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-muted); margin-bottom: 0.3rem;
+}
+.xp-filters .form-select, .xp-filters .form-control { font-size: var(--fs-sm); }
+.xp-filters-title {
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ink-muted); margin-bottom: 0.75rem;
+}
+
+/* ── The headline metric ──────────────────────────────────── */
+.xp-metric {
+  background: var(--s2); border: 1px solid var(--edge); border-radius: var(--r-card);
+  padding: 1.6rem 1.75rem; margin-bottom: 1.75rem; box-shadow: var(--lift);
+  display: flex; flex-wrap: wrap; gap: 1.25rem 2rem;
+  align-items: flex-end; justify-content: space-between;
+}
+.xp-metric-label {
+  font-size: 0.64rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ink-muted); margin-bottom: 0.85rem;
+}
+.xp-metric-value {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: clamp(2rem, 1.5rem + 2.2vw, 3rem); font-weight: 500;
+  letter-spacing: -0.04em; line-height: 1; color: var(--accent); display: block;
+}
+.xp-metric-meta { text-align: right; }
+.xp-metric-count {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: var(--fs-md); color: var(--ink); font-weight: 500;
+}
+.xp-metric-period {
+  font-size: 0.62rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-muted); margin-top: 0.3rem;
+}
+@media (max-width: 560px) { .xp-metric-meta { text-align: left; } }
+
+/* ── The ledger table ─────────────────────────────────────── */
+.xp-table { width: 100%; border-collapse: collapse; }
+.xp-table thead th {
+  font-family: var(--font-sans); font-size: 0.62rem; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-muted);
+  padding: 0 0.9rem 0.85rem; border-bottom: 1px solid var(--hairline);
+  background: transparent; white-space: nowrap;
+}
+.xp-table tbody td {
+  padding: 1.15rem 0.9rem; border-bottom: 1px solid var(--hairline);
+  vertical-align: middle; background: transparent;
+}
+.xp-table tbody tr { transition: background var(--transition-fast); }
+.xp-table tbody tr:hover { background: rgba(26, 24, 20, 0.022); }
+[data-theme="dark"] .xp-table tbody tr:hover { background: rgba(255, 255, 255, 0.025); }
+.xp-table tbody tr:last-child td { border-bottom: 0; }
+
+.xp-date { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--ink); white-space: nowrap; }
+.xp-date small { display: block; font-size: 0.7rem; color: var(--ink-muted); margin-top: 0.15rem; }
+.xp-desc { font-size: var(--fs-md); color: var(--ink); font-weight: 500; overflow-wrap: anywhere; }
+.xp-desc .none { color: var(--ink-muted); font-weight: 400; font-style: italic; }
+/* Right-aligned, tabular: decimals line up down the column. */
+.xp-amount {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  text-align: right; white-space: nowrap; font-size: var(--fs-md);
+  font-weight: 600; letter-spacing: -0.02em; color: var(--accent);
+}
+
+/* Classification badge, not a bright pill. */
+.xp-tag {
+  display: inline-block; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; padding: 0.28rem 0.55rem; border-radius: 6px;
+  color: var(--ink-soft); background: rgba(26, 24, 20, 0.05);
+  border: 1px solid var(--hairline); white-space: nowrap;
+}
+[data-theme="dark"] .xp-tag { background: rgba(255, 255, 255, 0.05); color: var(--ink-soft); }
+
+/* Ghost actions — no box per icon; they appear on row hover. */
+.xp-actions { display: flex; gap: 0.1rem; justify-content: flex-end; align-items: center; }
+.xp-actions .btn, .xp-actions > .inline-confirm > .btn {
+  border: 0 !important; background: transparent !important; box-shadow: none !important;
+  color: var(--ink-muted) !important; padding: 0.42rem 0.5rem; min-height: 0;
+  border-radius: 7px; opacity: 0.55; transition: opacity var(--transition-fast),
+    background var(--transition-fast), color var(--transition-fast);
+}
+.xp-table tbody tr:hover .xp-actions .btn,
+.xp-table tbody tr:hover .xp-actions > .inline-confirm > .btn { opacity: 1; }
+.xp-actions .btn:hover, .xp-actions > .inline-confirm > .btn:hover {
+  background: rgba(26, 24, 20, 0.06) !important; color: var(--ink) !important; transform: none;
+}
+[data-theme="dark"] .xp-actions .btn:hover,
+[data-theme="dark"] .xp-actions > .inline-confirm > .btn:hover { background: rgba(255, 255, 255, 0.06) !important; }
+/* Destructive only signals danger once you reach for it. */
+.xp-actions .inline-confirm > .btn:hover { color: var(--red) !important; background: var(--red-tint) !important; }
+.xp-actions .inline-confirm-bubble .btn { opacity: 1; }
+.xp-actions .inline-confirm-bubble .btn-danger {
+  background: var(--red) !important; color: #fff !important; border: 1px solid var(--red) !important;
+}
+
+.xp-select { width: 34px; }
+.xp-select .form-check-input { margin: 0; }
+
+/* Stacked ledger on small screens — a 5-column grid is unreadable on a phone. */
+@media (max-width: 720px) {
+  .xp-table thead { display: none; }
+  .xp-table, .xp-table tbody, .xp-table tr, .xp-table td { display: block; width: 100%; }
+  .xp-table tbody tr {
+    position: relative; padding: 1.05rem 0; border-bottom: 1px solid var(--hairline);
+  }
+  .xp-table tbody td { border: 0; padding: 0 0 0.2rem; }
+  .xp-table tbody tr:last-child { border-bottom: 0; }
+  .xp-amount { text-align: left; font-size: 1.1rem; margin-top: 0.35rem; }
+  .xp-select { position: absolute; right: 0; top: 1.05rem; width: auto; }
+  .xp-actions { justify-content: flex-start; margin-top: 0.55rem; }
+  .xp-actions .btn, .xp-actions > .inline-confirm > .btn { opacity: 1; }
+}
+
+/* ── Create: currency + date treatments ───────────────────── */
+.xp-field { margin-bottom: 1.6rem; }
+.xp-field > label, .xp-label {
+  display: block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-muted); margin-bottom: 0.5rem;
+}
+.xp-hint { font-size: var(--fs-xs); color: var(--ink-muted); margin-top: 0.4rem; }
+
+/* A dedicated prefix cell, so the field reads as a financial control. */
+.xp-money {
+  display: flex; align-items: stretch; border: 1px solid var(--edge);
+  border-radius: var(--r-input); background: var(--s3); overflow: hidden;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.xp-money:focus-within { border-color: var(--accent-edge); box-shadow: 0 0 0 3px var(--accent-muted); }
+.xp-money-prefix {
+  display: flex; align-items: center; justify-content: center; padding: 0 0.95rem;
+  font-family: var(--font-mono); font-size: 1.1rem; color: var(--ink-muted);
+  background: rgba(26, 24, 20, 0.035); border-right: 1px solid var(--hairline);
+}
+[data-theme="dark"] .xp-money-prefix { background: rgba(255, 255, 255, 0.035); }
+.xp-money:focus-within .xp-money-prefix { color: var(--accent); }
+.xp-money input {
+  flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink);
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 1.45rem; font-weight: 500; letter-spacing: -0.02em;
+  padding: 0.75rem 0.95rem; outline: none;
+}
+.xp-money input::placeholder { color: var(--ink-muted); opacity: 0.5; }
+/* The number spinner competes with a money field. */
+.xp-money input::-webkit-outer-spin-button,
+.xp-money input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.xp-money input[type=number] { -moz-appearance: textfield; }
+
+/* Human-readable echo of the date. The input keeps its exact value. */
+.xp-date-echo {
+  font-size: var(--fs-sm); color: var(--ink-soft); margin-top: 0.45rem;
+  font-family: var(--font-mono); letter-spacing: 0.01em;
+}
+
+/* ── Create: the intelligence panel ───────────────────────── */
+.xp-panel {
+  position: sticky; top: 1.5rem;
+  background: var(--s1); border: 1px solid var(--edge); border-radius: var(--r-surface);
+  padding: 1.9rem 1.75rem; box-shadow: var(--lift);
+}
+.xp-panel-eyebrow {
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.xp-panel-lede {
+  font-family: var(--font-serif); font-size: 1.5rem; line-height: 1.25; color: var(--ink);
+  margin: 1rem 0 0; letter-spacing: -0.01em;
+}
+.xp-panel dl { margin: 1.75rem 0 0; display: grid; gap: 0; }
+.xp-panel dl > div { padding: 0.95rem 0; border-top: 1px solid var(--hairline); }
+.xp-panel dt {
+  font-size: 0.62rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-muted); margin-bottom: 0.35rem;
+}
+.xp-panel dd {
+  margin: 0; font-size: var(--fs-md); color: var(--ink); font-weight: 500;
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.xp-panel dd.is-empty { color: var(--ink-muted); font-weight: 400; font-style: italic; }
+.xp-panel dd.mono { font-family: var(--font-mono); }
+.xp-panel-foot { margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--hairline); }
+
+/* ── Pagination: a quiet footer rule, not a row of buttons ── */
+.pager {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem 1.5rem; flex-wrap: wrap;
+  margin-top: 1.75rem; padding-top: 1.15rem; border-top: 1px solid var(--hairline);
+}
+.pager-meta {
+  font-size: var(--fs-sm); color: var(--ink-muted);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+}
+.pager-meta strong { color: var(--ink); font-weight: 600; }
+.pager .pagination { gap: 1px; margin: 0; }
+/* Ghost controls — the boxes were the noisiest thing on the page footer. */
+.pager .pagination .page-link {
+  border: 0; background: transparent; box-shadow: none;
+  color: var(--ink-muted); border-radius: 7px;
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 0.82rem; font-weight: 500; padding: 0.45rem 0.7rem; min-width: 2rem;
+  text-align: center; transition: background var(--transition-fast), color var(--transition-fast);
+}
+.pager .pagination .page-link:hover { background: rgba(26, 24, 20, 0.05); color: var(--ink); }
+[data-theme="dark"] .pager .pagination .page-link:hover { background: rgba(255, 255, 255, 0.055); }
+.pager .pagination .page-link:focus-visible { box-shadow: 0 0 0 3px var(--accent-muted); outline: none; }
+/* Current page reads as position, not as a pressed button. */
+.pager .pagination .page-item.active .page-link {
+  background: transparent; color: var(--accent); font-weight: 700;
+  position: relative;
+}
+.pager .pagination .page-item.active .page-link::after {
+  content: ""; position: absolute; left: 0.7rem; right: 0.7rem; bottom: 0.15rem;
+  height: 1.5px; border-radius: 2px; background: var(--accent);
+}
+[data-theme="dark"] .pager .pagination .page-item.active .page-link { color: var(--accent); }
+.pager .pagination .page-item.disabled .page-link { color: var(--ink-muted); opacity: 0.35; }
+.pager .pagination .page-item.disabled .page-link:hover { background: transparent; }
+@media (max-width: 560px) {
+  .pager { justify-content: center; }
+  .pager-meta { width: 100%; text-align: center; order: 2; }
+}
+
+/* ── Wide tables must stack before they can overflow ───────
+   .table-stack previously only stacked below 576px, so between 576px and roughly
+   1100px a wide table (Recurring has 9 columns) pushed the page sideways. Stacking
+   now begins at the same breakpoint where the navbar collapses, so there is no
+   window in which a table is both un-stacked and too wide for its container. */
+@media (max-width: 991.98px) {
+  .table-stack thead { display: none; }
+  .table-stack, .table-stack tbody, .table-stack tr, .table-stack td { display: block; width: 100%; }
+  .table-stack tr {
+    background: var(--s2, var(--surface)); border: 1px solid var(--edge, var(--rule));
+    border-radius: var(--r-card, var(--r-md)); padding: 0.75rem 0.95rem;
+    margin-bottom: 0.6rem; box-shadow: var(--shadow-xs);
+  }
+  .table-stack td {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.3rem 0; border: 0; text-align: right; gap: 0.75rem;
+  }
+  .table-stack td::before {
+    content: attr(data-label); color: var(--ink-muted); font-size: var(--fs-xs);
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600;
+    text-align: left; flex-shrink: 0;
+  }
+  .table-stack td[data-label="Actions"] { justify-content: flex-end; }
+  /* A stacked table is a list of cards; a sticky header has nothing to stick to. */
+  .table-stack.data-table thead th, .table-stack.table-sticky thead th { position: static; }
+}
+
+/* Last-resort safety net: any table NOT built to stack scrolls inside its own
+   container rather than widening the page. */
+.table:not(.table-stack) { display: block; overflow-x: auto; max-width: 100%; }
+
+/* ── Navbar must shrink before it overflows ────────────────
+   `.navbar-search { min-width: 230px }` was a hard floor: at exactly 992px, where
+   the bar first expands, the groups + search + toggles + user menu needed 1009px.
+   Flex children also default to min-width:auto, so nothing could give. Preferred
+   width is kept, but everything is now allowed to shrink. */
+.nav-utility { min-width: 0; }
+.navbar-search { min-width: 0; flex: 0 1 230px; }
+.navbar-search .input-group, .navbar-search .form-control { min-width: 0; }
+.navbar .navbar-nav { min-width: 0; }

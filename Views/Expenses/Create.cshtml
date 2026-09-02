@@ -1,105 +1,204 @@
+@using System.Globalization
 @using Microsoft.AspNetCore.Mvc.Rendering
 @model ExpenseTracker.Models.Domain.Expense
 
+@*
+    Presentation only. Every input keeps its exact name, value and validation binding —
+    Amount, Date, Description, CategoryId, AccountId, Month and the receipt upload all
+    post precisely as before. The date input still submits yyyy-MM-dd; the readable
+    "02 Sep 2026" beneath it is a display echo, never a posted value.
+*@
+
 @{
-    ViewData["Title"] = "Add Expense";
+    ViewData["Title"] = "Add expense";
+    var inr = CultureInfo.GetCultureInfo("en-IN");
     string currentYearMonth = DateTime.Now.ToString("yyyy-MM");
+    string today = DateTime.Now.ToString("yyyy-MM-dd");
     var categories = (SelectList)ViewData["Categories"]!;
     var accounts = ViewData["Accounts"] as SelectList;
 }
 
-<div class="page-header">
-    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> New debit</div>
-    <h1><i class="bi bi-cash-stack me-2"></i>Add Expense</h1>
-    <p class="text-uppercase">Record a single outflow in the ledger</p>
+<a asp-action="Index" class="ev-back"><i class="bi bi-arrow-left"></i> All expenses</a>
+
+<div class="page-head">
+    <h1>Add expense</h1>
+    <p class="page-lede">Record a single outflow. Finoma will organise the rest.</p>
 </div>
 
 <div class="row g-4 align-items-start">
-    <div class="col-lg-6">
-        <div class="card create-form-card" style="border-top-color: #1565c0;">
-            <div class="card-body">
-                <form asp-action="Create" enctype="multipart/form-data">
-                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                    <div class="form-group mb-3">
-                        <label asp-for="Amount" class="form-label"></label>
-                        <div class="input-currency">
-                            <input asp-for="Amount" class="form-control text-tabular" inputmode="decimal" aria-required="true" aria-describedby="amountHelp" />
-                        </div>
-                        <small id="amountHelp" class="form-text">In Indian rupees.</small>
-                        <span asp-validation-for="Amount" class="text-danger"></span>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label asp-for="Date" class="form-label"></label>
-                        <input asp-for="Date" type="date" class="form-control" value="@DateTime.Now.ToString("yyyy-MM-dd")" max="@DateTime.Now.ToString("yyyy-MM-dd")" />
-                        <span asp-validation-for="Date" class="text-danger"></span>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label asp-for="Description" class="form-label"></label>
-                        <input asp-for="Description" class="form-control" />
-                        <span asp-validation-for="Description" class="text-danger"></span>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label asp-for="CategoryId" class="form-label"></label>
-                        <select asp-for="CategoryId" class="form-select" asp-items="@categories">
-                            <option value="">-- Select Category --</option>
-                        </select>
-                        <span asp-validation-for="CategoryId" class="text-danger"></span>
-                        <div class="form-text">
-                            Don't see what you need? <a asp-controller="Categories" asp-action="Create" asp-route-type="Expense">Add a new category</a>.
-                        </div>
-                    </div>
-                    @if (accounts != null && accounts.Any())
-                    {
-                        <div class="form-group mb-3">
-                            <label asp-for="AccountId" class="form-label"></label>
-                            <select asp-for="AccountId" class="form-select" asp-items="@accounts">
-                                <option value="">— none —</option>
-                            </select>
-                            <span asp-validation-for="AccountId" class="text-danger"></span>
-                            <div class="form-text">Optional. Track which wallet/account this came from.</div>
-                        </div>
-                    }
-                    <div class="form-group mb-3">
-                        <label asp-for="Month" class="form-label">Month (yyyy-MM)</label>
-                        <input asp-for="Month" class="form-control" value="@currentYearMonth" placeholder="@currentYearMonth" />
-                        <span asp-validation-for="Month" class="text-danger"></span>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label for="receipt" class="form-label">Receipt <span class="text-muted">(optional, JPG/PNG/WEBP/PDF, max 5 MB)</span></label>
-                        <input type="file" name="receipt" id="receipt" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf" />
-                        @if (ViewData.ModelState["receipt"]?.Errors.Any() == true)
-                        {
-                            <div class="text-danger">@ViewData.ModelState["receipt"]!.Errors.First().ErrorMessage</div>
-                        }
-                    </div>
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create</button>
-                        <a asp-action="Index" class="btn btn-outline-secondary ms-2">Cancel</a>
-                    </div>
-                </form>
+    <div class="col-lg-7">
+        <form asp-action="Create" enctype="multipart/form-data" id="xpForm">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="xp-field">
+                <label asp-for="Amount" class="xp-label">Amount</label>
+                <div class="xp-money">
+                    <span class="xp-money-prefix" aria-hidden="true">&#8377;</span>
+                    <input asp-for="Amount" inputmode="decimal" placeholder="0.00"
+                           aria-required="true" aria-describedby="amountHelp" id="xpAmount" />
+                </div>
+                <div id="amountHelp" class="xp-hint">In Indian rupees.</div>
+                <span asp-validation-for="Amount" class="text-danger"></span>
             </div>
-        </div>
+
+            <div class="xp-field">
+                <label asp-for="Date" class="xp-label">Date</label>
+                <input asp-for="Date" type="date" class="form-control" id="xpDate"
+                       value="@today" max="@today" />
+                <div class="xp-date-echo" id="xpDateEcho" aria-live="polite"></div>
+                <span asp-validation-for="Date" class="text-danger"></span>
+            </div>
+
+            <div class="xp-field">
+                <label asp-for="Description" class="xp-label">Description</label>
+                <input asp-for="Description" class="form-control" id="xpDesc"
+                       placeholder="What was it for?" />
+                <span asp-validation-for="Description" class="text-danger"></span>
+            </div>
+
+            <div class="xp-field">
+                <label asp-for="CategoryId" class="xp-label">Category</label>
+                <select asp-for="CategoryId" class="form-select" asp-items="@categories" id="xpCategory">
+                    <option value="">— Select category —</option>
+                </select>
+                <span asp-validation-for="CategoryId" class="text-danger"></span>
+                <div class="xp-hint">
+                    Don't see what you need?
+                    <a asp-controller="Categories" asp-action="Create" asp-route-type="Expense">Add a new category</a>.
+                </div>
+            </div>
+
+            @if (accounts != null && accounts.Any())
+            {
+                <div class="xp-field">
+                    <label asp-for="AccountId" class="xp-label">Account</label>
+                    <select asp-for="AccountId" class="form-select" asp-items="@accounts" id="xpAccount">
+                        <option value="">— none —</option>
+                    </select>
+                    <span asp-validation-for="AccountId" class="text-danger"></span>
+                    <div class="xp-hint">Optional. Track which wallet or account this came from.</div>
+                </div>
+            }
+
+            <div class="xp-field">
+                <label asp-for="Month" class="xp-label">Ledger month</label>
+                <input asp-for="Month" class="form-control" id="xpMonth"
+                       value="@currentYearMonth" placeholder="@currentYearMonth" />
+                <div class="xp-hint">Format yyyy-MM. Which month's books this belongs to.</div>
+                <span asp-validation-for="Month" class="text-danger"></span>
+            </div>
+
+            <div class="xp-field">
+                <label for="receipt" class="xp-label">Receipt <span style="text-transform:none;letter-spacing:0;font-weight:400;">(optional)</span></label>
+                <input type="file" name="receipt" id="receipt" class="form-control"
+                       accept="image/jpeg,image/png,image/webp,application/pdf" />
+                <div class="xp-hint">JPG, PNG, WEBP or PDF, up to 5 MB.</div>
+                @if (ViewData.ModelState["receipt"]?.Errors.Any() == true)
+                {
+                    <div class="text-danger">@ViewData.ModelState["receipt"]!.Errors.First().ErrorMessage</div>
+                }
+            </div>
+
+            <hr class="hairline my-4" />
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-lg">Record expense</button>
+                <a asp-action="Index" class="btn btn-outline-secondary btn-lg">Cancel</a>
+            </div>
+        </form>
     </div>
-    <div class="col-lg-6 d-none d-lg-block">
-        <div class="create-illustration illus-expense">
-            <div class="illus-ring"></div>
-            <div class="illus-ring"></div>
-            <div class="illus-ring"></div>
-            <span class="illus-particle"><i class="bi bi-coin"></i></span>
-            <span class="illus-particle"><i class="bi bi-receipt"></i></span>
-            <span class="illus-particle"><i class="bi bi-cart3"></i></span>
-            <span class="illus-particle"><i class="bi bi-credit-card"></i></span>
-            <span class="illus-particle"><i class="bi bi-bag"></i></span>
-            <i class="bi bi-wallet2 illus-icon"></i>
-            <div class="illus-title">Track Every Rupee</div>
-            <div class="illus-subtitle">Recording your expenses is the first step towards better financial health.</div>
-            <div class="create-tip">
-                <i class="bi bi-lightbulb-fill"></i> Tip: Categorize expenses accurately for insightful reports.
+
+    @* Contextual, not promotional: it mirrors what is actually in the form. *@
+    <div class="col-lg-5">
+        <aside class="xp-panel" aria-label="Transaction summary">
+            <div class="xp-panel-eyebrow">New transaction</div>
+            <p class="xp-panel-lede">Every entry sharpens the picture of where your money goes.</p>
+
+            <dl>
+                <div>
+                    <dt>Amount</dt>
+                    <dd class="mono is-empty" id="sumAmount">Not set</dd>
+                </div>
+                <div>
+                    <dt>Date</dt>
+                    <dd class="mono" id="sumDate">—</dd>
+                </div>
+                <div>
+                    <dt>Category</dt>
+                    <dd class="is-empty" id="sumCategory">Not selected</dd>
+                </div>
+                <div>
+                    <dt>Ledger month</dt>
+                    <dd class="mono" id="sumMonth">@currentYearMonth</dd>
+                </div>
+            </dl>
+
+            <div class="xp-panel-foot xp-hint">
+                This is recorded as a debit against the selected month and reduces the
+                balance of the chosen account.
             </div>
-        </div>
+        </aside>
     </div>
 </div>
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        // Display-only. Nothing here changes a posted value — it mirrors the form
+        // into the summary panel and renders the date in a human-readable form.
+        (function () {
+            var inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 });
+            var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+            var amount = document.getElementById('xpAmount');
+            var date = document.getElementById('xpDate');
+            var desc = document.getElementById('xpDesc');
+            var cat = document.getElementById('xpCategory');
+            var month = document.getElementById('xpMonth');
+
+            var sumAmount = document.getElementById('sumAmount');
+            var sumDate = document.getElementById('sumDate');
+            var sumCat = document.getElementById('sumCategory');
+            var sumMonth = document.getElementById('sumMonth');
+            var echo = document.getElementById('xpDateEcho');
+
+            function readable(value) {
+                if (!value) return '';
+                var p = value.split('-');
+                if (p.length !== 3) return '';
+                var d = parseInt(p[2], 10), m = parseInt(p[1], 10) - 1;
+                if (isNaN(d) || isNaN(m) || !MONTHS[m]) return '';
+                return String(d).padStart(2, '0') + ' ' + MONTHS[m] + ' ' + p[0];
+            }
+            function setText(el, text, empty) {
+                if (!el) return;
+                el.textContent = text;
+                el.classList.toggle('is-empty', !!empty);
+            }
+            function sync() {
+                if (amount) {
+                    var v = parseFloat(amount.value);
+                    setText(sumAmount, isNaN(v) || v <= 0 ? 'Not set' : '−' + inr.format(v), isNaN(v) || v <= 0);
+                }
+                if (date) {
+                    var r = readable(date.value);
+                    if (echo) echo.textContent = r;
+                    setText(sumDate, r || '—', !r);
+                }
+                if (cat) {
+                    var label = cat.options[cat.selectedIndex] ? cat.options[cat.selectedIndex].text : '';
+                    var unset = !cat.value;
+                    setText(sumCat, unset ? 'Not selected' : label, unset);
+                }
+                if (month) setText(sumMonth, month.value || '—', !month.value);
+            }
+
+            [amount, date, desc, cat, month].forEach(function (el) {
+                if (!el) return;
+                el.addEventListener('input', sync);
+                el.addEventListener('change', sync);
+            });
+            sync();
+        })();
+    </script>
 }
