@@ -46,24 +46,45 @@
             }
         </div>
         <div class="ev-head-actions">
-            @if (ev.Status == EventStatus.Completed || ev.Status == EventStatus.Cancelled)
-            {
-                <form asp-action="Complete" asp-route-id="@ev.Id" method="post" class="d-inline">
-                    <input type="hidden" name="reopen" value="true" />
-                    <button type="submit" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i>Reopen
-                    </button>
-                </form>
-            }
-            else
-            {
-                <form asp-action="Complete" asp-route-id="@ev.Id" method="post" class="d-inline">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary"
-                            title="Close this event and move it to Archived">
-                        <i class="bi bi-check2-circle me-1"></i>Mark complete
-                    </button>
-                </form>
-            }
+            @*
+                Every state the Index tabs can show has to be reachable from here.
+                One dropdown, the current state marked, each option a real POST.
+            *@
+            <div class="dropdown d-inline-block ev-status-menu">
+                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                        data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                    <span class="ev-status-dot" data-status="@ev.Status" aria-hidden="true"></span>@statusWord
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end ev-status-list">
+                    <li><h6 class="dropdown-header">Move this event to</h6></li>
+                    @foreach (var (value, label, hint, icon) in new[]
+                    {
+                        (EventStatus.Planning,  "Planning",  "Still being arranged",            "bi-pencil"),
+                        (EventStatus.Active,    "Active",    "Happening now, money moving",     "bi-play-circle"),
+                        (EventStatus.Completed, "Completed", "It happened — move to Archived",  "bi-check2-circle"),
+                        (EventStatus.Cancelled, "Cancelled", "It won't happen — move to Archived", "bi-x-circle"),
+                    })
+                    {
+                        <li>
+                            <form asp-action="SetStatus" asp-route-id="@ev.Id" method="post">
+                                <input type="hidden" name="status" value="@value" />
+                                <button type="submit" class="dropdown-item @(ev.Status == value ? "is-current" : "")"
+                                        @(ev.Status == value ? "aria-current=true" : "")>
+                                    <i class="bi @icon" aria-hidden="true"></i>
+                                    <span class="ev-status-opt">
+                                        <span class="l">@label</span>
+                                        <span class="h">@hint</span>
+                                    </span>
+                                    @if (ev.Status == value)
+                                    {
+                                        <i class="bi bi-check2 ev-status-tick" aria-hidden="true"></i>
+                                    }
+                                </button>
+                            </form>
+                        </li>
+                    }
+                </ul>
+            </div>
             <a asp-action="Edit" asp-route-id="@ev.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
             <a asp-action="Delete" asp-route-id="@ev.Id" class="btn btn-sm btn-outline-danger">Delete</a>
         </div>

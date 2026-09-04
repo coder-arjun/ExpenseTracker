@@ -111,8 +111,22 @@ else
         <div class="ev-grid">
             @foreach (var e in Model)
             {
-                <a class="ev-card ev-id @(e.IsArchived ? "is-archived" : "")" data-ev-type="@e.EventType"
-                   asp-action="Details" asp-route-id="@e.Id">
+                @*
+                    The card was a single <a>, so nothing else could live inside it —
+                    a form nested in an anchor is invalid HTML. The whole card is still
+                    one click target, via a stretched overlay on the name link, which
+                    leaves room for a real status form on top of it.
+                *@
+                <article class="ev-card ev-id @(e.IsArchived ? "is-archived" : "")" data-ev-type="@e.EventType">
+                    @*
+                        The click target is a direct child of the card, not a link
+                        nested in the heading: `.ev-card > * { z-index: 1 }` gives every
+                        child its own stacking context, so an overlay inside the heading
+                        could never paint above its siblings.
+                    *@
+                    <a class="ev-card-link" asp-action="Details" asp-route-id="@e.Id"
+                       aria-label="Open @e.Name"><span class="visually-hidden">Open @e.Name</span></a>
+
                     <span class="ev-card-mark"><i class="bi bi-@EventTemplates.Icon(e.EventType)" aria-hidden="true"></i></span>
 
                     <h2 class="ev-title ev-card-name">@e.Name</h2>
@@ -154,7 +168,46 @@ else
                         }
                         <span class="ev-meta">@e.SubEventCount sub-event@(e.SubEventCount == 1 ? "" : "s")</span>
                     </div>
-                </a>
+
+                    @* Close, cancel or reopen without opening the event first. *@
+                    <div class="dropdown ev-card-status">
+                        <button type="button" class="btn btn-sm ev-card-status-btn"
+                                data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false"
+                                aria-label="Change status of @e.Name" title="Change status">
+                            <span class="ev-status-dot" data-status="@e.Status" aria-hidden="true"></span>
+                            <span class="ev-card-status-label">@e.Status</span>
+                            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end ev-status-list">
+                            <li><h6 class="dropdown-header">Move this event to</h6></li>
+                            @foreach (var (value, label, icon) in new[]
+                            {
+                                (EventStatus.Planning,  "Planning",  "bi-pencil"),
+                                (EventStatus.Active,    "Active",    "bi-play-circle"),
+                                (EventStatus.Completed, "Completed", "bi-check2-circle"),
+                                (EventStatus.Cancelled, "Cancelled", "bi-x-circle"),
+                            })
+                            {
+                                <li>
+                                    <form asp-action="SetStatus" asp-route-id="@e.Id" method="post">
+                                        <input type="hidden" name="status" value="@value" />
+                                        <input type="hidden" name="returnTo" value="index" />
+                                        <input type="hidden" name="filter" value="@filter" />
+                                        <button type="submit" class="dropdown-item @(e.Status == value ? "is-current" : "")"
+                                                @(e.Status == value ? "aria-current=true" : "")>
+                                            <i class="bi @icon" aria-hidden="true"></i>
+                                            <span class="ev-status-opt"><span class="l">@label</span></span>
+                                            @if (e.Status == value)
+                                            {
+                                                <i class="bi bi-check2 ev-status-tick" aria-hidden="true"></i>
+                                            }
+                                        </button>
+                                    </form>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </article>
             }
         </div>
 

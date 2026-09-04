@@ -165,27 +165,55 @@ namespace ExpenseTracker.Controllers
         }
 
         /// <summary>
-        /// POST /Events/Complete/5 — close an event once it has happened, or reopen it.
-        /// Same effect as changing Status in Edit, but reachable in one click from the
-        /// workspace, which is where you actually are when the event is over.
+        /// POST /Events/SetStatus/5 — move an event between Planning, Active,
+        /// Completed and Cancelled without going through the Edit form.
+        ///
+        /// The Index tabs expose all four states, so all four have to be reachable
+        /// from the places you actually are: the event card and the workspace header.
+        /// Nothing but Status changes — the ledger underneath is untouched.
         /// </summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Complete(int id, bool reopen = false)
+        public async Task<IActionResult> SetStatus(int id, EventStatus status, string? filter = null, string? returnTo = null)
         {
+            if (!Enum.IsDefined(typeof(EventStatus), status))
+                return BadRequest();
+
             var userId = _userManager.GetUserId(User)!;
             var ev = await _context.Events.FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
             if (ev == null) return NotFound();
 
-            ev.Status = reopen ? EventStatus.Active : EventStatus.Completed;
-            await _context.SaveChangesAsync();
+            if (ev.Status == status)
+            {
+                TempData["InfoMessage"] = $"'{ev.Name}' is already {status.ToString().ToLowerInvariant()}.";
+            }
+            else
+            {
+                ev.Status = status;
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = status switch
+                {
+                    EventStatus.Completed => $"'{ev.Name}' closed and moved to Archived.",
+                    EventStatus.Cancelled => $"'{ev.Name}' cancelled and moved to Archived.",
+                    EventStatus.Active    => $"'{ev.Name}' is active again.",
+                    _                     => $"'{ev.Name}' moved back to planning."
+                };
+            }
 
-            TempData["SuccessMessage"] = reopen
-                ? $"'{ev.Name}' reopened."
-                : $"'{ev.Name}' marked complete and moved to Archived.";
-
-            return RedirectToAction(nameof(Details), new { id = ev.Id });
+            // Come back to wherever the change was made from.
+            return returnTo == "index"
+                ? RedirectToAction(nameof(Index), new { filter })
+                : RedirectToAction(nameof(Details), new { id = ev.Id });
         }
+
+        /// <summary>
+        /// POST /Events/Complete/5 — kept so existing links and bookmarks keep working.
+        /// Delegates to SetStatus so there is one code path for a status change.
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public Task<IActionResult> Complete(int id, bool reopen = false)
+            => SetStatus(id, reopen ? EventStatus.Active : EventStatus.Completed);
 
         // GET: /Events/Delete/5
         public async Task<IActionResult> Delete(int? id)

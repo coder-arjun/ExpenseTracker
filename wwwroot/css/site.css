@@ -4188,3 +4188,83 @@ html.fin-loading, html.fin-loading body { overflow: hidden; }
   .fin-loader-core { gap: 1.25rem; padding: 1.25rem; }
   .fin-loader-text { font-size: var(--fs-xs); letter-spacing: 0.1em; }
 }
+
+/* ── Event status: reachable from the card and the workspace ── */
+
+/* One dot, four meanings. Used by both the card and the header control. */
+.ev-status-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  margin-right: 0.45rem; flex: none; background: var(--ink-muted);
+  vertical-align: 0.05em;
+}
+.ev-status-dot[data-status="Planning"] { background: var(--brass); }
+.ev-status-dot[data-status="Active"] {
+  background: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 18%, transparent);
+}
+.ev-status-dot[data-status="Completed"] { background: var(--ink-muted); }
+.ev-status-dot[data-status="Cancelled"] { background: var(--red); }
+
+/* The menu itself — a form per row, so it works without JS beyond the toggle. */
+.ev-status-list { min-width: 15rem; }
+.ev-status-list form { margin: 0; }
+.ev-status-list .dropdown-item {
+  display: flex; align-items: flex-start; gap: 0.6rem; width: 100%;
+  text-align: left; background: none; border: 0; cursor: pointer;
+}
+.ev-status-list .dropdown-item > .bi:first-child { line-height: 1.35; flex: none; }
+.ev-status-opt { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.ev-status-opt .l { font-weight: 500; color: inherit; }
+.ev-status-opt .h { font-size: 0.72rem; color: var(--ink-muted); margin-top: 0.1rem; }
+.ev-status-list .dropdown-item.is-current { color: var(--ink); font-weight: 600; }
+.ev-status-list .dropdown-item.is-current .ev-status-opt .l { font-weight: 600; }
+.ev-status-tick { margin-left: auto; color: var(--accent); line-height: 1.35; flex: none; }
+.ev-status-list .dropdown-item:hover .h { color: inherit; opacity: 0.8; }
+
+/* ── The card, no longer a single anchor ─────────────────── */
+.ev-card { position: relative; }
+/* The whole card is one click target: a link stretched over it, as a DIRECT
+   child. `.ev-card > * { z-index: 1 }` gives every child its own stacking
+   context, so an overlay nested inside the heading could never rise above the
+   siblings painted after it — it has to be a sibling itself. */
+.ev-card-link {
+  position: absolute; inset: 0; z-index: 2;
+  border-radius: inherit; text-decoration: none; color: inherit;
+}
+.ev-card-link:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+/* The status control has to clear that overlay. */
+.ev-card-status { position: absolute; top: 0.85rem; right: 0.85rem; z-index: 3; }
+.ev-card-status-btn {
+  display: inline-flex; align-items: center; gap: 0.15rem;
+  padding: 0.25rem 0.5rem; border-radius: 7px;
+  font-size: 0.66rem; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--ink-muted); background: var(--s3); border: 1px solid var(--hairline);
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+.ev-card-status-btn:hover, .ev-card-status-btn[aria-expanded="true"] {
+  color: var(--ink); border-color: var(--edge);
+}
+.ev-card-status-btn .bi-chevron-down { font-size: 0.55rem; margin-left: 0.15rem; opacity: 0.7; }
+/* The card's own name must not run under the control. */
+.ev-card-name { padding-right: 7.5rem; }
+
+/* The label stays at every width: a bare dot is not a discoverable control, and
+   the title wraps happily in the space that is left. */
+@media (max-width: 420px) {
+  .ev-card-status-btn { padding: 0.24rem 0.4rem; font-size: 0.62rem; }
+  .ev-card-status-btn .bi-chevron-down { font-size: 0.5rem; }
+  .ev-status-dot { margin-right: 0.35rem; }
+}
+
+/* The header control on the workspace. */
+.ev-status-menu .dropdown-toggle { display: inline-flex; align-items: center; }
+
+/* ── The quick-add FAB must not trap what is under it ─────
+   It is fixed at bottom-right below 992px (58px + 28px inset), so anything the
+   page happens to place there — a card's status control, a row's delete button —
+   sits permanently beneath it on a page too short to scroll. Reserving the space
+   guarantees every element can be scrolled clear of it.
+   Kept to the widths where the FAB is actually shown. */
+@media (max-width: 991.98px) {
+  body > .container-xl { padding-bottom: 7.5rem; }
+}
