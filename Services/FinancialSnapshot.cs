@@ -26,6 +26,16 @@ namespace ExpenseTracker.Services
         public List<BudgetLine> Budgets { get; set; } = new();
         public List<Opportunity> Opportunities { get; set; } = new();
 
+        // ── Read-only counts for the "spending signals" read-out. Additive:
+        // nothing in the analysis or the narrative branches on them. ──────────
+        /// <summary>Number of expense rows counted in this period (month-to-date aware).</summary>
+        public int ExpenseCount { get; set; }
+        /// <summary>Days of the period actually counted — the full month, or 1..AsOf for MTD.</summary>
+        public int DaysElapsed { get; set; }
+        /// <summary>Average spend per elapsed day. 0 when nothing has elapsed.</summary>
+        public decimal DailyAverageSpend =>
+            DaysElapsed > 0 ? Math.Round(TotalExpenses / DaysElapsed, 2) : 0m;
+
         // Per-category trailing-3-month averages, exposed for the "Budget to aim for"
         // section so the renderer can suggest a sensible target without recomputing.
         public Dictionary<string, decimal> TrailingAverages { get; set; } = new();
@@ -72,4 +82,11 @@ namespace ExpenseTracker.Services
         public string Difficulty { get; set; } = "medium";        // easy | medium | hard
         public string Evidence { get; set; } = string.Empty;
     }
+
+    /// <summary>
+    /// A suggested monthly limit for one category, produced by
+    /// <see cref="InsightsRenderer.SuggestBudgets"/>. Presentation data only —
+    /// nothing is stored and no budget is created from it.
+    /// </summary>
+    public record SuggestedBudget(string Category, decimal CurrentSpend, decimal Target, string Why);
 }

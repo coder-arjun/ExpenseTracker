@@ -16,6 +16,26 @@
     var periodSpendLabel = Model.FilterType == "Month" ? "This month · spend"
                          : Model.FilterType == "Year" ? "This year · spend"
                          : "This period · spend";
+
+    // Every figure on this page is labelled with the period it actually covers and,
+    // where two figures share a name, the formula that produced it. The numbers are
+    // untouched — only their captions. See the note beside "Savings rate" below:
+    // the hero and the figure row genuinely measure different things.
+    string periodLabel;
+    if (Model.FilterType == "Month" && !string.IsNullOrEmpty(Model.SelectedMonth)
+        && DateTime.TryParseExact(Model.SelectedMonth, "yyyy-MM",
+               System.Globalization.CultureInfo.InvariantCulture,
+               System.Globalization.DateTimeStyles.None, out var pmDate))
+        periodLabel = pmDate.ToString("MMMM yyyy", inrCulture);
+    else if (Model.FilterType == "Year" && Model.SelectedYear.HasValue)
+        periodLabel = Model.SelectedYear.Value.ToString();
+    else if (Model.FilterType == "DateRange")
+        periodLabel = "selected range";
+    else
+        periodLabel = "all time";
+
+    // Largest spending category, straight from the data already on the page.
+    var topLeak = Model.TopLeakages != null && Model.TopLeakages.Count > 0 ? Model.TopLeakages[0] : null;
 }
 
 @* ── Statement masthead — the signature ── *@
@@ -23,28 +43,32 @@
     <div class="statement-eyebrow"><span class="seal-dot">&#9679;</span> Statement &middot; The Reckoning</div>
     <span class="statement-figure" data-countup="@kpiNetWorth" data-countup-format="currency"
           aria-label="Net worth @kpiNetWorth.ToString("C0", inrCulture)">@kpiNetWorth.ToString("C0", inrCulture)</span>
-    <div class="statement-sub">Net worth across all accounts</div>
+    <div class="statement-sub">
+        Total across all accounts
+        <span class="stmt-note">All time &middot; not affected by the filter below</span>
+    </div>
     <div class="statement-meta">
         <div class="sm-item">
             <div class="sm-label">@periodSpendLabel</div>
             <div class="sm-value t-expense"><span data-countup="@kpiSpend" data-countup-format="currency">@kpiSpend.ToString("C0", inrCulture)</span></div>
+            <div class="sm-note">Recorded expenses &middot; @periodLabel</div>
         </div>
         <div class="sm-item">
-            <div class="sm-label">Savings rate</div>
+            <div class="sm-label">Surplus rate</div>
             <div class="sm-value t-goal"><span data-countup="@kpiSavings" data-countup-format="percent">@kpiSavings%</span></div>
+            <div class="sm-note">(income &minus; expenses) &divide; income &middot; @periodLabel</div>
         </div>
         <div class="sm-item">
             <div class="sm-label">Active goals</div>
             <div class="sm-value"><span data-countup="@kpiGoals">@kpiGoals</span></div>
-        </div>
-        <div class="sm-item d-flex align-items-end">
-            <a asp-controller="Goals" asp-action="Index" class="text-decoration-none" style="color:var(--red);font-weight:600;font-size:0.85rem;">View goals &rarr;</a>
+            <div class="sm-note"><a asp-controller="Goals" asp-action="Index">View goals &rarr;</a></div>
         </div>
     </div>
 </div>
 
 <!-- Filter Bar -->
-<div class="filter-bar sticky-filter">
+<div class="xp-filters sticky-filter">
+    <div class="xp-filters-title">Period</div>
     <form method="get" asp-action="Index" class="row g-3 align-items-end">
         <div class="col-md-2">
             <label class="form-label fw-semibold">Filter By</label>
@@ -78,52 +102,62 @@
     </form>
 </div>
 
-<!-- Summary Cards -->
-<div class="row g-3 mb-4">
-    <div class="col-md">
-        <div class="card summary-card summary-card-income">
-            <div class="card-body">
-                <h6 class="card-title"><i class="bi bi-graph-up-arrow me-1"></i>Income</h6>
-                <div class="display-value">@Model.TotalIncome.ToString("C")</div>
-            </div>
+@* ── Financial overview: figures on the surface, not in five boxes ── *@
+<section class="dash-section" aria-label="Financial overview">
+    <div class="dash-eyebrow">Overview <span class="sep">&middot;</span> The Position</div>
+    <div class="dash-figures">
+        <div>
+            <div class="dash-fig-label">Income</div>
+            <div class="dash-fig-value t-income">@Model.TotalIncome.ToString("C0", inrCulture)</div>
+            <div class="dash-fig-note">Recorded income &middot; @periodLabel</div>
+        </div>
+        <div>
+            <div class="dash-fig-label">Expenses</div>
+            <div class="dash-fig-value t-expense">@Model.TotalExpense.ToString("C0", inrCulture)</div>
+            <div class="dash-fig-note">Recorded expenses &middot; @periodLabel</div>
+        </div>
+        <div>
+            <div class="dash-fig-label">Savings</div>
+            <div class="dash-fig-value">@Model.TotalSaving.ToString("C0", inrCulture)</div>
+            <div class="dash-fig-note">Savings entries &middot; @periodLabel</div>
+        </div>
+        <div>
+            <div class="dash-fig-label">Net balance</div>
+            <div class="dash-fig-value">@Model.NetBalance.ToString("C0", inrCulture)</div>
+            <div class="dash-fig-note">Income + savings &minus; expenses &middot; @periodLabel</div>
+        </div>
+        <div>
+            <div class="dash-fig-label">Savings rate</div>
+            <div class="dash-fig-value t-goal">@Model.SavingsRate.ToString("0.0")%</div>
+            <div class="dash-fig-note">Savings entries &divide; income &middot; @periodLabel</div>
         </div>
     </div>
-    <div class="col-md">
-        <div class="card summary-card summary-card-expense">
-            <div class="card-body">
-                <h6 class="card-title"><i class="bi bi-cash-stack me-1"></i>Expenses</h6>
-                <div class="display-value">@Model.TotalExpense.ToString("C")</div>
-            </div>
+</section>
+
+@* ── The signal: derived from the category data already on this page ── *@
+@if (topLeak != null && Model.TotalExpense > 0)
+{
+    <section class="dash-insight" aria-label="Spending insight">
+        <div class="dash-eyebrow">Insight <span class="sep">&middot;</span> The Signal</div>
+        <p class="dash-insight-lede">
+            <strong>@topLeak.Category</strong> is your largest spending category for @periodLabel.
+        </p>
+        <div class="dash-insight-figures">
+            <span class="v">@topLeak.Amount.ToString("C0", inrCulture)</span>
+            <span class="s">@topLeak.Percentage% of recorded expenses</span>
         </div>
-    </div>
-    <div class="col-md">
-        <div class="card summary-card summary-card-savings">
-            <div class="card-body">
-                <h6 class="card-title"><i class="bi bi-piggy-bank me-1"></i>Savings</h6>
-                <div class="display-value">@Model.TotalSaving.ToString("C")</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md">
-        <div class="card summary-card summary-card-balance">
-            <div class="card-body">
-                <h6 class="card-title"><i class="bi bi-wallet2 me-1"></i>Net Balance</h6>
-                <div class="display-value">@Model.NetBalance.ToString("C")</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md">
-        <div class="card summary-card summary-card-rate">
-            <div class="card-body">
-                <h6 class="card-title"><i class="bi bi-percent me-1"></i>Savings Rate</h6>
-                <div class="display-value">@Model.SavingsRate.ToString("0.0")%</div>
-            </div>
-        </div>
-    </div>
+        <a asp-controller="Expenses" asp-action="Index" class="dash-insight-link">View spending &rarr;</a>
+    </section>
+}
+
+@* An editorial heading gives the tabbed area its own hierarchy. *@
+<div class="dash-tabhead">
+    <div class="dash-eyebrow">Financial overview <span class="sep">&middot;</span> The Ledger</div>
+    <h2>A clear view of your money.</h2>
 </div>
 
 <!-- Dashboard Tabs -->
-<ul class="nav nav-pills dashboard-tabs mb-4" role="tablist">
+<ul class="nav nav-pills dashboard-tabs" role="tablist">
     <li class="nav-item" role="presentation">
         <button class="nav-link active" id="overview-tab" data-bs-toggle="pill"
                 data-bs-target="#overview-pane" type="button" role="tab"
@@ -187,15 +221,39 @@
             }
 
             <div class="col-md-6">
-                <div class="card shadow-sm">
-                    <div class="card-header fw-semibold">
-                        <i class="bi bi-pie-chart me-1" aria-hidden="true"></i>Expenses by Category
-                    </div>
-                    <div class="card-body">
-                        <div class="chart-container">
-                            <canvas id="categoryChart" role="img" aria-label="@categoryAriaLabel"
-                                    aria-describedby="categoryChartTable"></canvas>
+                <div class="dash-panel">
+                    <div class="dash-eyebrow">Spending <span class="sep">&middot;</span> The Leakage</div>
+                    <div class="dash-panel-body">
+                        <div class="dash-donut">
+                            <div class="chart-container">
+                                <canvas id="categoryChart" role="img" aria-label="@categoryAriaLabel"
+                                        aria-describedby="categoryChartTable"></canvas>
+                            </div>
+                            @* Centre of the ring: the figure the chart is about. *@
+                            <div class="dash-donut-centre" aria-hidden="true">
+                                <span class="v">@catTotal.ToString("C0", inrCulture)</span>
+                                <span class="l">Total spent</span>
+                            </div>
                         </div>
+
+                        @* The ranked list replaces the legend: same information, read top-down. *@
+                        @if (Model.ExpensesByCategory.Count > 0)
+                        {
+                            <ol class="dash-rank">
+                                @{ var rankIdx = 0; }
+                                @foreach (var kv in Model.ExpensesByCategory.OrderByDescending(x => x.Value).Take(6))
+                                {
+                                    var pct = catTotal > 0 ? Math.Round(kv.Value / catTotal * 100m, 1) : 0;
+                                    <li>
+                                        <span class="dot" data-i="@rankIdx" aria-hidden="true"></span>
+                                        <span class="n">@kv.Key</span>
+                                        <span class="a">@kv.Value.ToString("C0", inrCulture)</span>
+                                        <span class="p">@pct%</span>
+                                    </li>
+                                    rankIdx++;
+                                }
+                            </ol>
+                        }
                         <details class="chart-fallback mt-2" id="categoryChartTable">
                             <summary><i class="bi bi-table me-1" aria-hidden="true"></i>View data as table</summary>
                             @if (Model.ExpensesByCategory.Count == 0)
@@ -236,11 +294,13 @@
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="card shadow-sm">
-                    <div class="card-header fw-semibold">
-                        <i class="bi bi-bar-chart me-1" aria-hidden="true"></i>Income vs Expenses
-                    </div>
-                    <div class="card-body">
+                <div class="dash-panel">
+                    <div class="dash-eyebrow">Cash flow <span class="sep">&middot;</span> The Tide</div>
+                    <div class="dash-panel-body">
+                        <div class="dash-legend">
+                            <span><i class="sw" style="background:#3E8C7A"></i>Income</span>
+                            <span><i class="sw" style="background:#C2547A"></i>Expenses</span>
+                        </div>
                         <div class="chart-container">
                             <canvas id="comparisonChart" role="img" aria-label="@comparisonAriaLabel"
                                     aria-describedby="comparisonChartTable"></canvas>
@@ -293,16 +353,14 @@
 
     <!-- Leakage Tab -->
     <div class="tab-pane fade" id="leakage-pane" role="tabpanel" aria-labelledby="leakage-tab">
-        <div class="card shadow-sm">
-            <div class="card-header fw-semibold">
-                <i class="bi bi-droplet-half me-1"></i>Money Leakage Tracker
-            </div>
-            <div class="card-body">
-                <!-- Leakage Filter Bar -->
-                <div class="border rounded p-3 mb-4 bg-light">
+        <div class="dash-panel">
+            <div class="dash-eyebrow">Spending <span class="sep">&middot;</span> The Leakage</div>
+            <div class="dash-panel-body">
+                @* bg-light was a white box on a dark page; this is the shared console. *@
+                <div class="xp-filters">
                     <div class="row g-2 align-items-end">
                         <div class="col-md-2">
-                            <label class="form-label fw-semibold small mb-1">Filter By</label>
+                            <label class="form-label" for="leakageFilterType">Period</label>
                             <select id="leakageFilterType" class="form-select form-select-sm" onchange="toggleLeakageFilters()">
                                 <option value="Month">Month</option>
                                 <option value="Year" selected>Year</option>
@@ -310,27 +368,25 @@
                             </select>
                         </div>
                         <div class="col-md-2" id="leakageMonthInput" style="display:none;">
-                            <label class="form-label fw-semibold small mb-1">Month</label>
+                            <label class="form-label">Month</label>
                             <input type="month" id="leakageMonth" class="form-control form-control-sm"
                                    value="@DateTime.Now.ToString("yyyy-MM")" />
                         </div>
                         <div class="col-md-2" id="leakageYearInput">
-                            <label class="form-label fw-semibold small mb-1">Year</label>
+                            <label class="form-label">Year</label>
                             <input type="number" id="leakageYear" class="form-control form-control-sm"
                                    min="2020" max="2030" value="@DateTime.Now.Year" />
                         </div>
                         <div class="col-md-2" id="leakageStartDateInput" style="display:none;">
-                            <label class="form-label fw-semibold small mb-1">Start Date</label>
+                            <label class="form-label">Start Date</label>
                             <input type="date" id="leakageStartDate" class="form-control form-control-sm" />
                         </div>
                         <div class="col-md-2" id="leakageEndDateInput" style="display:none;">
-                            <label class="form-label fw-semibold small mb-1">End Date</label>
+                            <label class="form-label">End Date</label>
                             <input type="date" id="leakageEndDate" class="form-control form-control-sm" />
                         </div>
-                        <div class="col-md-auto">
-                            <button type="button" class="btn btn-primary btn-sm" onclick="loadLeakageData()">
-                                <i class="bi bi-funnel me-1"></i>Apply
-                            </button>
+                        <div class="col-md-auto ms-md-auto">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="loadLeakageData()">Apply</button>
                         </div>
                     </div>
                 </div>
@@ -392,18 +448,16 @@
 
     <!-- Transactions Tab -->
     <div class="tab-pane fade" id="transactions-pane" role="tabpanel" aria-labelledby="transactions-tab">
-        <div class="card shadow-sm">
-            <div class="card-header fw-semibold">
-                <i class="bi bi-clock-history me-1"></i>Recent Transactions
-            </div>
-            <div class="card-body p-0">
-                <table class="table table-hover mb-0">
+        <div class="dash-panel">
+            <div class="dash-eyebrow">Recent activity <span class="sep">&middot;</span> The Record</div>
+            <div class="dash-panel-body">
+                <table class="txn-table">
                     <thead>
                         <tr>
-                            <th>Date</th>
-                            <th>Type</th>
+                            <th class="txn-date">Date</th>
                             <th>Description</th>
-                            <th class="text-end">Amount</th>
+                            <th class="txn-type">Type</th>
+                            <th class="txn-amount">Amount</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -411,31 +465,40 @@
                         {
                             @foreach (var t in Model.RecentTransactions)
                             {
-                                <tr>
-                                    <td class="folio">@t.Date.ToString("dd MMM yyyy")</td>
-                                    <td>
-                                        @if (t.Type == "Income")
+                                <tr class="@(t.Type == "Income" ? "is-credit" : t.Type == "Expense" ? "is-debit" : "is-saving")">
+                                    <td class="txn-date" data-label="Date">@t.Date.ToString("dd MMM yyyy")</td>
+                                    <td class="txn-desc" data-label="Description">
+                                        @if (string.IsNullOrWhiteSpace(t.Description))
                                         {
-                                            <span class="badge badge-income">Credit</span>
-                                        }
-                                        else if (t.Type == "Expense")
-                                        {
-                                            <span class="badge badge-expense">Debit</span>
+                                            <span class="none">No description</span>
                                         }
                                         else
                                         {
-                                            <span class="badge badge-saving">Saving</span>
+                                            @t.Description
                                         }
                                     </td>
-                                    <td>@t.Description</td>
-                                    <td class="text-end fw-semibold text-tabular @(t.Type == "Income" ? "t-income" : t.Type == "Expense" ? "t-expense" : "t-balance")">@(t.Type == "Income" ? "+" : t.Type == "Expense" ? "−" : "")@t.Amount.ToString("C")</td>
+                                    <td class="txn-type" data-label="Type">
+                                        @if (t.Type == "Income")
+                                        {
+                                            <span class="txn-tag is-credit">Credit</span>
+                                        }
+                                        else if (t.Type == "Expense")
+                                        {
+                                            <span class="txn-tag is-debit">Debit</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="txn-tag is-saving">Saving</span>
+                                        }
+                                    </td>
+                                    <td class="txn-amount @(t.Type == "Income" ? "t-income" : t.Type == "Expense" ? "t-expense" : "")" data-label="Amount">@(t.Type == "Income" ? "+" : t.Type == "Expense" ? "−" : "")@t.Amount.ToString("C")</td>
                                 </tr>
                             }
                         }
                         else
                         {
                             <tr>
-                                <td colspan="4" class="text-center text-muted py-4">No transactions found for the selected period.</td>
+                                <td colspan="4" class="txn-empty">No transactions found for the selected period.</td>
                             </tr>
                         }
                     </tbody>
@@ -455,19 +518,23 @@
     var waHrefDash = "https://wa.me/?text=" + Uri.EscapeDataString(shareTextDash);
 }
 
-<section class="share-section text-center" aria-label="Share Finoma">
-    <div class="eyebrow mb-2" style="justify-content:center;"><span class="seal-dot">&#9679;</span> Spread the word</div>
-    <h2 class="share-heading">Enjoying Finoma? Share it.</h2>
-    <p class="share-sub">It's free and private — send it to someone who'd keep better books.</p>
+@* A closing statement in Finoma's voice, not a generic SaaS call-to-action. *@
+<section class="share-section" aria-label="Share Finoma">
+    <div class="dash-eyebrow">Spread the word <span class="sep">&middot;</span> The Word</div>
+    <h2 class="share-heading">Good money habits are worth sharing.</h2>
+    <p class="share-sub">
+        Finoma is free, private and built to help you understand where your money goes.
+        Nothing leaves your ledger.
+    </p>
     <a href="@waHrefDash" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp btn-lg">
-        <i class="bi bi-whatsapp me-2" aria-hidden="true"></i>Share on WhatsApp
+        <i class="bi bi-whatsapp me-2" aria-hidden="true"></i>Share Finoma
     </a>
 </section>
 
 <style>
-    .share-section { margin: 2.5rem 0 1rem; padding: 2.75rem 1.5rem 0.5rem; border-top: 3px double var(--rule-strong); }
+    .share-section { margin: 3rem 0 1rem; padding: 2.75rem 0 0.5rem; border-top: 1px solid var(--hairline); max-width: 42rem; }
     .share-heading { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.3rem, 1.1rem + 1vw, 1.95rem); letter-spacing: -0.02em; color: var(--ink); margin-bottom: 0.5rem; }
-    .share-sub { color: var(--ink-muted); max-width: 34rem; margin: 0 auto 1.6rem; }
+    .share-sub { color: var(--ink-muted); max-width: 34rem; margin: 0 0 1.6rem; }
     .btn-whatsapp { background: #25D366; border: 1px solid #25D366; color: #fff; font-weight: 600; box-shadow: 0 6px 18px -6px rgba(37, 211, 102, 0.55); transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--motion-fast) var(--ease-out); }
     .btn-whatsapp:hover, .btn-whatsapp:focus-visible { background: #1ebe5d; border-color: #1ebe5d; color: #fff; box-shadow: 0 9px 24px -6px rgba(37, 211, 102, 0.7); }
     .btn-whatsapp:active { background: #1aa653; border-color: #1aa653; color: #fff; transform: translateY(0.5px); }
@@ -585,11 +652,30 @@
         };
         Chart.register(directLabelsPlugin);
 
+        // Shared INR formatter for tooltips.
+        var inrNF = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+        function inrFmt(n) { try { return inrNF.format(n); } catch (e) { return '₹' + Math.round(n); } }
+
+        // Axis furniture should be felt, not read.
+        var _dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        var gridTone = _dark ? 'rgba(255,255,255,0.045)' : 'rgba(26,24,20,0.06)';
+        var axisTone = _dark ? 'rgba(255,255,255,0.42)' : 'rgba(26,24,20,0.45)';
+        function compactINR(v) {
+            var a = Math.abs(v);
+            if (a >= 10000000) return '₹' + (v / 10000000).toFixed(1) + 'Cr';
+            if (a >= 100000)   return '₹' + (v / 100000).toFixed(1) + 'L';
+            if (a >= 1000)     return '₹' + Math.round(v / 1000) + 'K';
+            return '₹' + v;
+        }
+
         // Category doughnut chart
         var catLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ExpensesByCategory.Keys.ToArray()));
         var catValues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ExpensesByCategory.Values.ToArray()));
-        var catColors = ['#DC2626', '#2563EB', '#16A34A', '#D97706', '#7C3AED', '#71717A', '#0891B2', '#DB2777', '#EA580C', '#4F46E5'];
-        var catPatterns = catColors.map(function (c, i) { return makePattern(c, i); });
+        // A restrained six-tone set drawn from the brand palette, not a rainbow.
+        // Hatched fills are gone; the % label on each slice, the ranked list beside
+        // the chart and the data table below carry the meaning without relying on hue.
+        var catColors = ['#C2547A', '#A08346', '#3E8C7A', '#7A6BA8', '#B5713C', '#6E6A60'];
+        function catColor(i) { return catColors[i % catColors.length]; }
 
         if (catLabels.length > 0) {
             chartInstances.push(new Chart(document.getElementById('categoryChart'), {
@@ -598,11 +684,8 @@
                     labels: catLabels,
                     datasets: [{
                         data: catValues,
-                        // Patterns for the slice fill — colour-blind safe shapes;
-                        // hoverBackgroundColor falls back to flat colour so the
-                        // hovered slice "lights up" recognisably.
-                        backgroundColor: catPatterns.slice(0, catLabels.length),
-                        hoverBackgroundColor: catColors.slice(0, catLabels.length),
+                        backgroundColor: catLabels.map(function (_, i) { return catColor(i); }),
+                        hoverOffset: 6,
                         borderWidth: 2,
                         borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-surface') || '#fff'
                     }]
@@ -610,24 +693,16 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    cutout: '68%',
                     plugins: {
-                        legend: {
-                            position: 'bottom',
-                            // Make legend swatches show the FLAT colour (so users
-                            // can still read the legend) while slices carry both
-                            // colour AND pattern.
-                            labels: {
-                                generateLabels: function (chart) {
-                                    var data = chart.data;
-                                    return data.labels.map(function (label, i) {
-                                        return {
-                                            text: label,
-                                            fillStyle: catColors[i % catColors.length],
-                                            strokeStyle: catColors[i % catColors.length],
-                                            lineWidth: 0,
-                                            index: i
-                                        };
-                                    });
+                        // The ranked list beside the chart is the legend now.
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function (c) {
+                                    var t = c.dataset.data.reduce(function (a, b) { return a + b; }, 0);
+                                    var pct = t ? Math.round(c.parsed / t * 1000) / 10 : 0;
+                                    return ' ' + c.label + '  ' + inrFmt(c.parsed) + '  (' + pct + '%)';
                                 }
                             }
                         }
@@ -654,37 +729,59 @@
         // Income vs Expense patterns: income = diagonal, expense = reverse-diagonal.
         // Two strongly-distinct shapes so the comparison stays legible even at the
         // common red-green confusion that ~5% of users have.
-        var incomePattern  = makePattern('#16A34A', 0);   // diagonal
-        var expensePattern = makePattern('#DC2626', 1);   // reverse-diagonal
+        var INCOME_TONE  = '#3E8C7A';
+        var EXPENSE_TONE = '#C2547A';
+
+        // "2026-03" is a database key, not a label a person reads.
+        var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        function monthLabel(key) {
+            var m = /^(\d{4})-(\d{2})$/.exec(key);
+            if (!m) return key;
+            var name = MON[parseInt(m[2], 10) - 1] || key;
+            return allMonths.length > 12 ? name + " '" + m[1].slice(2) : name;
+        }
+        var monthLabels = allMonths.map(monthLabel);
 
         if (allMonths.length > 0) {
             if (compChartType === 'bar') {
                 chartInstances.push(new Chart(document.getElementById('comparisonChart'), {
                     type: 'bar',
                     data: {
-                        labels: allMonths,
+                        labels: monthLabels,
                         datasets: [
-                            { label: 'Income',   data: incomeValues,  backgroundColor: incomePattern,  hoverBackgroundColor: '#16A34A' },
-                            { label: 'Expenses', data: expenseValues, backgroundColor: expensePattern, hoverBackgroundColor: '#DC2626' }
+                            { label: 'Income',   data: incomeValues,  backgroundColor: INCOME_TONE,
+                              borderRadius: 3, borderSkipped: false, maxBarThickness: 14 },
+                            { label: 'Expenses', data: expenseValues, backgroundColor: EXPENSE_TONE,
+                              borderRadius: 3, borderSkipped: false, maxBarThickness: 14 }
                         ]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    generateLabels: function () {
-                                        return [
-                                            { text: 'Income',   fillStyle: '#16A34A', strokeStyle: '#16A34A', lineWidth: 0, datasetIndex: 0 },
-                                            { text: 'Expenses', fillStyle: '#DC2626', strokeStyle: '#DC2626', lineWidth: 0, datasetIndex: 1 }
-                                        ];
-                                    }
+                            // The HTML legend above the canvas is the legend now; the
+                            // built-in one duplicated it and collided with the x-axis.
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (c) { return ' ' + c.dataset.label + '  ' + inrFmt(c.parsed.y); }
                                 }
                             }
                         },
-                        scales: { y: { beginAtZero: true } }
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                border: { display: false },
+                                grid: { color: gridTone, drawTicks: false },
+                                ticks: { color: axisTone, font: { size: 10 }, padding: 8,
+                                         callback: function (v) { return compactINR(v); } }
+                            },
+                            x: {
+                                border: { display: false },
+                                grid: { display: false },
+                                ticks: { color: axisTone, font: { size: 11 } }
+                            }
+                        }
                     }
                 }));
             } else {
@@ -694,7 +791,7 @@
                         labels: ['Income', 'Expenses'],
                         datasets: [{
                             data: [@Model.TotalIncome, @Model.TotalExpense],
-                            backgroundColor: [incomePattern, expensePattern],
+                            backgroundColor: [INCOME_TONE, EXPENSE_TONE],
                             hoverBackgroundColor: ['#16A34A', '#DC2626'],
                             borderWidth: 2,
                             borderColor: getComputedStyle(document.documentElement).getPropertyValue('--color-surface') || '#fff'

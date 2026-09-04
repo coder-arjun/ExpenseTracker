@@ -14,11 +14,20 @@ namespace ExpenseTracker.Services
     {
         private static readonly CultureInfo Inr = CultureInfo.GetCultureInfo("en-IN");
 
+        /// <summary>
+        /// ICU's en-IN currency pattern puts a non-breaking space after the symbol
+        /// ("₹ 12,40,000.00"). It reads as a gap in a column of figures, so it is
+        /// removed for display. Only the separator goes — digits, grouping and the
+        /// minus sign are untouched.
+        /// </summary>
+        private static string Tighten(string s) =>
+            s.Replace(" ", "").Replace(" ", "").Replace("₹ ", "₹");
+
         /// <summary>Exact amount, two decimals: ₹12,40,000.00</summary>
-        public static string Full(decimal amount) => amount.ToString("C2", Inr);
+        public static string Full(decimal amount) => Tighten(amount.ToString("C2", Inr));
 
         /// <summary>Exact amount, no decimals: ₹12,40,000</summary>
-        public static string Exact(decimal amount) => amount.ToString("C0", Inr);
+        public static string Exact(decimal amount) => Tighten(amount.ToString("C0", Inr));
 
         /// <summary>
         /// Indian short form: ₹12.40L, ₹8.79L, ₹50K, ₹18.5K, ₹1.24Cr, ₹850.

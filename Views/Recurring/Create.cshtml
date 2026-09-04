@@ -1,105 +1,394 @@
+@using System.Text.Json
 @using Microsoft.AspNetCore.Mvc.Rendering
 @using ExpenseTracker.Models.Domain
 @model ExpenseTracker.Models.Domain.RecurringRule
+
+@*
+    Presentation only. The form posts exactly the same fields to the same Create
+    action: Name, Type, Amount, Description, Source, CategoryId, AccountId,
+    Frequency, DayOfMonth, StartDate, EndDate, IsActive.
+
+    Two things the model dictates, and that this page does NOT change:
+      * An INCOME rule stores a free-text `Source`, not a CategoryId — that is what
+        ValidateRuleAsync requires and what RecurringProcessor posts. The field below
+        stays a text input; it just offers the user's income category names as
+        suggestions so it behaves like a picker without changing what is stored.
+      * NextDueDate is computed server-side by RecurringController.ComputeFirstDueDate.
+        The preview mirrors that rule exactly (see the comment on nextDue below) and
+        never posts a date of its own.
+*@
 
 @{
     ViewData["Title"] = "New Recurring Rule";
     var expCats = (SelectList)ViewData["ExpenseCategories"]!;
     var incCats = (SelectList)ViewData["IncomeCategories"]!;
     var accs = (SelectList)ViewData["Accounts"]!;
+
+    var isExpense = Model.Type == RecurringType.Expense;
+    var today = DateTime.Today.ToString("yyyy-MM-dd");
+
+    // Names only — used to label the preview without a second round-trip.
+    var accountNames = accs.Select(a => new { id = a.Value, name = a.Text }).ToList();
+    var expCatNames = expCats.Select(c => new { id = c.Value, name = c.Text }).ToList();
+    var incomeSuggestions = incCats.Select(c => c.Text).ToList();
 }
 
-<div class="page-header">
-    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Standing orders</div>
-    <h1><i class="bi bi-arrow-repeat me-2"></i>New Recurring Rule</h1>
-    <p><a asp-action="Index" class="text-decoration-none">Recurring</a> / New</p>
+<a asp-action="Index" class="ev-back"><i class="bi bi-arrow-left"></i> All rules</a>
+
+<div class="page-head has-stroke">
+    @* The eyebrow names the section, not the page — repeating the H1 says nothing. *@
+    <div class="page-eyebrow">Standing orders</div>
+    <h1>New recurring rule</h1>
+    <p class="page-lede">Create automatic transactions for regular payments and income.</p>
 </div>
 
-<div class="row"><div class="col-md-8"><div class="card"><div class="card-body">
-    <form asp-action="Create" id="ruleForm">
-        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<div class="row g-4 align-items-start">
+    <div class="col-lg-7">
+        <form asp-action="Create" id="ruleForm">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
-        <div class="row g-3">
-            <div class="col-md-6">
-                <label asp-for="Name" class="form-label"></label>
-                <input asp-for="Name" class="form-control" maxlength="100" placeholder="e.g. House rent" />
-                <span asp-validation-for="Name" class="text-danger"></span>
-            </div>
-            <div class="col-md-6">
-                <label asp-for="Type" class="form-label"></label>
-                <select asp-for="Type" class="form-select" id="typeSelect">
-                    @foreach (var t in Enum.GetValues<RecurringType>())
-                    {
-                        <option value="@t" selected="@(Model.Type == t ? "selected" : null)">@t</option>
-                    }
-                </select>
-            </div>
-            <div class="col-md-6">
-                <label asp-for="Amount" class="form-label">Amount</label>
-                <div class="input-currency">
-                    <input asp-for="Amount" type="number" step="0.01" class="form-control" />
+            <section class="rr-group">
+                <h2 class="rr-group-title">Rule details</h2>
+                <div class="rr-pair">
+                    <div class="xp-field">
+                        <label asp-for="Name" class="xp-label">Name</label>
+                        <input asp-for="Name" class="form-control" maxlength="100"
+                               placeholder="e.g. House rent" id="rrName" autocomplete="off" />
+                        <span asp-validation-for="Name" class="text-danger"></span>
+                    </div>
+                    <div class="xp-field">
+                        <label class="xp-label" id="rrTypeLabel">Type</label>
+                        @* Two choices, so a segmented control beats a dropdown. Same
+                           field name and the same two values the select posted. *@
+                        <div class="rr-seg" role="radiogroup" aria-labelledby="rrTypeLabel">
+                            <label class="rr-seg-opt is-out">
+                                <input type="radio" name="Type" value="Expense" id="rrTypeExpense"
+                                       checked="@isExpense" />
+                                <span><i class="bi bi-arrow-up-right" aria-hidden="true"></i> Expense</span>
+                            </label>
+                            <label class="rr-seg-opt is-in">
+                                <input type="radio" name="Type" value="Income" id="rrTypeIncome"
+                                       checked="@(!isExpense)" />
+                                <span><i class="bi bi-arrow-down-left" aria-hidden="true"></i> Income</span>
+                            </label>
+                        </div>
+                        <span asp-validation-for="Type" class="text-danger"></span>
+                    </div>
                 </div>
-                <span asp-validation-for="Amount" class="text-danger"></span>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Day of month</label>
-                <input asp-for="DayOfMonth" type="number" min="1" max="28" class="form-control" />
-                <div class="form-text">1–28 (avoids Feb edge cases)</div>
-            </div>
-            <div class="col-md-6" id="expenseFields">
-                <label asp-for="CategoryId" class="form-label">Expense category</label>
-                <select asp-for="CategoryId" class="form-select" asp-items="@expCats">
-                    <option value="">— pick —</option>
-                </select>
-                <span asp-validation-for="CategoryId" class="text-danger"></span>
-            </div>
-            <div class="col-md-6" id="incomeFields">
-                <label asp-for="Source" class="form-label">Income source</label>
-                <input asp-for="Source" class="form-control" placeholder="e.g. Salary" />
-                <span asp-validation-for="Source" class="text-danger"></span>
-            </div>
-            <div class="col-md-6">
-                <label asp-for="AccountId" class="form-label">Account <span class="text-muted">(optional)</span></label>
-                <select asp-for="AccountId" class="form-select" asp-items="@accs">
-                    <option value="">— none —</option>
-                </select>
-            </div>
-            <div class="col-md-6">
-                <label asp-for="Description" class="form-label">Description / note</label>
-                <input asp-for="Description" class="form-control" maxlength="200" />
-            </div>
-            <div class="col-md-6">
-                <label asp-for="StartDate" class="form-label"></label>
-                <input asp-for="StartDate" type="date" class="form-control" />
-            </div>
-            <div class="col-md-6">
-                <label asp-for="EndDate" class="form-label">End date <span class="text-muted">(optional)</span></label>
-                <input asp-for="EndDate" type="date" class="form-control" />
-            </div>
-            <div class="col-12">
-                <div class="form-check">
-                    <input asp-for="IsActive" class="form-check-input" />
-                    <label asp-for="IsActive" class="form-check-label">Active immediately</label>
+            </section>
+
+            <section class="rr-group">
+                <h2 class="rr-group-title">Amount &amp; schedule</h2>
+                <div class="rr-pair">
+                    <div class="xp-field">
+                        <label asp-for="Amount" class="xp-label">Amount</label>
+                        <div class="xp-money is-md" id="rrMoney">
+                            <span class="xp-money-prefix" aria-hidden="true">&#8377;</span>
+                            <input asp-for="Amount" type="number" step="0.01" min="0"
+                                   placeholder="0.00" id="rrAmount" />
+                        </div>
+                        <div class="xp-hint">Recorded automatically each month once the rule is active.</div>
+                        <span asp-validation-for="Amount" class="text-danger"></span>
+                    </div>
+                    <div class="xp-field">
+                        <label class="xp-label" for="rrDay">Day of month</label>
+                        <input asp-for="DayOfMonth" type="number" min="1" max="28" class="form-control" id="rrDay" />
+                        @* Reads the number back as a sentence. *@
+                        <div class="xp-hint" id="rrDayEcho" aria-live="polite"></div>
+                    </div>
                 </div>
+                @* The whole schedule in one line, once there is something to say. *@
+                <div class="rr-summary" id="rrSummary" aria-live="polite" hidden>
+                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                    <span id="rrSummaryText"></span>
+                </div>
+            </section>
+
+            <section class="rr-group">
+                <h2 class="rr-group-title">Classification</h2>
+                <div class="rr-pair">
+                    <div class="xp-field" id="rrExpenseField">
+                        <label asp-for="CategoryId" class="xp-label">Expense category</label>
+                        <select asp-for="CategoryId" class="form-select" asp-items="@expCats" id="rrCategory">
+                            <option value="">Pick a category</option>
+                        </select>
+                        <span asp-validation-for="CategoryId" class="text-danger"></span>
+                    </div>
+                    <div class="xp-field" id="rrIncomeField">
+                        <label asp-for="Source" class="xp-label">Income source</label>
+                        @* Stays a text field: an income rule stores Source, not a
+                           CategoryId. The list only offers your income categories. *@
+                        <input asp-for="Source" class="form-control" placeholder="e.g. Salary"
+                               id="rrSource" list="rrSourceOptions" autocomplete="off" />
+                        <datalist id="rrSourceOptions">
+                            @foreach (var name in incomeSuggestions)
+                            {
+                                <option value="@name"></option>
+                            }
+                        </datalist>
+                        <div class="xp-hint">Your income categories are offered as suggestions.</div>
+                        <span asp-validation-for="Source" class="text-danger"></span>
+                    </div>
+                    <div class="xp-field">
+                        <label asp-for="AccountId" class="xp-label is-optional">Account <em>(optional)</em></label>
+                        <select asp-for="AccountId" class="form-select" asp-items="@accs" id="rrAccount">
+                            <option value="">No account</option>
+                        </select>
+                        <div class="xp-hint" id="rrAccountHint"></div>
+                        <span asp-validation-for="AccountId" class="text-danger"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="rr-group">
+                <h2 class="rr-group-title">Runs between</h2>
+                @* Start and end belong side by side — they are one decision. *@
+                <div class="rr-pair">
+                    <div class="xp-field">
+                        <label asp-for="StartDate" class="xp-label">Start date</label>
+                        <input asp-for="StartDate" type="date" class="form-control" id="rrStart" />
+                        <span asp-validation-for="StartDate" class="text-danger"></span>
+                    </div>
+                    <div class="xp-field">
+                        <label asp-for="EndDate" class="xp-label is-optional">End date <em>(optional)</em></label>
+                        <input asp-for="EndDate" type="date" class="form-control" id="rrEnd" />
+                        <div class="xp-hint" id="rrEndHint">Leave empty to repeat indefinitely.</div>
+                        <span asp-validation-for="EndDate" class="text-danger"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="rr-group">
+                <h2 class="rr-group-title">Description</h2>
+                <div class="xp-field">
+                    <label asp-for="Description" class="xp-label is-optional">Note <em>(optional)</em></label>
+                    <input asp-for="Description" class="form-control" maxlength="200"
+                           placeholder="What this payment is for…" id="rrDesc" />
+                    <span asp-validation-for="Description" class="text-danger"></span>
+                </div>
+            </section>
+
+            @* The checkbox has a consequence, so it gets its own block that states it. *@
+            <section class="rr-group">
+                <h2 class="rr-group-title">Status</h2>
+                <div class="rr-status" id="rrStatusBlock">
+                    <div class="form-check">
+                        <input asp-for="IsActive" class="form-check-input" id="rrActive" />
+                        <label class="form-check-label" for="rrActive">Activate this rule immediately</label>
+                    </div>
+                    <p class="rr-status-note" id="rrStatusNote" aria-live="polite"></p>
+                </div>
+            </section>
+
+        </form>
+    </div>
+
+    <div class="col-lg-5">
+        <aside class="xp-panel rr-preview" id="rrPreview" aria-label="Rule preview" aria-live="polite">
+            <div class="xp-panel-eyebrow"><i class="bi bi-stars" aria-hidden="true"></i> Rule preview</div>
+
+            <div class="rr-pv-head">
+                <div class="rr-pv-name" id="pvName">Your rule</div>
+                <div class="rr-pv-amount" id="pvAmount">&#8377;0.00</div>
             </div>
+
+            <dl class="rr-pv-facts">
+                <div>
+                    <dt><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Repeats</dt>
+                    <dd id="pvRepeats">Every month</dd>
+                </div>
+                <div>
+                    <dt><i class="bi bi-calendar-event" aria-hidden="true"></i> On the</dt>
+                    <dd id="pvDay">1st</dd>
+                </div>
+                <div>
+                    <dt><i class="bi bi-tag" aria-hidden="true"></i> <span id="pvClassLabel">Category</span></dt>
+                    <dd id="pvClass" class="is-empty">Not set</dd>
+                </div>
+                <div>
+                    <dt><i class="bi bi-bank" aria-hidden="true"></i> Account</dt>
+                    <dd id="pvAccount" class="is-empty">Chosen when it posts</dd>
+                </div>
+            </dl>
+
+            <div class="rr-pv-next">
+                <div class="rr-pv-next-title">Next occurrences</div>
+                <ol class="rr-pv-dates" id="pvDates"></ol>
+                <p class="rr-pv-ends" id="pvEnds" hidden></p>
+            </div>
+
+            <p class="rr-pv-tip">
+                <i class="bi bi-lightbulb-fill" aria-hidden="true"></i>
+                <span id="pvTip">You can pause or delete this rule at any time.</span>
+            </p>
+        </aside>
+    </div>
+
+    @* The actions live outside the form element and reach it via form="ruleForm"
+       (HTML5 form owner). That is the only way to keep the preview ABOVE the
+       submit button when the columns stack — otherwise you would commit the rule
+       before ever scrolling to what it will do. *@
+    <div class="col-lg-7 rr-actions">
+        <hr class="hairline mt-0 mb-4" />
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <button type="submit" form="ruleForm" class="btn btn-primary btn-lg rr-submit">Create recurring rule</button>
+            <a asp-action="Index" class="btn btn-link tfr-cancel">Cancel</a>
         </div>
-        <div class="mt-3">
-            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create</button>
-            <a asp-action="Index" class="btn btn-outline-secondary ms-2">Cancel</a>
-        </div>
-    </form>
-</div></div></div></div>
+    </div>
+</div>
 
 @section Scripts {
     @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
     <script>
-        // Show Category vs Source field based on Type
-        function syncTypeFields() {
-            var t = document.getElementById('typeSelect').value;
-            document.getElementById('expenseFields').style.display = (t === 'Expense') ? '' : 'none';
-            document.getElementById('incomeFields').style.display  = (t === 'Income')  ? '' : 'none';
-        }
-        document.getElementById('typeSelect').addEventListener('change', syncTypeFields);
-        syncTypeFields();
+        // Display only. Every line below reads the form and writes to the preview or
+        // to a hint; nothing here changes what is submitted.
+        (function () {
+            var ACCOUNTS = @Html.Raw(JsonSerializer.Serialize(accountNames));
+            var EXPENSE_CATS = @Html.Raw(JsonSerializer.Serialize(expCatNames));
+            var MONTHS = ['January','February','March','April','May','June',
+                          'July','August','September','October','November','December'];
+
+            var $ = function (id) { return document.getElementById(id); };
+            var name = $('rrName'), amount = $('rrAmount'), day = $('rrDay');
+            var category = $('rrCategory'), source = $('rrSource'), account = $('rrAccount');
+            var start = $('rrStart'), end = $('rrEnd'), desc = $('rrDesc'), active = $('rrActive');
+            var typeExpense = $('rrTypeExpense'), typeIncome = $('rrTypeIncome');
+            var expenseField = $('rrExpenseField'), incomeField = $('rrIncomeField');
+
+            function isExpense() { return typeExpense.checked; }
+
+            function ordinal(n) {
+                if (n >= 11 && n <= 13) return n + 'th';
+                switch (n % 10) { case 1: return n + 'st'; case 2: return n + 'nd'; case 3: return n + 'rd'; default: return n + 'th'; }
+            }
+            function money(v) {
+                var n = parseFloat(v);
+                if (!isFinite(n) || n <= 0) return '₹0.00';
+                try { return n.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/ /g, ''); }
+                catch (_) { return '₹' + n.toFixed(2); }
+            }
+            function longDate(d) { return String(d.getDate()).padStart(2, '0') + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+            function parseDate(v) {
+                var p = (v || '').split('-');
+                if (p.length !== 3) return null;
+                var d = new Date(+p[0], +p[1] - 1, +p[2]);
+                return isNaN(d.getTime()) ? null : d;
+            }
+
+            // Mirrors RecurringController.ComputeFirstDueDate exactly:
+            // the first occurrence on or after StartDate that falls on DayOfMonth,
+            // otherwise the same day next month. Day is clamped to 1..28 server-side.
+            function firstDue(startDate, dayOfMonth) {
+                var d = Math.min(Math.max(dayOfMonth || 1, 1), 28);
+                var candidate = new Date(startDate.getFullYear(), startDate.getMonth(), d);
+                return candidate >= startDate ? candidate : new Date(startDate.getFullYear(), startDate.getMonth() + 1, d);
+            }
+
+            function labelFor(list, value) {
+                for (var i = 0; i < list.length; i++) if (String(list[i].id) === String(value)) return list[i].name;
+                return null;
+            }
+
+            function sync() {
+                var expense = isExpense();
+
+                // ── The form reshapes itself around the type ──
+                expenseField.hidden = !expense;
+                incomeField.hidden = expense;
+                $('pvClassLabel').textContent = expense ? 'Category' : 'Source';
+                $('rrAccountHint').textContent = expense
+                    ? 'Where the money leaves from. Leave empty to decide when it posts.'
+                    : 'Where the money lands. Leave empty to decide when it posts.';
+
+                // ── Preview head ──
+                var typed = (name.value || '').trim();
+                $('pvName').textContent = typed || 'Your rule';
+                $('pvName').classList.toggle('is-empty', typed.length === 0);
+                $('pvAmount').textContent = money(amount.value);
+                $('pvAmount').classList.toggle('is-out', expense);
+                $('pvAmount').classList.toggle('is-in', !expense);
+
+                // ── Preview facts ──
+                var d = parseInt(day.value, 10);
+                var dayValid = isFinite(d) && d >= 1 && d <= 28;
+                $('pvDay').textContent = dayValid ? ordinal(d) : 'Not set';
+                $('pvDay').classList.toggle('is-empty', !dayValid);
+
+                var klass = expense ? labelFor(EXPENSE_CATS, category.value) : ((source.value || '').trim() || null);
+                $('pvClass').textContent = klass || 'Not set';
+                $('pvClass').classList.toggle('is-empty', !klass);
+
+                var acc = labelFor(ACCOUNTS, account.value);
+                $('pvAccount').textContent = acc || 'Chosen when it posts';
+                $('pvAccount').classList.toggle('is-empty', !acc);
+
+                // ── Day echo + one-line schedule summary ──
+                $('rrDayEcho').textContent = dayValid ? 'Every month on the ' + ordinal(d) + '.' : '1–28, so every month has that day.';
+
+                var amt = parseFloat(amount.value);
+                var haveMoney = isFinite(amt) && amt > 0;
+                var summary = $('rrSummary'), summaryText = $('rrSummaryText');
+                if (haveMoney && dayValid) {
+                    summaryText.textContent = money(amt) + ' will be recorded as ' + (expense ? 'an expense' : 'income') +
+                                              ' every month on the ' + ordinal(d) + '.';
+                    summary.hidden = false;
+                } else {
+                    summary.hidden = true;
+                }
+
+                // ── Next occurrences ──
+                var startDate = parseDate(start.value);
+                var endDate = parseDate(end.value);
+                var list = $('pvDates');
+                list.innerHTML = '';
+                if (startDate && dayValid) {
+                    var next = firstDue(startDate, d);
+                    var shown = 0;
+                    for (var i = 0; i < 3; i++) {
+                        var occ = new Date(next.getFullYear(), next.getMonth() + i, next.getDate());
+                        if (endDate && occ > endDate) break;
+                        var li = document.createElement('li');
+                        var dt = document.createElement('span'); dt.className = 'dt'; dt.textContent = longDate(occ);
+                        var am = document.createElement('span'); am.className = 'am'; am.textContent = money(amount.value);
+                        li.appendChild(dt); li.appendChild(am);
+                        list.appendChild(li);
+                        shown++;
+                    }
+                    if (shown === 0) {
+                        var none = document.createElement('li');
+                        none.className = 'is-empty';
+                        none.textContent = 'The end date falls before the first occurrence.';
+                        list.appendChild(none);
+                    }
+                    $('pvEnds').hidden = !endDate;
+                    if (endDate) $('pvEnds').textContent = 'Stops after ' + longDate(endDate) + '.';
+                } else {
+                    var li0 = document.createElement('li');
+                    li0.className = 'is-empty';
+                    li0.textContent = 'Set a start date and a day of the month.';
+                    list.appendChild(li0);
+                    $('pvEnds').hidden = true;
+                }
+
+                // ── Status consequence ──
+                var note = $('rrStatusNote');
+                if (!active.checked) {
+                    note.textContent = 'The rule will be saved but paused. Nothing is recorded until you resume it.';
+                } else if (startDate && dayValid) {
+                    note.textContent = 'The first transaction will be recorded on ' + longDate(firstDue(startDate, d)) + '.';
+                } else {
+                    note.textContent = 'Transactions start once a start date and day are set.';
+                }
+                $('rrStatusBlock').classList.toggle('is-paused', !active.checked);
+            }
+
+            [name, amount, day, category, source, account, start, end, desc, active, typeExpense, typeIncome]
+                .forEach(function (el) {
+                    if (!el) return;
+                    el.addEventListener('input', sync);
+                    el.addEventListener('change', sync);
+                });
+            sync();
+        })();
     </script>
 }

@@ -1,47 +1,166 @@
+@using System.Text.Json
 @using ExpenseTracker.Models.Domain
+@using ExpenseTracker.Services
 @model ExpenseTracker.Models.Domain.Category
+
+@*
+    Presentation only. The form still posts Name and Type to the same Create action
+    with the same binding and validation; nothing was added to the POST. The preview
+    row and the type chip are read-outs of what is already in the two fields.
+*@
 
 @{
     ViewData["Title"] = "Add Category";
+
+    // The route carries the type (Categories/Create?type=Expense), so the page can
+    // name what is actually being created rather than saying "category" generically.
+    var isExpense = Model.Type == CategoryType.Expense;
+    var typeWord = Model.Type.ToString();
+
+    // Same map the ledger uses, handed to the browser so the preview cannot drift
+    // from what the row will look like once saved.
+    var iconMap = JsonSerializer.Serialize(CategoryIcons.Map);
 }
 
-<div class="page-header">
-    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> New entry</div>
-    <h1>Add Category</h1>
-    <p><a asp-action="Index" class="text-decoration-none">Categories</a> / New</p>
+<a asp-action="Index" asp-route-type="@Model.Type" class="ev-back"><i class="bi bi-arrow-left"></i> All categories</a>
+
+<div class="page-head has-stroke">
+    <div class="page-eyebrow">New category</div>
+    <h1>Add @typeWord.ToLowerInvariant() category</h1>
+    <p class="page-lede">Create a category to organise your financial activity.</p>
 </div>
 
-<div class="row">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body">
-                <form asp-action="Create">
-                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                    <div class="form-group mb-3">
-                        <label asp-for="Name" class="form-label"></label>
-                        <input asp-for="Name" class="form-control" maxlength="50" />
-                        <span asp-validation-for="Name" class="text-danger"></span>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label asp-for="Type" class="form-label"></label>
-                        <select asp-for="Type" class="form-select">
+<div class="row g-4 align-items-start">
+    <div class="col-lg-7">
+        <form asp-action="Create" id="catForm">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            @* Two named groups rather than one undifferentiated stack. *@
+            <section class="cat-group">
+                <h2 class="cat-group-title">Category details</h2>
+                <div class="xp-field">
+                    <label asp-for="Name" class="xp-label">Name</label>
+                    <input asp-for="Name" class="form-control" maxlength="50" id="catName"
+                           placeholder="e.g. Groceries, Fuel, Salary" autocomplete="off" autofocus />
+                    <div class="xp-hint">Short, recognisable names keep your reports clean.</div>
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
+            </section>
+
+            <section class="cat-group">
+                <h2 class="cat-group-title">Classification</h2>
+                <div class="xp-field">
+                    <label asp-for="Type" class="xp-label">Type</label>
+                    @* The select is unchanged; the mark beside it reads back the direction. *@
+                    <div class="cat-type-field @(isExpense ? "is-expense" : "is-income")" id="catTypeField">
+                        <span class="cat-type-mark" aria-hidden="true">
+                            <i class="bi @(isExpense ? "bi-arrow-down-right" : "bi-arrow-up-right")" id="catTypeArrow"></i>
+                        </span>
+                        <select asp-for="Type" class="form-select" id="catType">
                             @foreach (var t in Enum.GetValues<CategoryType>())
                             {
                                 <option value="@t" selected="@(Model.Type == t ? "selected" : null)">@t</option>
                             }
                         </select>
-                        <span asp-validation-for="Type" class="text-danger"></span>
                     </div>
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create</button>
-                        <a asp-action="Index" class="btn btn-outline-secondary ms-2">Cancel</a>
-                    </div>
-                </form>
+                    <div class="xp-hint" id="catTypeNote"></div>
+                    <span asp-validation-for="Type" class="text-danger"></span>
+                </div>
+            </section>
+
+            @* How the row will read in the ledger — the same icon, name and chip. *@
+            <section class="cat-group cat-preview-group">
+                <h2 class="cat-group-title">Preview</h2>
+                <div class="cat-preview" id="catPreview" aria-live="polite">
+                    <span class="cat-name">
+                        <span class="cat-icon" aria-hidden="true"><i class="bi bi-tag" id="catPreviewIcon"></i></span>
+                        <span class="cat-label is-placeholder" id="catPreviewName">Your category</span>
+                    </span>
+                    <span class="cat-chip @(isExpense ? "is-expense" : "is-income")" id="catPreviewChip">
+                        <i class="bi @(isExpense ? "bi-arrow-down-right" : "bi-arrow-up-right")" aria-hidden="true" id="catPreviewChipIcon"></i>
+                        <span id="catPreviewChipText">@typeWord</span>
+                    </span>
+                </div>
+            </section>
+
+            <hr class="hairline my-4" />
+
+            <div class="d-flex gap-2 align-items-center">
+                <button type="submit" class="btn btn-primary btn-lg cat-submit">Create category</button>
+                <a asp-action="Index" asp-route-type="@Model.Type" class="btn btn-link tfr-cancel">Cancel</a>
             </div>
-        </div>
+        </form>
+    </div>
+
+    <div class="col-lg-5 d-none d-lg-block">
+        <aside class="xp-panel cat-panel" aria-label="About categories">
+            <span class="cat-panel-mark" aria-hidden="true">&#9672;</span>
+            <div class="xp-panel-eyebrow">Why this matters</div>
+            <h2 class="cat-panel-title">Understand every rupee</h2>
+            <p class="cat-panel-body">
+                Categories make your spending easier to read and your insights more
+                meaningful. Every expense, budget and report is grouped by them.
+            </p>
+            <div class="cat-panel-tip">
+                <i class="bi bi-lightbulb-fill" aria-hidden="true"></i>
+                <span>Use broad, recognisable categories — a handful of clear ones beats
+                      dozens of overlapping ones.</span>
+            </div>
+        </aside>
     </div>
 </div>
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        // Display only. Reads the two fields and mirrors them into the preview row
+        // and the type mark. Nothing here changes what the form submits.
+        (function () {
+            var ICONS = @Html.Raw(iconMap);
+            var FALLBACK = { Expense: 'bi-tag', Income: 'bi-arrow-down-circle' };
+            var NOTES = {
+                Expense: 'Money going out — available to expenses and budgets.',
+                Income: 'Money coming in — available to income entries.'
+            };
+
+            var name = document.getElementById('catName');
+            var type = document.getElementById('catType');
+            var field = document.getElementById('catTypeField');
+            var arrow = document.getElementById('catTypeArrow');
+            var note = document.getElementById('catTypeNote');
+            var pIcon = document.getElementById('catPreviewIcon');
+            var pName = document.getElementById('catPreviewName');
+            var pChip = document.getElementById('catPreviewChip');
+            var pChipIcon = document.getElementById('catPreviewChipIcon');
+            var pChipText = document.getElementById('catPreviewChipText');
+
+            function iconFor(value, kind) {
+                var key = (value || '').trim().toLowerCase();
+                return ICONS[key] || FALLBACK[kind] || FALLBACK.Expense;
+            }
+
+            function sync() {
+                var kind = type.value === 'Income' ? 'Income' : 'Expense';
+                var expense = kind === 'Expense';
+                var typed = (name.value || '').trim();
+
+                field.classList.toggle('is-expense', expense);
+                field.classList.toggle('is-income', !expense);
+                arrow.className = 'bi ' + (expense ? 'bi-arrow-down-right' : 'bi-arrow-up-right');
+                note.textContent = NOTES[kind];
+
+                pIcon.className = 'bi ' + iconFor(typed, kind);
+                pName.textContent = typed || 'Your category';
+                pName.classList.toggle('is-placeholder', typed.length === 0);
+                pChip.classList.toggle('is-expense', expense);
+                pChip.classList.toggle('is-income', !expense);
+                pChipIcon.className = 'bi ' + (expense ? 'bi-arrow-down-right' : 'bi-arrow-up-right');
+                pChipText.textContent = kind;
+            }
+
+            name.addEventListener('input', sync);
+            type.addEventListener('change', sync);
+            sync();
+        })();
+    </script>
 }

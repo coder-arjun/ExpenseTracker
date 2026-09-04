@@ -28,6 +28,29 @@ namespace ExpenseTracker.Controllers
             var query = _context.Savings
                 .Where(s => s.UserId == userId)
                 .OrderByDescending(s => s.Date);
+
+            // ── Read-only figures for the summary strip. Additive: nothing else
+            // reads them. Computed over ALL savings, not just the current page,
+            // so a paginated view can't show a partial "total".
+            var thisMonth = DateTime.Now.ToString("yyyy-MM");
+            var lastMonth = DateTime.Now.AddMonths(-1).ToString("yyyy-MM");
+
+            var all = await _context.Savings
+                .Where(s => s.UserId == userId)
+                .Select(s => new { s.Amount, s.Date, s.YearMonth })
+                .ToListAsync();
+
+            ViewData["TotalSaved"] = all.Sum(s => s.Amount);
+            ViewData["SavingsCount"] = all.Count;
+            ViewData["MonthTotal"] = all.Where(s => s.YearMonth == thisMonth).Sum(s => s.Amount);
+            ViewData["PrevMonthTotal"] = all.Where(s => s.YearMonth == lastMonth).Sum(s => s.Amount);
+            ViewData["ThisMonth"] = thisMonth;
+            ViewData["PrevMonth"] = lastMonth;
+
+            var latest = all.OrderByDescending(s => s.Date).FirstOrDefault();
+            ViewData["LastDate"] = latest?.Date;
+            ViewData["LastAmount"] = latest?.Amount;
+
             return View(await PaginatedList<Saving>.CreateAsync(query, page));
         }
 

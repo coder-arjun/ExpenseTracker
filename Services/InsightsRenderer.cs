@@ -7,10 +7,14 @@ namespace ExpenseTracker.Services
     /// Turns a <see cref="FinancialSnapshot"/> into a friendly Markdown summary.
     /// Pure C# — no LLM call. Follows the section structure from the spec:
     ///   ## Overview
-    ///   ## Where your money is leaking
+    ///   ## Spending anomalies
     ///   ## How you can save
     ///   ## A budget to aim for
     ///   ## Do these first
+    ///
+    /// NOTE: "Spending anomalies" was previously "Where your money is leaking".
+    /// Already-cached MonthlyInsight rows keep the old heading until regenerated,
+    /// so the view matches on both.
     /// </summary>
     public static class InsightsRenderer
     {
@@ -106,26 +110,29 @@ namespace ExpenseTracker.Services
             return string.Empty;
         }
 
-        // ─── ## Where your money is leaking ─────────────────────────────────
+        // ─── ## Spending anomalies ──────────────────────────────────────────
         private static void WriteLeaks(StringBuilder sb, FinancialSnapshot s)
         {
-            sb.AppendLine("## Where your money is leaking");
+            sb.AppendLine("## Spending anomalies");
             sb.AppendLine();
 
-            var leaks = new List<(decimal impact, string line)>();
+            // Unusual = above this category's own normal, or over an agreed budget.
+            var unusual = new List<(decimal impact, string line)>();
+            // Planned = steady, recurring commitments. Large, but not a surprise.
+            var planned = new List<(decimal impact, string line)>();
 
             // 1. Over-budget lines
             foreach (var b in s.Budgets.Where(b => b.Actual > b.Budget))
             {
                 var over = b.Actual - b.Budget;
-                leaks.Add((over,
+                unusual.Add((over,
                     $"- **{b.Category}** — spent {Money(b.Actual)} against a budget of {Money(b.Budget)} ({b.VariancePct:+0.0;-0.0}%). That's {Money(over)} over."));
             }
 
             // 2. Anomalies (a category running well above its own normal)
             foreach (var a in s.Anomalies)
             {
-                leaks.Add((a.Amount,
+                unusual.Add((a.Amount,
                     $"- **{a.Category}** is running hot — {a.Note} About {Money(a.Amount)} above its usual."));
             }
 
@@ -134,28 +141,59 @@ namespace ExpenseTracker.Services
                          .Where(c => c.MoMChangePct.HasValue && c.MoMChangePct > 25 && c.Amount >= 1000)
                          .Where(c => !s.Anomalies.Any(a => a.Category == c.Category)))
             {
-                leaks.Add((c.Amount * 0.1m,
+                unusual.Add((c.Amount * 0.1m,
                     $"- **{c.Category}** rose {c.MoMChangePct:+0.0;-0.0}% versus last month ({Money(c.Amount)} this month)."));
             }
 
             // 4. Recurring charges (likely-forgotten subscriptions)
             foreach (var r in s.RecurringCharges)
             {
-                leaks.Add((r.Amount,
-                    $"- **{r.Merchant}** — recurring {r.Frequency} charge of {Money(r.Amount)} (last on {r.LastSeen:yyyy-MM-dd}). Worth a quick review."));
+                planned.Add((r.Amount,
+                    $"- **{r.Merchant}** — a steady {r.Frequency} charge of {Money(r.Amount)} (last on {r.LastSeen:yyyy-MM-dd}). Expected, but worth a periodic review."));
             }
 
-            if (leaks.Count == 0)
+            if (unusual.Count > 0)
             {
-                sb.AppendLine("Good news — no major leaks this month. Nothing went over budget, no category jumped well above its usual, and no surprise recurring charges turned up. 🎉");
+                sb.AppendLine("**Unusual this period**");
                 sb.AppendLine();
-                return;
+                foreach (var (_, line) in unusual.OrderByDescending(x => x.impact))
+                    sb.AppendLine(line);
+                sb.AppendLine();
+            }
+            else
+            {
+                // "Nothing unusual" must not read as "everything is fine" when the
+                // month is in deficit — say what the spending actually was.
+                var top = s.Categories.FirstOrDefault();
+                var net = s.TotalIncome - s.TotalExpenses;
+
+                if (top != null && net < 0)
+                {
+                    sb.AppendLine($"Nothing looks *unusual* — no category ran above its own normal and nothing went over budget. " +
+                                  $"The level is the issue, not the pattern: **{top.Category}** accounted for {top.PctOfSpend:0.0}% of spending " +
+                                  $"({Money(top.Amount)}), and total spending exceeded recorded income by **{Money(-net)}**.");
+                }
+                else if (top != null)
+                {
+                    sb.AppendLine($"Nothing unusual this period. No category ran above its own normal and nothing went over budget. " +
+                                  $"Your largest category was **{top.Category}** at {Money(top.Amount)} ({top.PctOfSpend:0.0}% of spending), " +
+                                  $"which is in line with your recent months.");
+                }
+                else
+                {
+                    sb.AppendLine("No spending recorded for this period, so there is nothing to compare against your usual pattern.");
+                }
+                sb.AppendLine();
             }
 
-            foreach (var (_, line) in leaks.OrderByDescending(x => x.impact))
-                sb.AppendLine(line);
-
-            sb.AppendLine();
+            if (planned.Count > 0)
+            {
+                sb.AppendLine("**Planned or recurring**");
+                sb.AppendLine();
+                foreach (var (_, line) in planned.OrderByDescending(x => x.impact))
+                    sb.AppendLine(line);
+                sb.AppendLine();
+            }
         }
 
         // ─── ## How you can save ────────────────────────────────────────────
@@ -166,7 +204,33 @@ namespace ExpenseTracker.Services
 
             if (s.Opportunities.Count == 0)
             {
-                sb.AppendLine("Nothing concrete jumped out from this month's numbers. Keep doing what you're doing — your spending pattern looks sustainable.");
+                // No ranked opportunity does not mean nothing to say. Name the
+                // actual gap in this month's data instead of a stock reassurance.
+                var net = s.TotalIncome - s.TotalExpenses;
+                var top = s.Categories.FirstOrDefault();
+
+                if (s.TotalIncome == 0 && s.TotalExpenses > 0)
+                {
+                    sb.AppendLine($"**Your biggest opportunity is cash-flow visibility.** {Money(s.TotalExpenses)} of spending was recorded " +
+                                  $"for this period, but no income was. Savings rate, affordability and budget headroom all divide by income, " +
+                                  $"so none of them can be calculated yet. Add your income entries and this section becomes specific to you.");
+                }
+                else if (net < 0 && top != null)
+                {
+                    sb.AppendLine($"No single charge stands out as recoverable — the gap is structural. You spent {Money(-net)} more than you earned, " +
+                                  $"and **{top.Category}** alone was {Money(top.Amount)} ({top.PctOfSpend:0.0}% of spending). " +
+                                  $"Bringing that one category down to its 3-month average is the largest single lever available.");
+                }
+                else if (top != null)
+                {
+                    sb.AppendLine($"Nothing concrete jumped out — no subscription, spike or overrun cleared the reporting threshold. " +
+                                  $"Your largest category was **{top.Category}** at {Money(top.Amount)} ({top.PctOfSpend:0.0}% of spending); " +
+                                  $"setting a budget against it is the simplest way to keep it that way.");
+                }
+                else
+                {
+                    sb.AppendLine("There's no spending recorded for this period, so there's nothing to find savings in yet.");
+                }
                 sb.AppendLine();
                 return;
             }
@@ -219,6 +283,22 @@ namespace ExpenseTracker.Services
             sb.AppendLine();
         }
 
+        /// <summary>
+        /// One suggested monthly limit per category, ranked by current spend.
+        /// Public so the Insights view can draw these as bars from the same
+        /// calculation the narrative table uses — there is no second formula.
+        /// </summary>
+        public static List<SuggestedBudget> SuggestBudgets(FinancialSnapshot s, int take = 5)
+        {
+            var rows = new List<SuggestedBudget>();
+            foreach (var c in s.Categories.Take(take))
+            {
+                var (target, why) = SuggestTarget(c, s);
+                rows.Add(new SuggestedBudget(c.Category, c.Amount, target, why));
+            }
+            return rows;
+        }
+
         private static (decimal target, string why) SuggestTarget(CategorySpend c, FinancialSnapshot s)
         {
             // 1. If a budget exists and they consistently overspend, suggest a stretch target
@@ -257,30 +337,76 @@ namespace ExpenseTracker.Services
                 .Take(3)
                 .ToList();
 
-            if (ranked.Count == 0)
+            var lines = new List<string>();
+
+            // Highest priority of all: a gap that stops the analysis working.
+            if (s.TotalIncome == 0 && s.TotalExpenses > 0)
             {
-                sb.AppendLine("1. Keep tracking everything — your habits look healthy this month.");
-                sb.AppendLine("2. Consider increasing your savings target if the surplus is consistent.");
-                sb.AppendLine("3. Review your budgets monthly so they stay relevant.");
-                sb.AppendLine();
-                return;
+                lines.Add($"**Record your income** — *High priority.* Savings rate can't be calculated because " +
+                          $"{Money(0)} of income was recorded against {Money(s.TotalExpenses)} of spending.");
+            }
+
+            foreach (var o in ranked)
+                lines.Add($"{ActionLine(o)} *{PriorityFor(o)} priority.*");
+
+            // Fill out to three with concrete, category-named suggestions —
+            // never generic filler.
+            var covered = new HashSet<string>(s.Budgets.Select(b => b.Category), StringComparer.OrdinalIgnoreCase);
+
+            if (lines.Count < 3)
+            {
+                var unbudgeted = s.Categories.FirstOrDefault(c => !covered.Contains(c.Category));
+                if (unbudgeted != null)
+                    lines.Add($"**Set a budget for {unbudgeted.Category}** — *Medium priority.* " +
+                              $"It was {Money(unbudgeted.Amount)} this period ({unbudgeted.PctOfSpend:0.0}% of spending) with no budget against it.");
+            }
+
+            if (lines.Count < 3)
+            {
+                var top = s.Categories.FirstOrDefault();
+                if (top != null && top.PctOfSpend >= 25m)
+                    lines.Add($"**Review your {top.Category} category** — *Medium priority.* " +
+                              $"It represented {top.PctOfSpend:0.0}% of this period's spending on its own.");
+            }
+
+            if (lines.Count < 3 && s.SavingsRate > 0)
+            {
+                var pct = (int)Math.Round(s.SavingsRate * 100);
+                lines.Add($"**Lift your savings target** — *Low priority.* You kept {pct}% of income this period; " +
+                          $"if that holds for another month or two, the target can safely move up.");
+            }
+
+            if (lines.Count == 0)
+            {
+                lines.Add("**Record a month of income and expenses** — *High priority.* " +
+                          "There's nothing in this period to act on yet.");
             }
 
             var i = 1;
-            foreach (var o in ranked)
-                sb.AppendLine($"{i++}. {ActionLine(o)}");
+            foreach (var line in lines.Take(3))
+                sb.AppendLine($"{i++}. {line}");
 
             sb.AppendLine();
         }
 
+        // Highest-impact first; easy wins outrank hard ones of similar size.
+        private static string PriorityFor(Opportunity o) => o.MonthlySaving switch
+        {
+            >= 5000m => "High",
+            >= 1500m => "Medium",
+            _        => o.Difficulty == "easy" ? "Medium" : "Low"
+        };
+
+        // Every action line has the same shape: **what to do** — why it matters.
+        // The view relies on that to split the label from its evidence.
         private static string ActionLine(Opportunity o) => o.Type switch
         {
-            "subscription" => $"Review or cancel the **{o.Label}** — saves {Money(o.MonthlySaving)}/month ({o.Difficulty}).",
-            "spike"        => $"Trim the **{o.Label}** — saves about {Money(o.MonthlySaving)}/month ({o.Difficulty}).",
-            "overspend"    => $"Pull back the **{o.Label}** — saves {Money(o.MonthlySaving)}/month ({o.Difficulty}).",
-            "fee"          => $"Avoid the **{o.Label}** — saves {Money(o.MonthlySaving)}/month ({o.Difficulty}).",
-            "rate"         => $"Renegotiate **{o.Label}** — redirects {Money(o.MonthlySaving)}/month into savings ({o.Difficulty}).",
-            _              => $"**{o.Label}** — saves {Money(o.MonthlySaving)}/month ({o.Difficulty})."
+            "subscription" => $"**Review or cancel {o.Label}** — a steady charge worth {Money(o.MonthlySaving)}/month. {o.Evidence}",
+            "spike"        => $"**Trim {o.Label}** — about {Money(o.MonthlySaving)}/month above its usual level. {o.Evidence}",
+            "overspend"    => $"**Pull back {o.Label}** — {Money(o.MonthlySaving)}/month over the agreed budget. {o.Evidence}",
+            "fee"          => $"**Avoid {o.Label}** — {Money(o.MonthlySaving)}/month recoverable. {o.Evidence}",
+            "rate"         => $"**Renegotiate {o.Label}** — would redirect {Money(o.MonthlySaving)}/month into savings. {o.Evidence}",
+            _              => $"**Review {o.Label}** — {Money(o.MonthlySaving)}/month at stake. {o.Evidence}"
         };
 
         private static decimal DifficultyWeight(string difficulty) => difficulty switch

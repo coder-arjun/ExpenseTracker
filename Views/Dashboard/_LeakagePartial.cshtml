@@ -1,34 +1,37 @@
 @model List<ExpenseTracker.Models.ViewModel.MoneyLeakage>
 
+@*
+    Presentation only — same model, same ordering, same figures. Also returned by the
+    GetLeakageData AJAX endpoint, so the markup stays self-contained.
+
+    The ranking is the differentiator, so the bars use one tonal rose scale rather than
+    five unrelated hues: rank carries meaning, colour just reinforces it.
+*@
+
 @if (Model.Any())
 {
-    @foreach (var (leakage, index) in Model.Select((l, i) => (l, i)))
-    {
-        var barColor = index switch
+    <ol class="leak-list">
+        @foreach (var (leakage, index) in Model.Select((l, i) => (l, i)))
         {
-            0 => "bg-danger",
-            1 => "bg-warning",
-            2 => "bg-info",
-            _ => "bg-secondary"
-        };
-        <div class="leakage-item d-flex align-items-center mb-3 p-3 rounded">
-            <span class="rank-badge me-3">@(index + 1)</span>
-            <div class="flex-grow-1">
-                <div class="d-flex justify-content-between mb-1">
-                    <span class="fw-semibold">@leakage.Category</span>
-                    <span>
-                        <span class="text-tabular t-expense fw-bold">&minus;@leakage.Amount.ToString("C")</span>
-                        <span class="text-tabular text-muted ms-1">(@leakage.Percentage%)</span>
-                    </span>
+            <li class="leak-item" data-rank="@index">
+                <span class="leak-rank" aria-hidden="true">@((index + 1).ToString("00"))</span>
+                <div class="leak-body">
+                    <div class="leak-head">
+                        <span class="leak-name">@leakage.Category</span>
+                        <span class="leak-figures">
+                            <span class="leak-amount">&minus;@leakage.Amount.ToString("C")</span>
+                            <span class="leak-share">@leakage.Percentage%</span>
+                        </span>
+                    </div>
+                    <div class="leak-bar" role="progressbar"
+                         aria-label="@leakage.Category share of expenses"
+                         aria-valuenow="@leakage.Percentage" aria-valuemin="0" aria-valuemax="100">
+                        <span style="width:@leakage.Percentage.ToString(System.Globalization.CultureInfo.InvariantCulture)%"></span>
+                    </div>
                 </div>
-                <div class="progress" style="height: 8px;">
-                    <div class="progress-bar @barColor" role="progressbar"
-                         style="width: @leakage.Percentage%" aria-valuenow="@leakage.Percentage"
-                         aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-            </div>
-        </div>
-    }
+            </li>
+        }
+    </ol>
 }
 else
 {

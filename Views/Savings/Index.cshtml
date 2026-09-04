@@ -1,14 +1,37 @@
+@using System.Globalization
 @model ExpenseTracker.Models.PaginatedList<ExpenseTracker.Models.Domain.Saving>
+
+@*
+    Presentation only. Same model, same ordering, the same Export routes and the
+    same Edit / Details / Delete actions. The summary strip reads figures the
+    controller now supplies; nothing is stored and no query changed.
+*@
 
 @{
     ViewData["Title"] = "Savings";
+    var inr = CultureInfo.GetCultureInfo("en-IN");
+
+    var totalSaved = (decimal)(ViewData["TotalSaved"] ?? 0m);
+    var monthTotal = (decimal)(ViewData["MonthTotal"] ?? 0m);
+    var prevMonthTotal = (decimal)(ViewData["PrevMonthTotal"] ?? 0m);
+    var savingsCount = (int)(ViewData["SavingsCount"] ?? 0);
+    var lastDate = ViewData["LastDate"] as DateTime?;
+    var lastAmount = ViewData["LastAmount"] as decimal?;
+    var thisMonth = ViewData["ThisMonth"] as string ?? DateTime.Now.ToString("yyyy-MM");
+    var prevMonth = ViewData["PrevMonth"] as string ?? "";
+
+    string Money(decimal a) => a.ToString("C0", inr);
+    string MoneyFull(decimal a) => a.ToString("C", inr);
+    string MonthLabel(string ym) =>
+        DateTime.TryParseExact(ym, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+            ? d.ToString("MMMM", CultureInfo.InvariantCulture) : ym;
 }
 
-<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
-    <div class="page-header mb-0">
-        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Savings ledger</div>
-        <h1><i class="bi bi-piggy-bank me-2"></i>Savings</h1>
-        <p>MANAGE AND TRACK ALL YOUR SAVINGS</p>
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-end gap-3 mb-4">
+    <div class="page-head has-stroke mb-0">
+        <div class="page-eyebrow">Savings ledger</div>
+        <h1>Savings</h1>
+        <p class="page-lede">Every deposit you set aside, and what it adds up to.</p>
     </div>
     <div class="d-flex gap-2">
         <div class="btn-group flex-fill flex-sm-grow-0">
@@ -29,7 +52,7 @@
             </ul>
         </div>
         <a asp-action="Create" class="btn btn-primary flex-fill flex-sm-grow-0">
-            <i class="bi bi-plus-circle me-1"></i>Add Saving
+            <i class="bi bi-plus-lg me-1"></i>Add saving
         </a>
     </div>
 </div>
@@ -40,48 +63,134 @@
         <div class="es-icon"><i class="bi bi-piggy-bank"></i></div>
         <div class="es-title">No savings recorded yet</div>
         <p class="es-body">Start saving today &mdash; every entry builds toward a stronger tomorrow.</p>
-        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>Add Saving</a>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add saving</a>
     </div>
 }
 else
 {
-    <div class="card">
-        <div class="card-body p-0">
-            <table class="table table-hover table-stack mb-0">
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th class="text-end">Amount</th>
-                        <th>Note</th>
-                        <th>Month</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var item in Model)
-                    {
-                        <tr>
-                            <td data-label="Date" class="folio">@item.Date.ToString("dd MMM yyyy")</td>
-                            <td data-label="Amount" class="text-end fw-semibold text-tabular t-balance">@item.Amount.ToString("C")</td>
-                            <td data-label="Note">@item.Note</td>
-                            <td data-label="Month">@item.YearMonth</td>
-                            <td data-label="Actions">
-                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" aria-label="Edit">
-                                    <i class="bi bi-pencil" aria-hidden="true"></i>
-                                </a>
-                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info" aria-label="View details">
-                                    <i class="bi bi-eye" aria-hidden="true"></i>
-                                </a>
-                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger" aria-label="Delete">
-                                    <i class="bi bi-trash" aria-hidden="true"></i>
-                                </a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+    @* ── What the ledger adds up to ────────────────────────────────────── *@
+    <section class="sv-strip" aria-label="Savings summary">
+        <div class="sv-strip-item">
+            <div class="sv-strip-value is-in" title="@MoneyFull(totalSaved)">@Money(totalSaved)</div>
+            <div class="sv-strip-label">Total saved</div>
+            <div class="sv-strip-sub">
+                across @savingsCount deposit@(savingsCount == 1 ? "" : "s")
+            </div>
         </div>
-    </div>
+        <div class="sv-strip-item">
+            <div class="sv-strip-value @(monthTotal > 0 ? "is-in" : "is-idle")" title="@MoneyFull(monthTotal)">@Money(monthTotal)</div>
+            <div class="sv-strip-label">@MonthLabel(thisMonth) so far</div>
+            @* A trend is only stated when there is a prior month to compare with. *@
+            @if (prevMonthTotal > 0)
+            {
+                var delta = monthTotal - prevMonthTotal;
+                <div class="sv-strip-sub @(delta >= 0 ? "is-up" : "is-down")">
+                    <i class="bi @(delta >= 0 ? "bi-arrow-up-short" : "bi-arrow-down-short")" aria-hidden="true"></i>
+                    @Money(Math.Abs(delta)) @(delta >= 0 ? "more" : "less") than @MonthLabel(prevMonth)
+                </div>
+            }
+            else if (monthTotal > 0)
+            {
+                <div class="sv-strip-sub">nothing recorded in @MonthLabel(prevMonth)</div>
+            }
+            else
+            {
+                <div class="sv-strip-sub">nothing set aside yet</div>
+            }
+        </div>
+        <div class="sv-strip-item">
+            @if (lastDate.HasValue)
+            {
+                <div class="sv-strip-value is-date">@lastDate.Value.ToString("dd MMM", inr)</div>
+                <div class="sv-strip-label">Last deposit</div>
+                <div class="sv-strip-sub">
+                    <span class="mono">@Money(lastAmount ?? 0)</span> · @lastDate.Value.ToString("yyyy", inr)
+                </div>
+            }
+            else
+            {
+                <div class="sv-strip-value is-idle">&mdash;</div>
+                <div class="sv-strip-label">Last deposit</div>
+                <div class="sv-strip-sub">none yet</div>
+            }
+        </div>
+    </section>
+
+    <table class="xp-table sv-table">
+        <thead>
+            <tr>
+                <th class="sv-date-col">Date</th>
+                <th class="xp-amount">Amount</th>
+                <th>Note</th>
+                <th class="sv-actions-col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                @* The Month column repeated the date. YearMonth is user-set, though,
+                   so it is surfaced only when it actually disagrees with the date —
+                   hiding a real mismatch would be worse than the redundancy. *@
+                var derived = item.Date.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+                var mismatched = !string.IsNullOrEmpty(item.YearMonth) && item.YearMonth != derived;
+                <tr>
+                    <td class="sv-date-col" data-label="Date">
+                        <span class="sv-date">@item.Date.ToString("dd MMM yyyy", inr)</span>
+                        @if (mismatched)
+                        {
+                            <span class="sv-ledger-month" title="This deposit is booked to a different ledger month than its date">
+                                <i class="bi bi-calendar-event" aria-hidden="true"></i> Booked to @item.YearMonth
+                            </span>
+                        }
+                    </td>
+                    @* Savings are money kept, so they read as a credit. *@
+                    <td class="xp-amount sv-amount" data-label="Amount" title="@MoneyFull(item.Amount)">
+                        +@item.Amount.ToString("C", inr)
+                    </td>
+                    <td data-label="Note">
+                        @if (string.IsNullOrWhiteSpace(item.Note))
+                        {
+                            <span class="sv-note-empty">No note</span>
+                        }
+                        else
+                        {
+                            <span class="sv-note">@item.Note</span>
+                        }
+                    </td>
+                    <td class="sv-actions-col" data-label="Actions">
+                        <div class="xp-actions">
+                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm"
+                               aria-label="Edit saving of @MoneyFull(item.Amount)" title="Edit">
+                                <i class="bi bi-pencil" aria-hidden="true"></i>
+                            </a>
+                            <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm"
+                               aria-label="View details" title="View details">
+                                <i class="bi bi-eye" aria-hidden="true"></i>
+                            </a>
+                            @* Destructive, so it asks — and stays neutral until reached for. *@
+                            <span class="inline-confirm">
+                                <button type="button" class="btn btn-sm" data-inline-confirm
+                                        aria-label="Delete saving" title="Delete">
+                                    <i class="bi bi-trash" aria-hidden="true"></i>
+                                </button>
+                                <span class="inline-confirm-bubble">
+                                    <div class="inline-confirm-text">
+                                        <strong>Delete this @Money(item.Amount) deposit?</strong><br />
+                                        It will be removed from your savings total.
+                                    </div>
+                                    <form asp-action="Delete" asp-route-id="@item.Id" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                                        <button type="button" class="btn btn-sm btn-link inline-confirm-cancel">Cancel</button>
+                                    </form>
+                                </span>
+                            </span>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
 }
 
 @{

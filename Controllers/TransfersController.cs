@@ -1,6 +1,7 @@
 using ExpenseTracker.Data;
 using ExpenseTracker.Models;
 using ExpenseTracker.Models.Domain;
+using ExpenseTracker.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -14,11 +15,13 @@ namespace ExpenseTracker.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly AccountBalanceService _balances;
 
-        public TransfersController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public TransfersController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, AccountBalanceService balances)
         {
             _context = context;
             _userManager = userManager;
+            _balances = balances;
         }
 
         public async Task<IActionResult> Index(int page = 1)
@@ -35,7 +38,7 @@ namespace ExpenseTracker.Controllers
         public async Task<IActionResult> Create()
         {
             var userId = _userManager.GetUserId(User);
-            ViewData["Accounts"] = await GetAccountListAsync(userId);
+            await PopulateAccountDataAsync(userId);
             return View(new Transfer { Date = DateTime.Today });
         }
 
@@ -63,7 +66,7 @@ namespace ExpenseTracker.Controllers
 
             if (!ModelState.IsValid)
             {
-                ViewData["Accounts"] = await GetAccountListAsync(userId);
+                await PopulateAccountDataAsync(userId);
                 return View(transfer);
             }
 
@@ -138,6 +141,34 @@ namespace ExpenseTracker.Controllers
                 TempData["SuccessMessage"] = "Transfer deleted.";
             }
             return RedirectToAction(nameof(Index));
+        }
+
+        /// <summary>
+        /// Read-only account metadata (name, type, current balance) for the transfer
+        /// summary panel. Display data only — it does not participate in validating or
+        /// saving a transfer. Must be set on EVERY path that renders Create/Edit,
+        /// including the validation-failure re-render.
+        /// </summary>
+        private async Task PopulateAccountDataAsync(string? userId)
+        {
+            ViewData["Accounts"] = await GetAccountListAsync(userId);
+
+            var accounts = await _context.Accounts
+                .Where(a => a.UserId == userId && a.IsActive)
+                .OrderBy(a => a.Name)
+                .Select(a => new { a.Id, a.Name, Type = a.Type.ToString() })
+                .ToListAsync();
+            var balances = await _balances.GetBalancesAsync(userId!);
+
+            ViewData["AccountMeta"] = accounts
+                .Select(a => new
+                {
+                    id = a.Id,
+                    name = a.Name,
+                    type = a.Type,
+                    balance = balances.TryGetValue(a.Id, out var b) ? b : 0m
+                })
+                .ToList();
         }
 
         private async Task<SelectList> GetAccountListAsync(string? userId)

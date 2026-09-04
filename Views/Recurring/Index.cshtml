@@ -1,84 +1,250 @@
+@using System.Globalization
+@using ExpenseTracker.Models.Domain
+@using ExpenseTracker.Services
 @model IEnumerable<ExpenseTracker.Models.Domain.RecurringRule>
+
+@*
+    Presentation only. Same model, same ordering, and the same three POST actions —
+    RunNow, Toggle and Delete — with the same routes and antiforgery tokens. The
+    overview strip is computed here from the rules already on the page; no new
+    query, and nothing is stored.
+*@
 
 @{
     ViewData["Title"] = "Recurring";
-    var INR = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    var INR = CultureInfo.GetCultureInfo("en-IN");
+    var today = DateTime.Today;
+    var rules = Model.ToList();
+
+    // Only rules that can actually fire count toward the figures below:
+    // active, and not already past their end date.
+    var live = rules.Where(r => r.IsActive && (!r.EndDate.HasValue || r.EndDate.Value.Date >= today)).ToList();
+    var monthlyOut = live.Where(r => r.Type == RecurringType.Expense).Sum(r => r.Amount);
+    var monthlyIn = live.Where(r => r.Type == RecurringType.Income).Sum(r => r.Amount);
+    var monthlyNet = monthlyIn - monthlyOut;
+    var nextDue = live.Count > 0 ? live.Min(r => r.NextDueDate.Date) : (DateTime?)null;
+
+    string Money(decimal a) => a.ToString("C0", INR);
+
+    // "Due now" for anything at or before today — auto-posting is lazy, so a past
+    // date means it fires on the next visit, not that it was missed.
+    (string text, string tone) Relative(DateTime d)
+    {
+        var days = (d.Date - today).Days;
+        if (days < 0) return ("Due now", "is-now");
+        if (days == 0) return ("Today", "is-now");
+        if (days == 1) return ("Tomorrow", "is-soon");
+        if (days <= 7) return ($"In {days} days", "is-soon");
+        if (days <= 31) return ($"In {days} days", "");
+        return ($"In {days / 30} month{(days / 30 == 1 ? "" : "s")}", "");
+    }
 }
 
-<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
-    <div class="page-header mb-0">
-        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Standing orders</div>
-        <h1><i class="bi bi-arrow-repeat me-2"></i>Recurring</h1>
-        <p>SCHEDULED ENTRIES THAT AUTO-POST ON THEIR DUE DATE</p>
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-end gap-3 mb-4">
+    <div class="page-head has-stroke mb-0">
+        <div class="page-eyebrow">Standing orders</div>
+        <h1>Recurring</h1>
+        <p class="page-lede">Scheduled entries that post themselves on their due date.</p>
     </div>
-    <div class="d-flex gap-2">
-        <form asp-action="RunNow" method="post" class="flex-fill flex-sm-grow-0 m-0">
-            @Html.AntiForgeryToken()
-            <button type="submit" class="btn btn-outline-secondary w-100" title="Catch up any due rules right now">
-                <i class="bi bi-lightning-charge me-1"></i>Run Now
+    <div class="d-flex gap-2 rr-toolbar">
+        @* Posting real transactions deserves a confirmation, and the button should
+           say what it actually does: only rules that are due, only active ones. *@
+        <span class="inline-confirm rr-run">
+            <button type="button" class="btn btn-outline-secondary w-100" data-inline-confirm
+                    title="Post any active rules that are due">
+                <i class="bi bi-lightning-charge me-1"></i>Run due rules
             </button>
-        </form>
+            <span class="inline-confirm-bubble">
+                <div class="inline-confirm-text">
+                    <strong>Run due recurring rules?</strong><br />
+                    This creates transactions for every active rule that is due today or earlier.
+                    Paused rules and rules not yet due are untouched.
+                </div>
+                <form asp-action="RunNow" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-sm btn-primary">Run due rules</button>
+                    <button type="button" class="btn btn-sm btn-link inline-confirm-cancel">Cancel</button>
+                </form>
+            </span>
+        </span>
         <a asp-action="Create" class="btn btn-primary flex-fill flex-sm-grow-0">
-            <i class="bi bi-plus-circle me-1"></i>New Rule
+            <i class="bi bi-plus-lg me-1"></i>New rule
         </a>
     </div>
 </div>
 
-@if (!Model.Any())
+@if (!rules.Any())
 {
     <div class="empty-state-v2">
         <div class="es-icon"><i class="bi bi-arrow-repeat"></i></div>
         <div class="es-title">No recurring rules yet</div>
-        <p class="es-body">Add a standing order for your rent, EMI, salary, or subscriptions and let the ledger post it on schedule.</p>
-        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Rule</a>
+        <p class="es-body">
+            Automate your rent, subscriptions, salary, EMIs and other repeating
+            transactions — the ledger posts them on schedule so you don't have to.
+        </p>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Create your first rule</a>
     </div>
 }
 else
 {
-    <div class="card"><div class="card-body p-0">
-        <table class="table table-hover table-stack mb-0">
-            <thead><tr>
-                <th>Name</th><th>Type</th><th class="text-end">Amount</th><th>Category / Source</th>
-                <th>Account</th><th>Schedule</th><th>Next due</th><th>Status</th><th>Actions</th>
-            </tr></thead>
-            <tbody>
-                @foreach (var r in Model)
-                {
-                    var isExpense = r.Type == ExpenseTracker.Models.Domain.RecurringType.Expense;
-                    var amountClass = isExpense ? "t-expense" : "t-income";
-                    var amountSign = isExpense ? "&minus;" : "+";
-                    <tr class="@(r.IsActive ? "" : "text-muted")">
-                        <td data-label="Name" class="fw-semibold">@r.Name</td>
-                        <td data-label="Type">
-                            @if (isExpense)
-                            { <span class="badge bg-danger-subtle text-danger">Expense</span> }
+    @* ── At a glance: what this automation actually amounts to ───────────── *@
+    <section class="rr-strip" aria-label="Recurring overview">
+        <div class="rr-strip-item">
+            <div class="rr-strip-value">@live.Count</div>
+            <div class="rr-strip-label">Active rule@(live.Count == 1 ? "" : "s")</div>
+            @if (rules.Count != live.Count)
+            {
+                <div class="rr-strip-sub">@(rules.Count - live.Count) paused or ended</div>
+            }
+        </div>
+        <div class="rr-strip-item">
+            <div class="rr-strip-value @(monthlyNet < 0 ? "is-out" : monthlyNet > 0 ? "is-in" : "")"
+                 title="@Money(Math.Abs(monthlyNet))">
+                @(monthlyNet < 0 ? "−" : monthlyNet > 0 ? "+" : "")@Money(Math.Abs(monthlyNet))
+            </div>
+            <div class="rr-strip-label">Monthly impact</div>
+            @if (monthlyOut > 0 && monthlyIn > 0)
+            {
+                <div class="rr-strip-sub">@Money(monthlyOut) out · @Money(monthlyIn) in</div>
+            }
+            else
+            {
+                <div class="rr-strip-sub">From active rules</div>
+            }
+        </div>
+        <div class="rr-strip-item">
+            @if (nextDue.HasValue)
+            {
+                var rel = Relative(nextDue.Value);
+                <div class="rr-strip-value is-date">@nextDue.Value.ToString("dd MMM", INR)</div>
+                <div class="rr-strip-label">Next posting</div>
+                <div class="rr-strip-sub @rel.tone">@rel.text · @nextDue.Value.ToString("yyyy", INR)</div>
+            }
+            else
+            {
+                <div class="rr-strip-value is-empty">—</div>
+                <div class="rr-strip-label">Next posting</div>
+                <div class="rr-strip-sub">Nothing scheduled</div>
+            }
+        </div>
+    </section>
+
+    <table class="xp-table rr-table">
+        <thead>
+            <tr>
+                <th>Rule</th>
+                <th class="rr-type-col">Type</th>
+                <th class="xp-amount">Amount</th>
+                @* "Category / Source" read like a database column. One word covers both. *@
+                <th class="rr-class-col">Classification</th>
+                <th class="rr-sched-col">Schedule</th>
+                <th class="rr-due-col">Next due</th>
+                <th class="rr-status-col">Status</th>
+                <th class="rr-actions-col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in rules)
+            {
+                var isExpense = r.Type == RecurringType.Expense;
+                var rel = Relative(r.NextDueDate);
+                <tr class="@(isExpense ? "is-out" : "is-in") @(r.IsActive ? "" : "is-paused")">
+                    <td data-label="Rule">
+                        <span class="rr-name">@r.Name</span>
+                        @* The account belongs with the rule's identity, not in a
+                           column of its own — it is a detail, not a dimension. *@
+                        <span class="rr-name-meta">
+                            @if (r.Account != null)
+                            {
+                                <span><i class="bi bi-bank" aria-hidden="true"></i> @r.Account.Name</span>
+                            }
                             else
-                            { <span class="badge bg-success-subtle text-success">Income</span> }
-                        </td>
-                        <td data-label="Amount" class="text-end fw-semibold text-tabular @amountClass">@Html.Raw(amountSign)@r.Amount.ToString("C0", INR)</td>
-                        <td data-label="Category / Source">@(r.Category?.Name ?? r.Source ?? "—")</td>
-                        <td data-label="Account">@(r.Account?.Name ?? "—")</td>
-                        <td data-label="Schedule">Monthly &middot; day @r.DayOfMonth</td>
-                        <td data-label="Next due" class="folio">@r.NextDueDate.ToString("dd MMM yyyy")</td>
-                        <td data-label="Status">
-                            @if (r.IsActive)
-                            { <span class="badge bg-success">Active</span> }
-                            else
-                            { <span class="badge bg-secondary">Paused</span> }
-                        </td>
-                        <td data-label="Actions">
+                            {
+                                <span class="none">No account set</span>
+                            }
+                        </span>
+                    </td>
+                    <td class="rr-type-col" data-label="Type">
+                        <span class="cat-chip @(isExpense ? "is-expense" : "is-income")">
+                            <i class="bi @(isExpense ? "bi-arrow-down-right" : "bi-arrow-up-right")" aria-hidden="true"></i>
+                            @(isExpense ? "Expense" : "Income")
+                        </span>
+                    </td>
+                    <td class="xp-amount rr-amount @(isExpense ? "is-out" : "is-in")" data-label="Amount">
+                        @(isExpense ? "−" : "+")@r.Amount.ToString("C0", INR)
+                    </td>
+                    <td class="rr-class-col" data-label="Classification">
+                        @if (r.Category != null)
+                        {
+                            <span>@r.Category.Name</span>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(r.Source))
+                        {
+                            <span>@r.Source</span>
+                        }
+                        else
+                        {
+                            <span class="none">—</span>
+                        }
+                    </td>
+                    <td class="rr-sched-col" data-label="Schedule">
+                        <span class="rr-sched">Monthly</span>
+                        <span class="rr-sched-sub">day @r.DayOfMonth</span>
+                    </td>
+                    <td class="rr-due-col" data-label="Next due">
+                        @if (r.IsActive)
+                        {
+                            <span class="rr-due">@r.NextDueDate.ToString("dd MMM yyyy", INR)</span>
+                            <span class="rr-due-rel @rel.tone">@rel.text</span>
+                        }
+                        else
+                        {
+                            <span class="rr-due is-muted">@r.NextDueDate.ToString("dd MMM yyyy", INR)</span>
+                            <span class="rr-due-rel">Paused — won't post</span>
+                        }
+                    </td>
+                    <td class="rr-status-col" data-label="Status">
+                        <span class="rr-state @(r.IsActive ? "is-active" : "is-off")">
+                            <span class="dot" aria-hidden="true"></span>@(r.IsActive ? "Active" : "Paused")
+                        </span>
+                    </td>
+                    <td class="rr-actions-col" data-label="Actions">
+                        <div class="xp-actions">
                             <form asp-action="Toggle" asp-route-id="@r.Id" method="post" class="d-inline">
                                 @Html.AntiForgeryToken()
-                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="@(r.IsActive ? "Pause" : "Resume")">
-                                    <i class="bi @(r.IsActive ? "bi-pause-fill" : "bi-play-fill")"></i>
+                                <button type="submit" class="btn btn-sm"
+                                        aria-label="@(r.IsActive ? "Pause" : "Resume") @r.Name"
+                                        title="@(r.IsActive ? "Pause" : "Resume")">
+                                    <i class="bi @(r.IsActive ? "bi-pause-fill" : "bi-play-fill")" aria-hidden="true"></i>
                                 </button>
                             </form>
-                            <a asp-action="Edit" asp-route-id="@r.Id" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
-                            <a asp-action="Delete" asp-route-id="@r.Id" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div></div>
+                            <a asp-action="Edit" asp-route-id="@r.Id" class="btn btn-sm"
+                               aria-label="Edit @r.Name" title="Edit">
+                                <i class="bi bi-pencil" aria-hidden="true"></i>
+                            </a>
+                            @* Deleting a rule is the one irreversible action here, so it
+                               asks — and says what it does NOT touch. *@
+                            <span class="inline-confirm">
+                                <button type="button" class="btn btn-sm" data-inline-confirm
+                                        aria-label="Delete @r.Name" title="Delete">
+                                    <i class="bi bi-trash" aria-hidden="true"></i>
+                                </button>
+                                <span class="inline-confirm-bubble">
+                                    <div class="inline-confirm-text">
+                                        <strong>Delete “@r.Name”?</strong><br />
+                                        This won't delete transactions it has already created.
+                                    </div>
+                                    <form asp-action="Delete" asp-route-id="@r.Id" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-danger">Delete rule</button>
+                                        <button type="button" class="btn btn-sm btn-link inline-confirm-cancel">Cancel</button>
+                                    </form>
+                                </span>
+                            </span>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
 }

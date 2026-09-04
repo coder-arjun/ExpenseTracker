@@ -1,71 +1,191 @@
+@using System.Globalization
+@using System.Text.Json
 @using Microsoft.AspNetCore.Mvc.Rendering
 @model ExpenseTracker.Models.Domain.Budget
 
+@*
+    Presentation only. The form still posts Amount, CategoryId and YearMonth to the
+    same Create action with the same binding and validation. The fields are reordered
+    and the month is collapsed behind a "Change" toggle, but every input is present
+    in the DOM and submitted exactly as before — with JS off the month input renders
+    open, so nothing depends on script.
+
+    The 80% figure in the preview is not invented: DashboardController raises a
+    budget alert at pct >= 80.
+*@
+
 @{
     ViewData["Title"] = "Add Budget";
+    var inr = CultureInfo.GetCultureInfo("en-IN");
     var yearMonth = ViewData["YearMonth"] as string ?? DateTime.Now.ToString("yyyy-MM");
     var categories = (SelectList)ViewData["Categories"]!;
+
+    string MonthLabel(string ym) =>
+        DateTime.TryParseExact(ym, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+            ? d.ToString("MMMM yyyy", CultureInfo.InvariantCulture) : ym;
+
+    var selectedCategory = Model?.CategoryId;
+    var categoryNames = categories.ToDictionary(c => c.Value, c => c.Text);
 }
 
-<div class="page-header">
-    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Budget ledger</div>
-    <h1><i class="bi bi-bullseye me-2"></i>Add Budget</h1>
-    <p class="text-uppercase">Set a spending limit for the month</p>
+<a asp-action="Index" asp-route-yearMonth="@yearMonth" class="ev-back"><i class="bi bi-arrow-left"></i> All budgets</a>
+
+<div class="page-head has-stroke">
+    <div class="page-eyebrow">Budget ledger</div>
+    <h1>Add budget</h1>
+    <p class="page-lede">Set a spending limit for @MonthLabel(yearMonth).</p>
 </div>
 
 <div class="row g-4 align-items-start">
-    <div class="col-lg-6">
-        <div class="card create-form-card" style="border-top-color: #1565c0;">
-            <div class="card-body">
-                <form asp-action="Create">
-                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-                    <div class="form-group mb-3">
-                        <label asp-for="Amount" class="form-label"></label>
-                        <div class="input-currency">
-                            <input asp-for="Amount" class="form-control" />
-                        </div>
-                        <span asp-validation-for="Amount" class="text-danger"></span>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label asp-for="CategoryId" class="form-label"></label>
-                        <select asp-for="CategoryId" class="form-select" asp-items="@categories">
-                            <option value="">Overall (All Categories)</option>
-                        </select>
-                        <span asp-validation-for="CategoryId" class="text-danger"></span>
-                    </div>
-                    <div class="form-group mb-3">
-                        <label asp-for="YearMonth" class="form-label">Month</label>
-                        <input asp-for="YearMonth" type="month" class="form-control" value="@yearMonth" />
-                        <span asp-validation-for="YearMonth" class="text-danger"></span>
-                    </div>
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create</button>
-                        <a asp-action="Index" asp-route-yearMonth="@yearMonth" class="btn btn-outline-secondary ms-2">Cancel</a>
-                    </div>
-                </form>
+    <div class="col-lg-7">
+        <form asp-action="Create" id="budgetForm">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            @* Category first: you decide what you are budgeting before how much. *@
+            <div class="xp-field">
+                <label asp-for="CategoryId" class="xp-label">Category</label>
+                @* Grouped, so "Overall" reads as a different kind of thing rather
+                   than just the first item in a list. *@
+                <select asp-for="CategoryId" class="form-select" id="bgCategory">
+                    <option value="" selected="@(!selectedCategory.HasValue)">Overall budget — all categories</option>
+                    <optgroup label="Category budgets">
+                        @foreach (var c in categories)
+                        {
+                            <option value="@c.Value" selected="@(selectedCategory?.ToString() == c.Value)">@c.Text</option>
+                        }
+                    </optgroup>
+                </select>
+                <div class="xp-hint" id="bgCategoryHint"></div>
+                <span asp-validation-for="CategoryId" class="text-danger"></span>
             </div>
-        </div>
+
+            @* The anchor of the page. *@
+            <div class="xp-field">
+                <label asp-for="Amount" class="xp-label">Budget amount</label>
+                <div class="xp-money is-lg" id="bgMoney">
+                    <span class="xp-money-prefix" aria-hidden="true">&#8377;</span>
+                    <input asp-for="Amount" inputmode="decimal" placeholder="0.00" id="bgAmount" autocomplete="off" autofocus />
+                </div>
+                <div class="xp-hint">The most you want to spend in this category this month.</div>
+                <span asp-validation-for="Amount" class="text-danger"></span>
+            </div>
+
+            @* The month came in on the URL, so it is stated rather than asked.
+               The input is always present and always submits; JS only collapses it. *@
+            <div class="xp-field bg-month-field" id="bgMonthField">
+                <label asp-for="YearMonth" class="xp-label">Month</label>
+                <div class="bg-month-summary" id="bgMonthSummary" hidden>
+                    <span class="bg-month-value" id="bgMonthText">@MonthLabel(yearMonth)</span>
+                    <button type="button" class="btn btn-sm btn-link bg-month-change" id="bgMonthChange">Change</button>
+                </div>
+                <input asp-for="YearMonth" type="month" class="form-control" value="@yearMonth" id="bgMonth" />
+                <span asp-validation-for="YearMonth" class="text-danger"></span>
+            </div>
+
+            <hr class="hairline my-4" />
+
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <button type="submit" class="btn btn-primary btn-lg bg-submit">Create budget</button>
+                <a asp-action="Index" asp-route-yearMonth="@yearMonth" class="btn btn-link tfr-cancel">Cancel</a>
+            </div>
+        </form>
     </div>
-    <div class="col-lg-6 d-none d-lg-block">
-        <div class="create-illustration illus-budget">
-            <div class="illus-ring"></div>
-            <div class="illus-ring"></div>
-            <div class="illus-ring"></div>
-            <span class="illus-particle"><i class="bi bi-clipboard-data"></i></span>
-            <span class="illus-particle"><i class="bi bi-pie-chart"></i></span>
-            <span class="illus-particle"><i class="bi bi-calculator"></i></span>
-            <span class="illus-particle"><i class="bi bi-bar-chart-line"></i></span>
-            <span class="illus-particle"><i class="bi bi-speedometer2"></i></span>
-            <i class="bi bi-bullseye illus-icon"></i>
-            <div class="illus-title">Set Your Limits</div>
-            <div class="illus-subtitle">Define spending limits to stay on track and avoid overspending.</div>
-            <div class="create-tip">
-                <i class="bi bi-lightbulb-fill"></i> Tip: You'll get alerts when spending reaches 80% of budget.
+
+    <div class="col-lg-5 d-none d-lg-block">
+        <aside class="bgc-panel" id="bgPreview" aria-label="Budget preview" aria-live="polite">
+            <span class="bgc-panel-mark" aria-hidden="true"><i class="bi bi-bullseye"></i></span>
+            <div class="bgc-panel-eyebrow" id="bgPvEyebrow">Your budget preview</div>
+            <h2 class="bgc-panel-title" id="bgPvTitle">Overall budget</h2>
+            <div class="bgc-panel-amount" id="bgPvAmount">&#8377;0<span class="per">/month</span></div>
+            <div class="bgc-panel-month" id="bgPvMonth">@MonthLabel(yearMonth)</div>
+
+            <div class="bgc-panel-alert" id="bgPvAlert">
+                <i class="bi bi-bell-fill" aria-hidden="true"></i>
+                <span id="bgPvAlertText">Set an amount to see when you'll be warned.</span>
             </div>
-        </div>
+
+            <p class="bgc-panel-foot" id="bgPvFoot">
+                Define a spending limit to stay on track and avoid overspending.
+            </p>
+        </aside>
     </div>
 </div>
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        // Display only. Reads the three fields and mirrors them into the preview.
+        // Nothing here changes what the form submits.
+        (function () {
+            var MONTHS = ['January','February','March','April','May','June',
+                          'July','August','September','October','November','December'];
+            var $ = function (id) { return document.getElementById(id); };
+            var category = $('bgCategory'), amount = $('bgAmount'), month = $('bgMonth');
+            var summary = $('bgMonthSummary'), change = $('bgMonthChange');
+
+            // Collapse the month into a statement — it arrived on the URL, so it is
+            // rarely the thing being decided. Only ever done once JS is running.
+            summary.hidden = false;
+            month.hidden = true;
+            change.addEventListener('click', function () {
+                summary.hidden = true;
+                month.hidden = false;
+                month.focus();
+            });
+
+            function monthLabel(v) {
+                var p = (v || '').split('-');
+                if (p.length !== 2) return '';
+                var m = parseInt(p[1], 10);
+                return (MONTHS[m - 1] || '') + ' ' + p[0];
+            }
+            function money(n, dp) {
+                if (!isFinite(n)) return '₹0';
+                try {
+                    return n.toLocaleString('en-IN', { style: 'currency', currency: 'INR',
+                        minimumFractionDigits: dp || 0, maximumFractionDigits: dp || 0 }).replace(/\s/g, '');
+                } catch (_) { return '₹' + Math.round(n); }
+            }
+
+            function sync() {
+                var isOverall = category.value === '';
+                var label = isOverall ? 'Overall budget'
+                          : (category.selectedOptions[0] ? category.selectedOptions[0].textContent.trim() : 'Category');
+
+                $('bgPvTitle').textContent = label;
+                $('bgPvEyebrow').textContent = isOverall ? 'Every category, one limit' : 'One category, one limit';
+                $('bgCategoryHint').textContent = isOverall
+                    ? 'Caps your total spending for the month, across every category.'
+                    : 'Caps spending in ' + label + ' only.';
+
+                var amt = parseFloat(amount.value);
+                var has = isFinite(amt) && amt > 0;
+                $('bgPvAmount').innerHTML = (has ? money(amt) : '₹0') + '<span class="per">/month</span>';
+                $('bgPvAmount').classList.toggle('is-empty', !has);
+
+                var ml = monthLabel(month.value);
+                $('bgPvMonth').textContent = ml;
+                $('bgMonthText').textContent = ml;
+
+                // 80% is the threshold DashboardController actually alerts at.
+                if (has) {
+                    $('bgPvAlertText').textContent = "You'll be alerted at " + money(amt * 0.8) + ' (80% of this budget).';
+                    $('bgPvAlert').classList.remove('is-idle');
+                } else {
+                    $('bgPvAlertText').textContent = "Set an amount to see when you'll be warned.";
+                    $('bgPvAlert').classList.add('is-idle');
+                }
+
+                $('bgPvFoot').textContent = has
+                    ? 'Finoma flags this budget on your dashboard once spending passes 80%.'
+                    : 'Define a spending limit to stay on track and avoid overspending.';
+            }
+
+            [category, amount, month].forEach(function (el) {
+                el.addEventListener('input', sync);
+                el.addEventListener('change', sync);
+            });
+            sync();
+        })();
+    </script>
 }

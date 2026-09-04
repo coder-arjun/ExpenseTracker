@@ -1,103 +1,153 @@
 @using ExpenseTracker.Models.Domain
+@using ExpenseTracker.Services
 @model ExpenseTracker.Models.PaginatedList<ExpenseTracker.Models.Domain.Category>
+
+@*
+    Presentation only. Same model, the same single `type` filter parameter, and the
+    same Create/Edit/Delete routes. The counts in the overview strip and the filter
+    caption come from read-only ViewData the controller now supplies; the row icon is
+    derived from the category name by Services/CategoryIcons and is never stored.
+*@
 
 @{
     ViewData["Title"] = "Categories";
     var typeFilter = ViewData["TypeFilter"] as CategoryType?;
+
+    var totalCount = (int)(ViewData["TotalCount"] ?? 0);
+    var expenseCount = (int)(ViewData["ExpenseCount"] ?? 0);
+    var incomeCount = (int)(ViewData["IncomeCount"] ?? 0);
+    var filteredCount = (int)(ViewData["FilteredCount"] ?? 0);
 }
 
-<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
-    <div class="page-header mb-0">
-        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Category master</div>
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-end gap-3 mb-4">
+    <div class="page-head has-stroke mb-0">
+        @* "Master" read as database terminology; this names the job, not the table. *@
+        <div class="page-eyebrow">Category management</div>
         <h1>Categories</h1>
-        <p>MANAGE EXPENSE AND INCOME CATEGORIES</p>
+        <p class="page-lede">Organise how your income and expenses are classified.</p>
     </div>
     <div class="d-grid d-sm-block">
         <a asp-action="Create" asp-route-type="@(typeFilter ?? CategoryType.Expense)" class="btn btn-primary">
-            <i class="bi bi-plus-circle me-1"></i>Add Category
+            <i class="bi bi-plus-lg me-1"></i>Add category
         </a>
     </div>
 </div>
 
-<!-- Type Filter -->
-<div class="filter-bar sticky-filter mb-4">
-    <form method="get" asp-action="Index" class="row g-3 align-items-end" data-persist-key="categories">
-        <div class="col-md-3">
-            <label class="form-label fw-semibold">Type</label>
-            <select name="type" class="form-select">
-                <option value="">All</option>
+@* ── Overview: one continuous strip with hairline dividers, not three cards ── *@
+<section class="cat-strip" aria-label="Category overview">
+    <div class="cat-strip-item">
+        <div class="cat-strip-value">@totalCount</div>
+        <div class="cat-strip-label">Total categories</div>
+    </div>
+    <div class="cat-strip-item is-expense">
+        <div class="cat-strip-value">@expenseCount</div>
+        <div class="cat-strip-label">Expense</div>
+    </div>
+    <div class="cat-strip-item is-income">
+        <div class="cat-strip-value">@incomeCount</div>
+        <div class="cat-strip-label">Income</div>
+    </div>
+</section>
+
+@* ── Filter: the empty right side now carries the result count ── *@
+<div class="xp-filters sticky-filter">
+    <div class="cat-filter-head">
+        <div class="xp-filters-title mb-0">Filter categories</div>
+        <div class="cat-filter-count">
+            <span class="n">@filteredCount</span>
+            <span class="l">@(filteredCount == 1 ? "category" : "categories")</span>
+        </div>
+    </div>
+    <form method="get" asp-action="Index" class="cat-filter-form" data-persist-key="categories">
+        <div class="cat-filter-field">
+            <label class="form-label" for="typeFilter">Type</label>
+            <select name="type" id="typeFilter" class="form-select">
+                <option value="">All categories</option>
                 @foreach (var t in Enum.GetValues<CategoryType>())
                 {
                     <option value="@t" selected="@(typeFilter == t ? "selected" : null)">@t</option>
                 }
             </select>
         </div>
-        <div class="col-md-auto">
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-funnel me-1"></i>Apply
-            </button>
+        <div class="cat-filter-actions">
+            <button type="submit" class="btn btn-sm btn-primary">Apply</button>
             @if (typeFilter.HasValue)
             {
-                <a asp-action="Index" class="btn btn-outline-secondary ms-1">
-                    <i class="bi bi-x-circle me-1"></i>Clear
-                </a>
+                <a asp-action="Index" class="btn btn-sm btn-link cat-clear">Clear</a>
             }
         </div>
     </form>
 </div>
 
-@if (!Model.Any())
+@if (!Model.Any() && typeFilter.HasValue)
+{
+    <div class="empty-state-v2">
+        <div class="es-icon"><i class="bi bi-funnel"></i></div>
+        <div class="es-title">No @(typeFilter.Value.ToString().ToLowerInvariant()) categories</div>
+        <p class="es-body">Nothing is classified this way yet. Add one, or clear the filter to see everything.</p>
+        <div class="es-actions">
+            <a asp-action="Create" asp-route-type="@typeFilter" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Add category
+            </a>
+            <a asp-action="Index" class="btn btn-outline-secondary">Clear filter</a>
+        </div>
+    </div>
+}
+else if (!Model.Any())
 {
     <div class="empty-state-v2">
         <div class="es-icon"><i class="bi bi-tags"></i></div>
-        <div class="es-title">No categories found</div>
-        <p class="es-body">Add your first category to start organising your ledger.</p>
+        <div class="es-title">No categories yet</div>
+        <p class="es-body">Create categories to organise your income and expenses with greater clarity.</p>
         <a asp-action="Create" asp-route-type="@(typeFilter ?? CategoryType.Expense)" class="btn btn-primary">
-            <i class="bi bi-plus-circle me-1"></i>Add Category
+            <i class="bi bi-plus-lg me-1"></i>Add category
         </a>
     </div>
 }
 else
 {
-    <div class="card">
-        <div class="card-body p-0">
-            <table class="table table-hover table-stack mb-0 data-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var item in Model)
-                    {
-                        <tr>
-                            <td data-label="Name" class="fw-semibold">@item.Name</td>
-                            <td data-label="Type">
-                                @if (item.Type == CategoryType.Expense)
-                                {
-                                    <span class="badge bg-danger-subtle text-danger">Expense</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-success-subtle text-success">Income</span>
-                                }
-                            </td>
-                            <td data-label="Actions">
-                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" aria-label="Edit">
-                                    <i class="bi bi-pencil" aria-hidden="true"></i>
-                                </a>
-                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger" aria-label="Delete">
-                                    <i class="bi bi-trash" aria-hidden="true"></i>
-                                </a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
+    <table class="xp-table cat-table">
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th class="cat-type-col">Type</th>
+                <th class="cat-actions-col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                var isExpense = item.Type == CategoryType.Expense;
+                <tr class="@(isExpense ? "is-expense" : "is-income")">
+                    <td data-label="Category">
+                        <span class="cat-name">
+                            <span class="cat-icon" aria-hidden="true"><i class="bi @CategoryIcons.For(item.Name, item.Type)"></i></span>
+                            <span class="cat-label">@item.Name</span>
+                        </span>
+                    </td>
+                    <td class="cat-type-col" data-label="Type">
+                        @* Direction of the money, not a decoration. *@
+                        <span class="cat-chip @(isExpense ? "is-expense" : "is-income")">
+                            <i class="bi @(isExpense ? "bi-arrow-down-right" : "bi-arrow-up-right")" aria-hidden="true"></i>
+                            @item.Type
+                        </span>
+                    </td>
+                    <td class="cat-actions-col" data-label="Actions">
+                        <div class="xp-actions">
+                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm"
+                               aria-label="Edit @item.Name" title="Edit">
+                                <i class="bi bi-pencil" aria-hidden="true"></i>
+                            </a>
+                            <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm cat-delete"
+                               aria-label="Delete @item.Name" title="Delete">
+                                <i class="bi bi-trash" aria-hidden="true"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
 }
 
 @{

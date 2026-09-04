@@ -31,6 +31,26 @@ namespace ExpenseTracker.Controllers
 
             query = query.OrderBy(c => c.Type).ThenBy(c => c.Name);
 
+            // Display-only counts for the overview strip and the filter caption.
+            // Read-only; nothing here affects what the page can do.
+            var byType = await _context.Categories
+                .Where(c => c.UserId == userId)
+                .GroupBy(c => c.Type)
+                .Select(g => new { Type = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            var expenseCount = byType.FirstOrDefault(g => g.Type == CategoryType.Expense)?.Count ?? 0;
+            var incomeCount = byType.FirstOrDefault(g => g.Type == CategoryType.Income)?.Count ?? 0;
+
+            ViewData["ExpenseCount"] = expenseCount;
+            ViewData["IncomeCount"] = incomeCount;
+            ViewData["TotalCount"] = expenseCount + incomeCount;
+            // Type is the only filter, so the grouped counts already answer this —
+            // no second round-trip needed.
+            ViewData["FilteredCount"] = type.HasValue
+                ? byType.FirstOrDefault(g => g.Type == type.Value)?.Count ?? 0
+                : expenseCount + incomeCount;
+
             ViewData["TypeFilter"] = type;
             return View(await PaginatedList<Category>.CreateAsync(query, page));
         }

@@ -1,107 +1,211 @@
+@using System.Globalization
 @using ExpenseTracker.Models.Domain
 @model IEnumerable<ExpenseTracker.Models.Domain.Goal>
+
+@*
+    Presentation only. Same model, the same `status` filter parameter, and the same
+    Contribute / Edit / Delete routes. Progress is still sum(contributions) as
+    supplied by the controller; the percentage is calculated exactly as before.
+*@
 
 @{
     ViewData["Title"] = "Goals";
     var progress = (Dictionary<int, decimal>)ViewData["Progress"]!;
     var statusFilter = ViewData["StatusFilter"] as GoalStatus?;
-    var INR = System.Globalization.CultureInfo.GetCultureInfo("en-IN");
+    var inr = CultureInfo.GetCultureInfo("en-IN");
+    var today = DateTime.Today;
+    var goals = Model.ToList();
+
+    string Money(decimal a) => a.ToString("C0", inr);
+    string MoneyFull(decimal a) => a.ToString("C", inr);
+
+    // A goal's scale runs the other way to a budget's: more is better.
+    (string cls, string label) Funding(decimal pct) =>
+        pct >= 100m ? ("gl-done", "Funded")
+        : pct >= 80m ? ("gl-near", "Nearly there")
+        : pct >= 50m ? ("gl-half", "Halfway")
+        : ("gl-early", "Getting started");
+
+    // Deadlines read as a state, not as "(-2 d)".
+    (string cls, string label) Due(DateTime? deadline, GoalStatus status)
+    {
+        if (!deadline.HasValue) return ("gl-due-none", "No deadline");
+        var days = (deadline.Value.Date - today).Days;
+        if (status != GoalStatus.Active)
+            return ("gl-due-none", deadline.Value.ToString("dd MMM yyyy", CultureInfo.InvariantCulture));
+        if (days < 0) return ("gl-due-over", $"Overdue by {-days} day{(-days == 1 ? "" : "s")}");
+        if (days == 0) return ("gl-due-today", "Due today");
+        if (days == 1) return ("gl-due-soon", "1 day left");
+        if (days <= 30) return ("gl-due-soon", $"{days} days left");
+        if (days <= 365) return ("gl-due-far", $"{days / 30} month{(days / 30 == 1 ? "" : "s")} left");
+        return ("gl-due-far", $"{days / 365} year{(days / 365 == 1 ? "" : "s")} left");
+    }
 }
 
-<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
-    <div class="page-header mb-0">
-        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Saving goals</div>
-        <h1><i class="bi bi-bullseye me-2"></i>Goals</h1>
-        <p>SAVING TARGETS &middot; TRACK PROGRESS TOWARD WHAT MATTERS</p>
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-end gap-3 mb-4">
+    <div class="page-head has-stroke mb-0">
+        <div class="page-eyebrow">Saving goals</div>
+        <h1>Goals</h1>
+        <p class="page-lede">Track progress toward what matters.</p>
     </div>
     <div class="d-grid d-sm-block">
-        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Goal</a>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New goal</a>
     </div>
 </div>
 
-<div class="filter-bar mb-4">
-    <form method="get" class="d-flex gap-2 align-items-end">
-        <div>
-            <label class="form-label fw-semibold">Show</label>
-            <select name="status" class="form-select">
-                <option value="">All</option>
-                @foreach (var s in Enum.GetValues<GoalStatus>())
-                {
-                    <option value="@s" selected="@(statusFilter == s ? "selected" : null)">@s</option>
-                }
-            </select>
-        </div>
-        <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Apply</button>
-    </form>
-</div>
+@* ── A toolbar, not a panel: one control does not need a full-width card ── *@
+<form method="get" class="gl-toolbar" id="goalFilter">
+    <label class="gl-toolbar-label" for="goalStatus">Show</label>
+    <select name="status" id="goalStatus" class="form-select form-select-sm">
+        <option value="">All goals</option>
+        @foreach (var s in Enum.GetValues<GoalStatus>())
+        {
+            <option value="@s" selected="@(statusFilter == s ? "selected" : null)">@s</option>
+        }
+    </select>
+    @* Removed by JS — the select submits on change. Present so the filter works
+       with scripting off. *@
+    <button type="submit" class="btn btn-sm btn-primary" id="goalFilterApply">Apply</button>
+    @if (statusFilter.HasValue)
+    {
+        <a asp-action="Index" class="btn btn-sm btn-link gl-clear">Clear</a>
+    }
+    <span class="gl-toolbar-count">@goals.Count goal@(goals.Count == 1 ? "" : "s")</span>
+</form>
 
-@if (!Model.Any())
+@if (!goals.Any())
 {
     <div class="empty-state-v2">
         <div class="es-icon"><i class="bi bi-bullseye"></i></div>
-        <div class="es-title">No saving goals yet</div>
-        <p class="es-body">Set one — &ldquo;Goa trip &#8377;40,000 by December&rdquo; — and start contributing toward what matters.</p>
-        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Goal</a>
+        <div class="es-title">@(statusFilter.HasValue ? $"No {statusFilter.Value.ToString().ToLowerInvariant()} goals" : "No saving goals yet")</div>
+        <p class="es-body">Set one &mdash; &ldquo;Goa trip &#8377;40,000 by December&rdquo; &mdash; and start contributing toward what matters.</p>
+        <div class="es-actions">
+            <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>New goal</a>
+            @if (statusFilter.HasValue)
+            {
+                <a asp-action="Index" class="btn btn-outline-secondary">Show all goals</a>
+            }
+        </div>
     </div>
 }
 else
 {
-    <div class="row g-3">
-        @foreach (var g in Model)
+    <div class="gl-grid">
+        @foreach (var g in goals)
         {
-            var current = progress.TryGetValue(g.Id, out var p) ? p : 0;
+            var current = progress.TryGetValue(g.Id, out var pr) ? pr : 0;
             var pct = g.TargetAmount > 0 ? Math.Min(100, Math.Round(current / g.TargetAmount * 100m, 1)) : 0;
-            var bar = pct >= 100 ? "bg-success" : pct >= 70 ? "bg-warning" : "bg-success";
-            var deadlineText = g.Deadline.HasValue ? g.Deadline.Value.ToString("dd MMM yyyy") : "no deadline";
-            var daysLeft = g.Deadline.HasValue ? (g.Deadline.Value - DateTime.Today).Days : (int?)null;
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100 @(g.Status == GoalStatus.Completed ? "border-success" : g.Status == GoalStatus.Abandoned ? "opacity-50" : "")">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h5 class="card-title mb-0">@g.Name</h5>
-                            @if (g.Status == GoalStatus.Completed)
-                            {
-                                <span class="badge bg-success">Completed</span>
-                            }
-                            else if (g.Status == GoalStatus.Abandoned)
-                            {
-                                <span class="badge bg-secondary">Abandoned</span>
-                            }
-                        </div>
+            var remaining = Math.Max(0, g.TargetAmount - current);
+            var fund = Funding(pct);
+            var due = Due(g.Deadline, g.Status);
+
+            <article class="gl-card @fund.cls @(g.Status == GoalStatus.Abandoned ? "is-abandoned" : "") @(g.Status == GoalStatus.Completed ? "is-complete" : "")">
+                <header class="gl-card-head">
+                    <span class="gl-card-mark" aria-hidden="true"><i class="bi bi-bullseye"></i></span>
+                    <div class="gl-card-id">
+                        <h2 class="gl-card-name">@g.Name</h2>
                         @if (!string.IsNullOrWhiteSpace(g.Description))
                         {
-                            <div class="text-muted small mb-2">@g.Description</div>
+                            <p class="gl-card-desc">@g.Description</p>
                         }
-                        <div class="d-flex justify-content-between mb-1 small">
-                            <span class="text-tabular t-balance fw-semibold">@current.ToString("C0", INR)</span>
-                            <span class="text-tabular t-balance text-muted">@g.TargetAmount.ToString("C0", INR)</span>
-                        </div>
-                        <div class="progress mb-2" style="height: 10px;">
-                            <div class="progress-bar @bar" role="progressbar" style="width: @pct%" aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        <div class="d-flex justify-content-between small">
-                            <span class="fw-semibold text-tabular">@pct% reached</span>
-                            <span class="text-muted">
-                                <i class="bi bi-calendar3 me-1"></i><span class="folio">@deadlineText</span>
-                                @if (daysLeft.HasValue && g.Status == GoalStatus.Active)
-                                {
-                                    <span class="text-tabular @(daysLeft < 14 ? "text-danger" : daysLeft < 30 ? "text-warning" : "")">(@daysLeft d)</span>
-                                }
-                            </span>
-                        </div>
-                        <div class="mt-3 d-flex gap-1 flex-wrap">
-                            @if (g.Status == GoalStatus.Active)
-                            {
-                                <a asp-action="Contribute" asp-route-id="@g.Id" class="btn btn-sm btn-primary">
-                                    <i class="bi bi-plus-lg me-1"></i>Contribute
-                                </a>
-                            }
-                            <a asp-action="Edit" asp-route-id="@g.Id" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
-                            <a asp-action="Delete" asp-route-id="@g.Id" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
-                        </div>
+                    </div>
+                    @if (g.Status == GoalStatus.Completed)
+                    {
+                        <span class="gl-status is-complete"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Completed</span>
+                    }
+                    else if (g.Status == GoalStatus.Abandoned)
+                    {
+                        <span class="gl-status is-abandoned">Abandoned</span>
+                    }
+                </header>
+
+                @* Saved and target are labelled — a bare pair of numbers said nothing. *@
+                <div class="gl-figs">
+                    <div class="gl-fig">
+                        <div class="gl-fig-label">Saved</div>
+                        <div class="gl-fig-value is-saved" title="@MoneyFull(current)">@Money(current)</div>
+                    </div>
+                    <div class="gl-fig is-target">
+                        <div class="gl-fig-label">Target</div>
+                        <div class="gl-fig-value" title="@MoneyFull(g.TargetAmount)">@Money(g.TargetAmount)</div>
                     </div>
                 </div>
-            </div>
+
+                <div class="gl-meter" role="img"
+                     aria-label="@pct.ToString("0.#", CultureInfo.InvariantCulture)% of @g.Name funded">
+                    <span class="gl-meter-fill" style="width:@pct.ToString("0.#", CultureInfo.InvariantCulture)%"></span>
+                </div>
+
+                <div class="gl-progress-line">
+                    <span class="gl-pct">@pct.ToString("0.#", CultureInfo.InvariantCulture)%</span>
+                    <span class="gl-fund-label">@fund.label</span>
+                    @* More actionable than the percentage on its own. *@
+                    @if (remaining > 0)
+                    {
+                        <span class="gl-remaining" title="@MoneyFull(remaining)">@Money(remaining) to go</span>
+                    }
+                    else
+                    {
+                        <span class="gl-remaining is-done">Target reached</span>
+                    }
+                </div>
+
+                <div class="gl-due @due.cls">
+                    <i class="bi @(due.cls == "gl-due-over" ? "bi-exclamation-triangle-fill" : "bi-calendar3")" aria-hidden="true"></i>
+                    <span>@due.label</span>
+                    @if (g.Deadline.HasValue && g.Status == GoalStatus.Active)
+                    {
+                        <span class="gl-due-date">@g.Deadline.Value.ToString("dd MMM yyyy", inr)</span>
+                    }
+                </div>
+
+                <footer class="gl-card-foot">
+                    @if (g.Status == GoalStatus.Active)
+                    {
+                        <a asp-action="Contribute" asp-route-id="@g.Id" class="btn btn-sm btn-primary gl-contribute">
+                            <i class="bi bi-plus-lg me-1"></i>Contribute
+                        </a>
+                    }
+                    <div class="xp-actions gl-actions">
+                        <a asp-action="Edit" asp-route-id="@g.Id" class="btn btn-sm"
+                           aria-label="Edit @g.Name" title="Edit">
+                            <i class="bi bi-pencil" aria-hidden="true"></i>
+                        </a>
+                        <span class="inline-confirm">
+                            <button type="button" class="btn btn-sm" data-inline-confirm
+                                    aria-label="Delete @g.Name" title="Delete">
+                                <i class="bi bi-trash" aria-hidden="true"></i>
+                            </button>
+                            <span class="inline-confirm-bubble">
+                                <div class="inline-confirm-text">
+                                    <strong>Delete &ldquo;@g.Name&rdquo;?</strong><br />
+                                    Its contributions go with it. Your expenses and savings are untouched.
+                                </div>
+                                <form asp-action="Delete" asp-route-id="@g.Id" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm btn-danger">Delete goal</button>
+                                    <button type="button" class="btn btn-sm btn-link inline-confirm-cancel">Cancel</button>
+                                </form>
+                            </span>
+                        </span>
+                    </div>
+                </footer>
+            </article>
         }
     </div>
+}
+
+@section Scripts {
+    <script>
+        // Filtering on change is one fewer click. The Apply button stays in the
+        // markup for the no-JS case and is only removed once JS is running.
+        (function () {
+            var form = document.getElementById('goalFilter');
+            var select = document.getElementById('goalStatus');
+            var apply = document.getElementById('goalFilterApply');
+            if (!form || !select || !apply) return;
+            apply.hidden = true;
+            select.addEventListener('change', function () { form.submit(); });
+        })();
+    </script>
 }

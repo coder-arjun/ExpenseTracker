@@ -69,6 +69,10 @@ namespace ExpenseTracker.Services
 
             snap.TotalIncome = await incomeQuery.SumAsync(i => (decimal?)i.Amount) ?? 0;
             snap.TotalExpenses = await expenseQuery.SumAsync(e => (decimal?)e.Amount) ?? 0;
+            // Read-out only — the count and the elapsed-day span the view needs to
+            // show "N transactions" and a daily average. Nothing below reads them.
+            snap.ExpenseCount = await expenseQuery.CountAsync();
+            snap.DaysElapsed = daysElapsed;
 
             snap.SavingsRate = snap.TotalIncome > 0
                 ? Math.Round((snap.TotalIncome - snap.TotalExpenses) / snap.TotalIncome, 4)

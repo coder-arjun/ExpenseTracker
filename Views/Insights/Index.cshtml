@@ -27,15 +27,66 @@
     string Money(decimal a) => a.ToString("C0", inr);
 
     // Map each narrative section heading to an icon + accent colour.
+    // "leak" is still matched: insights cached before the rename keep the old
+    // heading until the user regenerates them.
     (string icon, string accent) SectionStyle(string title)
     {
         var t = title.ToLowerInvariant();
         if (t.Contains("overview")) return ("bi-binoculars", "ink");
-        if (t.Contains("leak")) return ("bi-droplet-half", "red");
+        if (t.Contains("anomal") || t.Contains("leak") || t.Contains("unusual")) return ("bi-activity", "red");
         if (t.Contains("save")) return ("bi-piggy-bank", "green");
         if (t.Contains("budget")) return ("bi-bullseye", "brass");
         if (t.Contains("first") || t.Contains("do these")) return ("bi-flag", "ink");
         return ("bi-card-text", "ink");
+    }
+
+    bool IsBudgetSection(string title) => title.ToLowerInvariant().Contains("budget to aim");
+    bool IsActionSection(string title)
+    {
+        var t = title.ToLowerInvariant();
+        return t.Contains("do these") || t.Contains("first");
+    }
+
+    // "1. **Do the thing** — detail. *High priority.*" -> (label, detail, priority).
+    // Falls back to null when the shape doesn't match, so pre-rename cached
+    // insights simply render as ordinary Markdown.
+    List<(string label, string detail, string priority)>? ParseActions(string body)
+    {
+        var items = new List<(string, string, string)>();
+        foreach (var raw in body.Split('\n', StringSplitOptions.None))
+        {
+            var line = raw.Trim();
+            var m = System.Text.RegularExpressions.Regex.Match(line, @"^\d+\.\s+(.*)$");
+            if (!m.Success) continue;
+            var rest = m.Groups[1].Value.Trim();
+
+            // The marker sits mid-line for the generated actions and at the end for
+            // opportunity-derived ones, so match it anywhere and cut it out.
+            var pm = System.Text.RegularExpressions.Regex.Match(rest, @"\s*\*(High|Medium|Low) priority\.\*",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var priority = pm.Success ? pm.Groups[1].Value : "";
+            if (pm.Success) rest = rest.Remove(pm.Index, pm.Length).Trim();
+
+            var lm = System.Text.RegularExpressions.Regex.Match(rest, @"^\*\*(.+?)\*\*\s*(?:[—–-]\s*)?(.*)$",
+                System.Text.RegularExpressions.RegexOptions.Singleline);
+            string label, detail;
+            if (lm.Success)
+            {
+                label = lm.Groups[1].Value.Trim();
+                detail = lm.Groups[2].Value.Trim();
+            }
+            else
+            {
+                // Pre-rename cached lines do not open with a bold label; split on
+                // the em dash instead so they still read as label + evidence.
+                var dash = rest.IndexOf(" — ", StringComparison.Ordinal);
+                label = dash > 0 ? rest.Substring(0, dash).Trim() : rest;
+                detail = dash > 0 ? rest.Substring(dash + 3).Trim() : "";
+            }
+
+            items.Add((label, detail, priority));
+        }
+        return items.Count > 0 ? items : null;
     }
 
     // Markdig pipeline (pipe tables for "A budget to aim for", etc.).
@@ -100,58 +151,68 @@
     var doughLabels = topCats.Select(c => c.Category).ToList();
     var doughValues = topCats.Select(c => (double)c.Amount).ToList();
     if (otherSum > 0) { doughLabels.Add("Other"); doughValues.Add((double)otherSum); }
-    var palette = new[] { "#C20E3A", "#A87A2C", "#15715A", "#1A1814", "#DA1140", "#876122", "#0F5946", "#8A857A" };
+    // Every swatch must read on BOTH themes: the old #1A1814 was the ink colour
+    // and vanished against the dark background.
+    var palette = new[] { "#C20E3A", "#A87A2C", "#15715A", "#7A6E5D", "#DA1140", "#876122", "#0F5946", "#A9A296" };
+
+    // Spending signals — all read straight off the snapshot, none invented.
+    var topCat = cats.FirstOrDefault();
+    var biggestRise = cats
+        .Where(c => c.MoMChangePct.HasValue && c.MoMChangePct.Value > 0)
+        .OrderByDescending(c => c.MoMChangePct!.Value)
+        .FirstOrDefault();
+    var txnCount = s?.ExpenseCount ?? 0;
+    var dailyAvg = s?.DailyAverageSpend ?? 0m;
+    var daysCounted = s?.DaysElapsed ?? 0;
+
+    // One definition of the suggested targets — the same one the narrative uses.
+    var suggested = s != null ? InsightsRenderer.SuggestBudgets(s) : new List<SuggestedBudget>();
+    var suggestMax = suggested.Count > 0 ? (double)suggested.Max(x => x.Target) : 1d;
 }
 
-<div class="page-header mb-4">
-    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Ledger insights</div>
-    <h1><i class="bi bi-lightbulb me-2"></i>Insights</h1>
-    <p>A plain-English read on your money, computed locally — nothing leaves your machine.</p>
+<div class="page-head has-stroke">
+    <div class="page-eyebrow">Ledger insights</div>
+    <h1>Insights</h1>
+    <p class="page-lede">A plain-English read on your money, computed locally &mdash; nothing leaves your machine.</p>
 </div>
 
-<!-- Period + Generate -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form method="post" asp-action="Generate" class="row g-3 align-items-end">
-            @Html.AntiForgeryToken()
-            <div class="col-md-3">
-                <label class="form-label">Period</label>
-                <select name="period" class="form-select">
-                    @foreach (var p in options)
-                    {
-                        <option value="@p" selected="@(p == period ? "selected" : null)">@LabelFor(p)</option>
-                    }
-                </select>
-                <div class="form-text">
-                    @if (isMtd)
-                    {
-                        <span><i class="bi bi-arrow-clockwise me-1"></i>Live — recomputed every visit, not cached.</span>
-                    }
-                    else
-                    {
-                        <span>Default is last completed month.</span>
-                    }
-                </div>
-            </div>
-            <div class="col-md-auto">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-stars me-1"></i>@(hasContent ? "Regenerate" : "Generate")
-                </button>
-            </div>
-            <div class="col-md-auto">
-                <button type="submit" formaction="@Url.Action("Email", "Statements")" class="btn btn-outline-secondary"
-                        title="Email a PDF statement for the selected month to your registered email">
-                    <i class="bi bi-envelope-arrow-up me-1"></i>Email me this (PDF)
-                </button>
-            </div>
-            @if (generatedAt.HasValue)
+@* One control bar: pick a period, regenerate, email the statement. *@
+<div class="xp-filters ins-toolbar">
+    <form method="post" asp-action="Generate" class="ins-toolbar-form">
+        @Html.AntiForgeryToken()
+        <div class="ins-toolbar-field">
+            <label class="form-label" for="insPeriod">Period</label>
+            <select name="period" id="insPeriod" class="form-select">
+                @foreach (var p in options)
+                {
+                    <option value="@p" selected="@(p == period ? "selected" : null)">@LabelFor(p)</option>
+                }
+            </select>
+        </div>
+        <div class="ins-toolbar-actions">
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="bi bi-stars me-1"></i>@(hasContent ? "Regenerate" : "Generate")
+            </button>
+            <button type="submit" formaction="@Url.Action("Email", "Statements")" class="btn btn-sm btn-outline-secondary"
+                    title="Email a PDF statement for the selected month to your registered email">
+                <i class="bi bi-envelope-arrow-up me-1"></i>Email PDF
+            </button>
+        </div>
+        <div class="ins-toolbar-meta">
+            @if (isMtd)
             {
-                <div class="col-md-auto ms-auto text-muted small">
-                    Last generated @generatedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
-                </div>
+                <span class="ins-live"><i class="bi bi-broadcast"></i> Live &mdash; recomputed every visit</span>
             }
-        </form>
-    </div>
+            else if (generatedAt.HasValue)
+            {
+                <span>Generated @generatedAt.Value.ToLocalTime().ToString("dd MMM yyyy, HH:mm")</span>
+            }
+            else
+            {
+                <span>Default is the last completed month.</span>
+            }
+        </div>
+    </form>
 </div>
 
 @if (debtSummary?.HasAny == true)
@@ -221,9 +282,20 @@ else
                         <circle class="ins-gauge-track" cx="60" cy="60" r="52"></circle>
                         <circle class="ins-gauge-val" cx="60" cy="60" r="52"></circle>
                     </svg>
+                    @* "0% deficit" was the arithmetic, not the answer. Lead with the
+                       amount; keep the rate underneath, and only when it can be
+                       calculated (a rate against zero income is meaningless). *@
                     <div class="ins-gauge-center">
-                        <div class="ins-gauge-pct"><span data-countup="@savingsPct" data-countup-format="number">@savingsPct</span><span class="u">%</span></div>
-                        <div class="ins-gauge-lbl">@(net >= 0 ? "saved" : "deficit")</div>
+                        <div class="ins-gauge-amt" title="@Money(Math.Abs(net))">@Money(Math.Abs(net))</div>
+                        <div class="ins-gauge-lbl">@(net >= 0 ? "kept" : "shortfall")</div>
+                        @if (income > 0)
+                        {
+                            <div class="ins-gauge-sub">@savingsPct% of income</div>
+                        }
+                        else if (expenses > 0)
+                        {
+                            <div class="ins-gauge-sub">no income logged</div>
+                        }
                     </div>
                 </div>
                 <div class="ins-hero-body">
@@ -255,16 +327,22 @@ else
                 </div>
             </section>
 
-            <!-- ── At-a-glance visuals ────────────────────────────── -->
-            <div class="ins-grid">
-                @if (doughValues.Count > 0)
-                {
-                    <section class="ins-panel ins-reveal" aria-label="Spending mix">
-                        <div class="ins-panel-title acc-red"><span class="chip"><i class="bi bi-pie-chart-fill"></i></span> Where it went</div>
-                        <div class="ins-dough-wrap">
+            <!-- ── Where it went: chart · breakdown · signals ───────── -->
+            @if (doughValues.Count > 0)
+            {
+                @* Three columns across the full width. The old two-up grid left the
+                   donut alone in half a screen with the legend crushed beside it. *@
+                <section class="ins-panel ins-where ins-reveal" aria-label="Spending mix">
+                    <div class="ins-panel-title acc-red"><span class="chip"><i class="bi bi-pie-chart-fill"></i></span> Where it went</div>
+                    <div class="ins-where-grid">
+                        <div class="ins-where-chart">
                             <div class="ins-dough"><canvas id="insDoughnut" role="img" aria-label="Spending by category for @PeriodLabel()"></canvas>
                                 <div class="ins-dough-center"><span class="t">Total</span><span class="a">@Money(expenses)</span></div>
                             </div>
+                        </div>
+
+                        <div class="ins-where-cats">
+                            <div class="ins-col-title">Category breakdown</div>
                             <ul class="ins-cats">
                                 @{ var ci = 0; }
                                 @foreach (var c in cats)
@@ -291,32 +369,74 @@ else
                                 }
                             </ul>
                         </div>
-                    </section>
-                }
 
-                @if (s!.Budgets.Count > 0)
-                {
-                    <section class="ins-panel ins-reveal" aria-label="Budget performance">
-                        <div class="ins-panel-title acc-brass"><span class="chip"><i class="bi bi-speedometer2"></i></span> Budget performance</div>
-                        <div class="ins-budgets">
-                            @foreach (var b in s.Budgets.OrderByDescending(x => x.Budget > 0 ? x.Actual / x.Budget : 0))
-                            {
-                                var ratio = b.Budget > 0 ? (double)(b.Actual / b.Budget) : (b.Actual > 0 ? 1d : 0d);
-                                var fill = Math.Clamp(ratio, 0d, 1d) * 100;
-                                var over = b.Actual > b.Budget;
-                                <div class="ins-budget-row @(over ? "over" : "under")">
-                                    <div class="bh">
-                                        <span class="nm">@b.Category</span>
-                                        <span class="vp">@b.VariancePct.ToString("+0.0;-0.0", CultureInfo.InvariantCulture)%</span>
+                        @* Every figure here is read off the snapshot — nothing derived
+                           that the ledger doesn't already know. *@
+                        <div class="ins-where-signals">
+                            <div class="ins-col-title">Spending signals</div>
+                            <dl class="ins-signals">
+                                @if (topCat != null)
+                                {
+                                    <div>
+                                        <dt>Largest category</dt>
+                                        <dd>
+                                            <span class="sg-main">@topCat.Category</span>
+                                            <span class="sg-sub">@Money(topCat.Amount) &middot; @topCat.PctOfSpend.ToString("0.0", CultureInfo.InvariantCulture)% of spend</span>
+                                        </dd>
                                     </div>
-                                    <div class="ins-bar"><span class="ins-bar-fill" style="width:@fill.ToString("0.0", CultureInfo.InvariantCulture)%"></span></div>
-                                    <div class="bf"><span>@Money(b.Actual)</span><span class="muted">of @Money(b.Budget)</span></div>
+                                }
+                                @if (biggestRise != null)
+                                {
+                                    <div>
+                                        <dt>Largest increase</dt>
+                                        <dd>
+                                            <span class="sg-main">@biggestRise.Category</span>
+                                            <span class="sg-sub up"><i class="bi bi-arrow-up-short"></i>@biggestRise.MoMChangePct!.Value.ToString("0.0", CultureInfo.InvariantCulture)% vs last month</span>
+                                        </dd>
+                                    </div>
+                                }
+                                <div>
+                                    <dt>Daily average</dt>
+                                    <dd>
+                                        <span class="sg-main mono">@Money(dailyAvg)</span>
+                                        <span class="sg-sub">across @daysCounted day@(daysCounted == 1 ? "" : "s")</span>
+                                    </dd>
                                 </div>
-                            }
+                                <div>
+                                    <dt>Transactions</dt>
+                                    <dd>
+                                        <span class="sg-main mono">@txnCount</span>
+                                        <span class="sg-sub">in @cats.Count categor@(cats.Count == 1 ? "y" : "ies")</span>
+                                    </dd>
+                                </div>
+                            </dl>
                         </div>
-                    </section>
-                }
-            </div>
+                    </div>
+                </section>
+            }
+
+            @if (s!.Budgets.Count > 0)
+            {
+                <section class="ins-panel ins-reveal" aria-label="Budget performance">
+                    <div class="ins-panel-title acc-brass"><span class="chip"><i class="bi bi-speedometer2"></i></span> Budget performance</div>
+                    <div class="ins-budgets ins-budgets-grid">
+                        @foreach (var b in s.Budgets.OrderByDescending(x => x.Budget > 0 ? x.Actual / x.Budget : 0))
+                        {
+                            var ratio = b.Budget > 0 ? (double)(b.Actual / b.Budget) : (b.Actual > 0 ? 1d : 0d);
+                            var fill = Math.Clamp(ratio, 0d, 1d) * 100;
+                            var over = b.Actual > b.Budget;
+                            <div class="ins-budget-row @(over ? "over" : "under")">
+                                <div class="bh">
+                                    <span class="nm">@b.Category</span>
+                                    <span class="vp">@b.VariancePct.ToString("+0.0;-0.0", CultureInfo.InvariantCulture)%</span>
+                                </div>
+                                <div class="ins-bar"><span class="ins-bar-fill" style="width:@fill.ToString("0.0", CultureInfo.InvariantCulture)%"></span></div>
+                                <div class="bf"><span>@Money(b.Actual)</span><span class="muted">of @Money(b.Budget)</span></div>
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
         }
 
         <!-- ── The written analysis ───────────────────────────── -->
@@ -324,13 +444,65 @@ else
             @foreach (var sec in sections)
             {
                 var (icon, accent) = SectionStyle(sec.title);
-                var bodyHtml = Markdig.Markdown.ToHtml(sec.body, pipeline);
+                var actions = IsActionSection(sec.title) ? ParseActions(sec.body) : null;
+                var drawBudgets = IsBudgetSection(sec.title) && suggested.Count > 0;
+
                 <section class="ins-section ins-reveal acc-@accent">
                     <div class="ins-section-head">
                         <span class="chip"><i class="bi @icon"></i></span>
                         <h2>@sec.title</h2>
                     </div>
-                    <div class="ins-section-body">@Html.Raw(bodyHtml)</div>
+
+                    @if (drawBudgets)
+                    {
+                        @* The pipe table became a bar chart. Same targets — they come
+                           from InsightsRenderer.SuggestBudgets, which is what wrote
+                           the table. Nothing is recalculated here. *@
+                        <div class="ins-suggest">
+                            @foreach (var row in suggested)
+                            {
+                                var w = suggestMax > 0 ? (double)row.Target / suggestMax * 100 : 0;
+                                <div class="ins-suggest-row">
+                                    <div class="sh">
+                                        <span class="nm">@row.Category</span>
+                                        <span class="tg">@Money(row.Target)<span class="per">/mo</span></span>
+                                    </div>
+                                    <div class="ins-bar"><span class="ins-bar-fill" style="width:@w.ToString("0.0", CultureInfo.InvariantCulture)%"></span></div>
+                                    <div class="sw">@row.Why</div>
+                                </div>
+                            }
+                        </div>
+                        <p class="ins-suggest-foot">
+                            Suggestions only &mdash; nothing here changes a budget.
+                            <a asp-controller="Budget" asp-action="Index">Set budgets</a> to make them real.
+                        </p>
+                    }
+                    else if (actions != null)
+                    {
+                        <ol class="ins-actions">
+                            @foreach (var a in actions)
+                            {
+                                var pri = string.IsNullOrEmpty(a.priority) ? "" : a.priority.ToLowerInvariant();
+                                <li class="ins-action @(pri.Length > 0 ? "pri-" + pri : "")">
+                                    <div class="ins-action-head">
+                                        <span class="ins-action-label">@Html.Raw(Markdig.Markdown.ToHtml(a.label, pipeline).Replace("<p>", "").Replace("</p>", ""))</span>
+                                        @if (pri.Length > 0)
+                                        {
+                                            <span class="ins-pri">@a.priority priority</span>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(a.detail))
+                                    {
+                                        <div class="ins-action-detail">@Html.Raw(Markdig.Markdown.ToHtml(a.detail, pipeline).Replace("<p>", "").Replace("</p>", ""))</div>
+                                    }
+                                </li>
+                            }
+                        </ol>
+                    }
+                    else
+                    {
+                        <div class="ins-section-body">@Html.Raw(Markdig.Markdown.ToHtml(sec.body, pipeline))</div>
+                    }
                 </section>
             }
         </div>
@@ -366,7 +538,7 @@ else
         background: radial-gradient(circle, var(--red-tint-2), transparent 70%);
         pointer-events: none; animation: ins-float 7s ease-in-out infinite;
     }
-    .ins-gauge { position: relative; width: 144px; height: 144px; flex-shrink: 0; animation: ins-float 6s ease-in-out infinite; }
+    .ins-gauge { position: relative; width: 168px; height: 168px; flex-shrink: 0; animation: ins-float 6s ease-in-out infinite; }
     .ins-gauge svg { width: 100%; height: 100%; transform: rotate(-90deg); }
     .ins-gauge-track { fill: none; stroke: var(--rule-strong); stroke-width: 9; }
     .ins-gauge-val {
@@ -380,9 +552,15 @@ else
         position: absolute; inset: 0; display: flex; flex-direction: column;
         align-items: center; justify-content: center; text-align: center;
     }
-    .ins-gauge-pct { font-family: var(--font-display); font-weight: 700; font-size: 1.85rem; line-height: 1; color: var(--ink); }
-    .ins-gauge-pct .u { font-size: 1rem; color: var(--ink-muted); margin-left: 1px; }
-    .ins-gauge-lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-muted); margin-top: 0.25rem; }
+    .ins-gauge-center { padding: 0 1.15rem; }
+    .ins-gauge-amt {
+        font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+        font-weight: 600; font-size: 1.25rem; line-height: 1.05; letter-spacing: -0.03em;
+        color: var(--ink); overflow-wrap: anywhere;
+    }
+    .ins-gauge.is-deficit .ins-gauge-amt { color: var(--red); }
+    .ins-gauge-lbl { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-muted); margin-top: 0.3rem; font-weight: 600; }
+    .ins-gauge-sub { font-size: 0.66rem; color: var(--ink-muted); margin-top: 0.3rem; line-height: 1.3; }
 
     .ins-hero-body { flex: 1 1 320px; min-width: 0; }
     .ins-hero-eyebrow { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-muted); font-weight: 600; margin-bottom: 0.85rem; }
@@ -399,9 +577,112 @@ else
     .ins-mtd-bar span { display: block; height: 100%; background: var(--brass); border-radius: var(--r-pill); }
     .ins-mtd-text { font-size: 0.75rem; color: var(--ink-muted); margin-top: 0.4rem; }
 
-    /* ── Visual grid ────────────────────────────────── */
-    .ins-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
-    @@media (max-width: 860px) { .ins-grid { grid-template-columns: 1fr; } }
+    /* ── Control bar ────────────────────────────────── */
+    .ins-toolbar { margin-bottom: 1.25rem; }
+    .ins-toolbar-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem 1rem; }
+    .ins-toolbar-field { flex: 0 1 17rem; min-width: 0; }
+    .ins-toolbar-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    /* The right-hand void carries the provenance of what you are reading. */
+    .ins-toolbar-meta {
+        margin-left: auto; font-size: 0.74rem; color: var(--ink-muted);
+        padding-bottom: 0.45rem; white-space: nowrap;
+    }
+    .ins-live { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--green); font-weight: 600; }
+    @@media (max-width: 720px) {
+        .ins-toolbar-field { flex: 1 1 100%; }
+        .ins-toolbar-meta { margin-left: 0; flex: 1 1 100%; white-space: normal; padding-bottom: 0; }
+    }
+
+    /* ── Where it went: chart · breakdown · signals ─── */
+    .ins-where-grid {
+        display: grid; gap: 1.5rem 2rem; align-items: start;
+        grid-template-columns: 200px minmax(0, 1.35fr) minmax(0, 1fr);
+        grid-template-areas: "chart cats signals";
+    }
+    .ins-where-chart { grid-area: chart; }
+    .ins-where-cats { grid-area: cats; min-width: 0; }
+    .ins-where-signals { grid-area: signals; min-width: 0; }
+    /* Two-up first: the signals column is the one that can wrap under. */
+    @@media (max-width: 1100px) {
+        .ins-where-grid {
+            grid-template-columns: 200px minmax(0, 1fr);
+            grid-template-areas: "chart cats" "signals signals";
+        }
+    }
+    @@media (max-width: 640px) {
+        .ins-where-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "chart" "cats" "signals"; }
+    }
+    .ins-col-title {
+        font-size: 0.62rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+        color: var(--ink-muted); margin-bottom: 0.9rem; padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--rule);
+    }
+
+    /* Signals: a short ruled statement, not four tiles. */
+    .ins-signals { margin: 0; display: grid; gap: 0; }
+    .ins-signals > div { padding: 0.7rem 0; border-bottom: 1px solid var(--rule); }
+    .ins-signals > div:last-child { border-bottom: 0; padding-bottom: 0; }
+    .ins-signals > div:first-child { padding-top: 0; }
+    .ins-signals dt {
+        font-size: 0.62rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+        color: var(--ink-muted); margin-bottom: 0.3rem;
+    }
+    .ins-signals dd { margin: 0; }
+    .ins-signals .sg-main {
+        display: block; font-size: 0.98rem; font-weight: 600; color: var(--ink);
+        letter-spacing: -0.01em; overflow-wrap: anywhere;
+    }
+    .ins-signals .sg-main.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+    .ins-signals .sg-sub { display: block; font-size: 0.76rem; color: var(--ink-muted); margin-top: 0.15rem; }
+    .ins-signals .sg-sub.up { color: var(--red); font-weight: 600; }
+
+    /* Budget performance reads better in columns once there is room. */
+    .ins-budgets-grid { display: grid; gap: 1.1rem 2rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+
+    /* ── Suggested budgets: bars, not a pipe table ──── */
+    .ins-suggest { display: grid; gap: 1.05rem; }
+    .ins-suggest-row .sh { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 0.35rem; }
+    .ins-suggest-row .nm { font-weight: 600; color: var(--ink); font-size: 0.95rem; overflow-wrap: anywhere; }
+    .ins-suggest-row .tg { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink); white-space: nowrap; }
+    .ins-suggest-row .tg .per { color: var(--ink-muted); font-weight: 400; font-size: 0.78em; }
+    .ins-suggest-row .ins-bar-fill { background: var(--brass); }
+    .ins-suggest-row .sw { font-size: 0.78rem; color: var(--ink-muted); margin-top: 0.35rem; line-height: 1.5; }
+    .ins-suggest-foot { font-size: 0.78rem; color: var(--ink-muted); margin: 1.15rem 0 0; padding-top: 0.9rem; border-top: 1px dashed var(--rule-strong); }
+
+    /* ── Do these first: ranked cards ───────────────── */
+    .ins-actions { list-style: none; margin: 0; padding: 0; counter-reset: act; display: grid; gap: 0.85rem; }
+    .ins-action {
+        counter-increment: act; position: relative;
+        padding: 0.95rem 1.1rem 0.95rem 3.2rem;
+        border: 1px solid var(--rule); border-left: 3px solid var(--rule-strong);
+        border-radius: var(--r-md, 10px); background: var(--paper-2);
+    }
+    .ins-action::before {
+        content: counter(act);
+        position: absolute; left: 1rem; top: 0.95rem;
+        width: 1.6rem; height: 1.6rem; display: flex; align-items: center; justify-content: center;
+        border-radius: 50%; background: var(--ink); color: var(--paper);
+        font-family: var(--font-mono); font-weight: 600; font-size: 0.8rem;
+    }
+    .ins-action.pri-high { border-left-color: var(--red); }
+    .ins-action.pri-medium { border-left-color: var(--brass); }
+    .ins-action.pri-low { border-left-color: var(--ink-muted); }
+    .ins-action-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 0.75rem; }
+    .ins-action-label { font-weight: 600; color: var(--ink); font-size: 0.98rem; }
+    .ins-action-label strong { font-weight: 600; }
+    .ins-pri {
+        font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+        padding: 0.2rem 0.45rem; border-radius: 5px; white-space: nowrap;
+        color: var(--ink-muted); background: var(--paper-3); border: 1px solid var(--rule);
+    }
+    .pri-high .ins-pri { color: var(--red); background: var(--red-tint); border-color: var(--red-tint-2); }
+    .pri-medium .ins-pri { color: var(--brass); background: var(--brass-tint); border-color: var(--brass-tint); }
+    .ins-action-detail { font-size: 0.86rem; color: var(--ink-soft); line-height: 1.6; margin-top: 0.35rem; }
+    .ins-action-detail strong { color: var(--ink); font-weight: 600; }
+    @@media (max-width: 480px) {
+        .ins-action { padding: 0.9rem 0.9rem 0.9rem 0.9rem; }
+        .ins-action::before { position: static; margin-bottom: 0.5rem; }
+    }
 
     .ins-panel { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); padding: 1.3rem 1.4rem; }
     .ins-panel-title, .ins-section-head { display: flex; align-items: center; gap: 0.65rem; font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; color: var(--ink); margin-bottom: 1.1rem; }
@@ -416,17 +697,30 @@ else
     .acc-ink .chip { background: var(--paper-2); border-color: var(--rule-strong); color: var(--ink-soft); }
 
     /* Doughnut + category legend */
-    .ins-dough-wrap { display: flex; gap: 1.2rem; align-items: center; flex-wrap: wrap; }
-    .ins-dough { position: relative; width: 168px; height: 168px; flex-shrink: 0; margin: 0 auto; }
+        .ins-dough { position: relative; width: 168px; height: 168px; flex-shrink: 0; margin: 0 auto; }
     .ins-dough-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
     .ins-dough-center .t { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-muted); }
     .ins-dough-center .a { font-family: var(--font-mono); font-weight: 600; font-size: 0.95rem; color: var(--ink); }
-    .ins-cats { list-style: none; margin: 0; padding: 0; flex: 1 1 220px; min-width: 200px; display: flex; flex-direction: column; gap: 0.5rem; }
-    .ins-cat-row { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "dot nm mom" "bar bar bar" "amt amt amt"; gap: 0.15rem 0.5rem; align-items: center; font-size: 0.85rem; }
+    .ins-cats { list-style: none; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; }
+    .ins-cat-row {
+        display: grid; align-items: center; font-size: 0.85rem;
+        grid-template-columns: auto minmax(5rem, 1fr) minmax(3rem, 1.1fr) auto auto;
+        grid-template-areas: "dot nm bar amt mom";
+        gap: 0 0.7rem; padding: 0.42rem 0; border-bottom: 1px solid var(--rule);
+    }
+    .ins-cats li:last-child .ins-cat-row, .ins-cat-row:last-child { border-bottom: 0; }
+    /* Below that the bar has no room to mean anything — drop it and stack. */
+    @@media (max-width: 520px) {
+        .ins-cat-row {
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            grid-template-areas: "dot nm mom" "bar bar bar" ". amt amt";
+            gap: 0.2rem 0.5rem;
+        }
+    }
     .ins-cat-row .dot { grid-area: dot; width: 9px; height: 9px; border-radius: 2px; }
     .ins-cat-row .nm { grid-area: nm; color: var(--ink); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .ins-cat-row .amt { grid-area: amt; font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-soft); }
-    .ins-cat-row .bar { grid-area: bar; height: 5px; border-radius: var(--r-pill); background: var(--paper-3); overflow: hidden; margin: 0.1rem 0; }
+    .ins-cat-row .amt { grid-area: amt; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 0.8rem; color: var(--ink); font-weight: 600; text-align: right; white-space: nowrap; }
+    .ins-cat-row .bar { grid-area: bar; height: 5px; border-radius: var(--r-pill); background: var(--paper-3); overflow: hidden; }
     .ins-cat-row .bar span { display: block; height: 100%; border-radius: var(--r-pill); }
     .ins-cat-row .mom { grid-area: mom; font-size: 0.72rem; font-weight: 600; font-family: var(--font-mono); display: inline-flex; align-items: center; white-space: nowrap; }
     .ins-cat-row .mom.up { color: var(--red); } .ins-cat-row .mom.down { color: var(--green); } .ins-cat-row .mom.new { color: var(--ink-muted); font-weight: 500; }

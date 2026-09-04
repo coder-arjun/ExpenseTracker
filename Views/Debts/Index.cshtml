@@ -1,11 +1,17 @@
 @using System.Globalization
 @using ExpenseTracker.Models.Domain
+@using ExpenseTracker.Services
 @model ExpenseTracker.Models.PaginatedList<ExpenseTracker.Models.Domain.Debt>
+
+@*
+    Presentation only. Same model, same filter parameters (person / direction /
+    showSettled), same Settle POST and the same Edit/Details/Delete routes.
+    Colour is semantic here: green = owed to you, rose = you owe.
+*@
 
 @{
     ViewData["Title"] = "Owed to Me";
     var inr = CultureInfo.GetCultureInfo("en-IN");
-    string Money(decimal a) => a.ToString("C2", inr);
 
     var owedToMe = (decimal)(ViewData["OwedToMe"] ?? 0m);
     var iOwe = (decimal)(ViewData["IOwe"] ?? 0m);
@@ -22,24 +28,33 @@
         ? ("owe-in", "Owed to me", "bi-arrow-down-left")
         : ("owe-out", "I owe", "bi-arrow-up-right");
 
-    (string cls, string label) StatChip(Debt d) => d.Status switch
+    (string cls, string label, string icon) StatChip(Debt d) => d.Status switch
     {
-        DebtStatus.Settled => ("owe-st-settled", "Settled"),
-        DebtStatus.PartlyPaid => ("owe-st-partly", "Partly paid"),
-        _ => ("owe-st-open", "Outstanding")
+        DebtStatus.Settled => ("owe-st-settled", "Settled", "bi-check-circle-fill"),
+        DebtStatus.PartlyPaid => ("owe-st-partly", "Partly paid", "bi-circle-half"),
+        _ => ("owe-st-open", "Outstanding", "bi-circle")
     };
+
+    // Initials from the person's name — display only, no data change.
+    string Initials(string name)
+    {
+        var parts = (name ?? "").Split(new[] { ' ', '&', '/', ',' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return "?";
+        if (parts.Length == 1) return parts[0].Substring(0, 1).ToUpperInvariant();
+        return (parts[0].Substring(0, 1) + parts[1].Substring(0, 1)).ToUpperInvariant();
+    }
 }
 
-<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
-    <div class="page-header mb-0">
-        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Who owes whom</div>
-        <h1><i class="bi bi-cash-coin me-2"></i>Owed to Me</h1>
-        <p>TRACK MONEY OWED TO YOU AND MONEY YOU OWE</p>
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-end gap-3 mb-4">
+    <div class="page-head has-stroke mb-0">
+        <div class="page-eyebrow">Personal ledger</div>
+        <h1>Owed to Me</h1>
+        <p class="page-lede">Money you're owed, and money you owe.</p>
     </div>
     <div class="d-flex gap-2">
         <div class="btn-group flex-fill flex-sm-grow-0">
-            <button type="button" class="btn btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-download me-1"></i>Export
+            <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle w-100" data-bs-toggle="dropdown" aria-expanded="false">
+                Export
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
                 <li><a class="dropdown-item" asp-action="Export" asp-route-format="xlsx">
@@ -50,72 +65,75 @@
                 </a></li>
                 <li><hr class="dropdown-divider" /></li>
                 <li><a class="dropdown-item" asp-action="Export" asp-route-format="csv">
-                    <i class="bi bi-filetype-csv me-2 text-secondary"></i>CSV (plain text)
+                    <i class="bi bi-filetype-csv me-2 text-secondary"></i>CSV
                 </a></li>
             </ul>
         </div>
-        <a asp-action="Create" class="btn btn-primary flex-fill flex-sm-grow-0">
-            <i class="bi bi-plus-circle me-1"></i>Add Debt
+        <a asp-action="Create" class="btn btn-sm btn-primary flex-fill flex-sm-grow-0">
+            <i class="bi bi-plus-lg me-1"></i>Add debt
         </a>
     </div>
 </div>
 
-@* ── Filter bar: person · direction · show settled ────────────────── *@
-<div class="filter-bar sticky-filter mb-4">
+@* ── Filters: one grouped row, same parameters ────────────────────── *@
+<div class="xp-filters sticky-filter">
+    <div class="xp-filters-title">Filters</div>
     <form method="get" asp-action="Index" class="row g-3 align-items-end">
-        <div class="col-md-4">
-            <label class="form-label fw-semibold">Person</label>
-            <select name="person" class="form-select">
+        <div class="col-6 col-md-3">
+            <label class="form-label" for="personFilter">Person</label>
+            <select name="person" id="personFilter" class="form-select">
                 <option value="">All people</option>
-                @foreach (var p in personOptions)
+                @foreach (var pn in personOptions)
                 {
-                    <option value="@p" selected="@(p == fPerson ? "selected" : null)">@p</option>
+                    <option value="@pn" selected="@(pn == fPerson ? "selected" : null)">@pn</option>
                 }
             </select>
         </div>
-        <div class="col-md-3">
-            <label class="form-label fw-semibold">Direction</label>
-            <select name="direction" class="form-select">
-                <option value="">All</option>
+        <div class="col-6 col-md-3">
+            <label class="form-label" for="directionFilter">Direction</label>
+            <select name="direction" id="directionFilter" class="form-select">
+                <option value="">All directions</option>
                 <option value="TheyOweMe" selected="@(fDirection == "TheyOweMe" ? "selected" : null)">Owed to me</option>
                 <option value="IOweThem" selected="@(fDirection == "IOweThem" ? "selected" : null)">I owe</option>
             </select>
         </div>
-        <div class="col-md-auto">
-            <div class="form-check pb-2">
+        <div class="col-auto">
+            <div class="form-check">
                 <input class="form-check-input" type="checkbox" name="showSettled" value="true" id="showSettled" @(fShowSettled ? "checked" : null) />
                 <label class="form-check-label" for="showSettled">Show settled</label>
             </div>
         </div>
-        <div class="col-md-auto">
-            <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Apply</button>
+        <div class="col-md-auto ms-md-auto">
+            <button type="submit" class="btn btn-sm btn-primary">Apply</button>
             @if (hasFilter)
             {
-                <a asp-action="Index" class="btn btn-outline-secondary ms-1"><i class="bi bi-x-circle me-1"></i>Clear</a>
+                <a asp-action="Index" class="btn btn-sm btn-link owe-clear">Clear filters</a>
             }
         </div>
     </form>
 </div>
 
-@* ── Summary strip: owed to you · you owe · net ───────────────────── *@
-<div class="owe-summary mb-4">
-    <div class="owe-stat">
-        <div class="l"><i class="bi bi-arrow-down-left"></i> Owed to you</div>
-        <div class="v credit">@Money(owedToMe)</div>
+@* ── Position: the net figure is the anchor ───────────────────────── *@
+<section class="owe-position" aria-label="Debt position">
+    <div class="owe-side">
+        <div class="owe-side-item">
+            <div class="owe-side-label"><i class="bi bi-arrow-down-left"></i> Owed to you</div>
+            <div class="owe-side-value credit" title="@MoneyFormat.Full(owedToMe)">@MoneyFormat.Full(owedToMe)</div>
+        </div>
+        <div class="owe-side-item">
+            <div class="owe-side-label"><i class="bi bi-arrow-up-right"></i> You owe</div>
+            <div class="owe-side-value debit" title="@MoneyFormat.Full(iOwe)">@MoneyFormat.Full(iOwe)</div>
+        </div>
     </div>
-    <div class="owe-stat">
-        <div class="l"><i class="bi bi-arrow-up-right"></i> You owe</div>
-        <div class="v debit">@Money(iOwe)</div>
-    </div>
-    <div class="owe-stat owe-stat-net">
-        <div class="l"><i class="bi bi-safe2"></i> Net position</div>
-        <div class="v @(net >= 0 ? "credit" : "debit")">@(net >= 0 ? "+" : "−")@Money(Math.Abs(net))</div>
+    <div class="owe-net @(net >= 0 ? "is-pos" : "is-neg")">
+        <div class="owe-net-label">Net position</div>
+        <div class="owe-net-value">@(net >= 0 ? "+" : "−")@MoneyFormat.Full(Math.Abs(net))</div>
         @if (overdue > 0)
         {
-            <div class="owe-overdue"><i class="bi bi-exclamation-triangle-fill"></i> @overdue overdue</div>
+            <div class="owe-net-flag"><i class="bi bi-exclamation-triangle-fill"></i> @overdue overdue</div>
         }
     </div>
-</div>
+</section>
 
 @if (!Model.Any() && hasFilter)
 {
@@ -123,7 +141,7 @@
         <div class="es-icon"><i class="bi bi-funnel"></i></div>
         <div class="es-title">No debts match these filters</div>
         <p class="es-body">Try a different name, direction, or turn on “Show settled”.</p>
-        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-x-circle me-1"></i>Clear filters</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Clear filters</a>
     </div>
 }
 else if (!Model.Any())
@@ -132,73 +150,94 @@ else if (!Model.Any())
         <div class="es-icon"><i class="bi bi-cash-coin"></i></div>
         <div class="es-title">No debts tracked yet</div>
         <p class="es-body">Lent a friend some cash, or borrowed a little? Record it here so nothing slips through the cracks.</p>
-        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>Add Debt</a>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add debt</a>
     </div>
 }
 else
 {
-    <div class="card">
-        <div class="card-body p-0">
-            <table class="table table-hover table-stack mb-0">
-                <thead>
-                    <tr>
-                        <th>Person</th>
-                        <th>Direction</th>
-                        <th class="text-end">Amount</th>
-                        <th class="text-end">Outstanding</th>
-                        <th>Status</th>
-                        <th>Due</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var item in Model)
-                    {
-                        var dir = DirChip(item);
-                        var st = StatChip(item);
-                        <tr>
-                            <td data-label="Person" class="fw-semibold">@item.PersonName</td>
-                            <td data-label="Direction">
-                                <span class="owe-chip @dir.cls"><i class="bi @dir.icon"></i> @dir.label</span>
-                            </td>
-                            <td data-label="Amount" class="text-end text-tabular">@Money(item.Amount)</td>
-                            <td data-label="Outstanding" class="text-end fw-semibold text-tabular t-balance">
-                                @Money(item.Outstanding)
-                            </td>
-                            <td data-label="Status">
-                                <span class="owe-status @st.cls">@st.label</span>
-                                @if (item.IsOverdue)
-                                {
-                                    <span class="owe-status owe-st-overdue">Overdue</span>
-                                }
-                            </td>
-                            <td data-label="Due" class="folio">@(item.DueDate?.ToString("dd MMM yyyy") ?? "—")</td>
-                            <td data-label="Actions">
-                                @if (item.Outstanding > 0m)
-                                {
-                                    <form asp-action="Settle" asp-route-id="@item.Id" method="post" class="d-inline">
-                                        @Html.AntiForgeryToken()
-                                        <button type="submit" class="btn btn-sm btn-outline-success" aria-label="Mark settled" title="Mark settled">
-                                            <i class="bi bi-check2-circle" aria-hidden="true"></i>
-                                        </button>
-                                    </form>
-                                }
-                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" aria-label="Edit">
-                                    <i class="bi bi-pencil" aria-hidden="true"></i>
-                                </a>
-                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info" aria-label="View details">
-                                    <i class="bi bi-eye" aria-hidden="true"></i>
-                                </a>
-                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger" aria-label="Delete">
-                                    <i class="bi bi-trash" aria-hidden="true"></i>
-                                </a>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
+    <table class="xp-table owe-table">
+        <thead>
+            <tr>
+                <th>Person</th>
+                <th class="owe-dir-col">Direction</th>
+                <th class="xp-amount owe-total-col">Total</th>
+                <th class="xp-amount">Outstanding</th>
+                <th class="owe-status-col">Status</th>
+                <th class="owe-due-col">Due</th>
+                <th><span class="visually-hidden">Actions</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                var dir = DirChip(item);
+                var st = StatChip(item);
+                var settled = item.Outstanding <= 0m;
+                <tr class="@(item.Direction == DebtDirection.TheyOweMe ? "is-in" : "is-out")">
+                    <td data-label="Person">
+                        <span class="owe-person">
+                            <span class="owe-avatar" aria-hidden="true">@Initials(item.PersonName)</span>
+                            <span class="owe-name">@item.PersonName</span>
+                        </span>
+                    </td>
+                    <td class="owe-dir-col" data-label="Direction">
+                        <span class="owe-chip @dir.cls"><i class="bi @dir.icon" aria-hidden="true"></i> @dir.label</span>
+                    </td>
+                    @* Total recedes; what is still outstanding is the operational number. *@
+                    <td class="xp-amount owe-total owe-total-col" data-label="Total">@MoneyFormat.Full(item.Amount)</td>
+                    <td class="xp-amount owe-outstanding @(settled ? "is-settled" : "")" data-label="Outstanding">
+                        @MoneyFormat.Full(item.Outstanding)
+                    </td>
+                    <td class="owe-status-col" data-label="Status">
+                        <span class="owe-status @st.cls"><i class="bi @st.icon" aria-hidden="true"></i>@st.label</span>
+                        @if (item.IsOverdue)
+                        {
+                            <span class="owe-status owe-st-overdue"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>Overdue</span>
+                        }
+                    </td>
+                    <td class="owe-due-col" data-label="Due">
+                        @if (item.DueDate.HasValue)
+                        {
+                            <span class="owe-due">@item.DueDate.Value.ToString("dd MMM yyyy", inr)</span>
+                        }
+                        else
+                        {
+                            <span class="owe-due-none">No due date</span>
+                        }
+                    </td>
+                    <td data-label="Actions">
+                        <div class="xp-actions owe-actions">
+                            @* The contextual action stays visible; the rest move into a menu. *@
+                            @if (item.Outstanding > 0m)
+                            {
+                                <form asp-action="Settle" asp-route-id="@item.Id" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-sm owe-settle" aria-label="Mark settled" title="Mark settled">
+                                        <i class="bi bi-check2-circle" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                            }
+                            <div class="dropdown d-inline-block">
+                                <button type="button" class="btn btn-sm" data-bs-toggle="dropdown" data-bs-boundary="viewport"
+                                        aria-expanded="false" aria-label="More actions for @item.PersonName" title="More actions">
+                                    <i class="bi bi-three-dots" aria-hidden="true"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end owe-menu">
+                                    <li><a class="dropdown-item" asp-action="Edit" asp-route-id="@item.Id">
+                                        <i class="bi bi-pencil me-2"></i>Edit</a></li>
+                                    <li><a class="dropdown-item" asp-action="Details" asp-route-id="@item.Id">
+                                        <i class="bi bi-eye me-2"></i>View details</a></li>
+                                    <li><hr class="dropdown-divider" /></li>
+                                    <li><a class="dropdown-item owe-menu-danger" asp-action="Delete" asp-route-id="@item.Id">
+                                        <i class="bi bi-trash me-2"></i>Delete</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
 }
 
 @{
@@ -208,35 +247,3 @@ else
     ViewData["HasNextPage"] = Model.HasNextPage;
 }
 <partial name="_PaginationPartial" />
-
-<style>
-    /* ── Owed-to-Me · summary + chips (Ledger tokens) ───────────────── */
-    .owe-summary {
-        display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;
-    }
-    @@media (max-width: 640px) { .owe-summary { grid-template-columns: 1fr; } }
-    .owe-stat {
-        background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-lg);
-        box-shadow: var(--shadow-sm); padding: 1rem 1.2rem;
-    }
-    .owe-stat .l { font-size: 0.78rem; color: var(--ink-muted); font-weight: 500; display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.3rem; }
-    .owe-stat .v { font-family: var(--font-mono); font-weight: 600; font-size: clamp(1.1rem, 0.95rem + 0.8vw, 1.5rem); letter-spacing: -0.02em; }
-    .owe-stat .v.credit { color: var(--green); }
-    .owe-stat .v.debit { color: var(--red); }
-    .owe-stat-net { border-left: 3px solid var(--rule-strong); }
-    .owe-overdue { margin-top: 0.4rem; font-size: 0.74rem; font-weight: 600; color: var(--red); display: inline-flex; align-items: center; gap: 0.3rem; }
-
-    /* Direction chip */
-    .owe-chip { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.74rem; font-weight: 600;
-        padding: 0.18rem 0.55rem; border-radius: var(--r-pill); border: 1px solid var(--rule); white-space: nowrap; }
-    .owe-chip.owe-in { color: var(--green); background: var(--green-tint); border-color: var(--green-tint); }
-    .owe-chip.owe-out { color: var(--red); background: var(--red-tint); border-color: var(--red-tint-2); }
-
-    /* Status pills */
-    .owe-status { display: inline-block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.02em;
-        padding: 0.14rem 0.5rem; border-radius: var(--r-pill); border: 1px solid var(--rule); }
-    .owe-st-open { color: var(--ink-soft); background: var(--paper-2); }
-    .owe-st-partly { color: var(--brass); background: var(--brass-tint); border-color: var(--brass-tint); }
-    .owe-st-settled { color: var(--green); background: var(--green-tint); border-color: var(--green-tint); }
-    .owe-st-overdue { color: var(--red); background: var(--red-tint); border-color: var(--red-tint-2); margin-left: 0.25rem; }
-</style>

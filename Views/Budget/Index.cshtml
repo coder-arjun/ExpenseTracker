@@ -1,131 +1,252 @@
+@using System.Globalization
+@using ExpenseTracker.Services
 @model ExpenseTracker.Models.PaginatedList<ExpenseTracker.Models.Domain.Budget>
+
+@*
+    Presentation only. Same model, same `yearMonth` filter, and the same three
+    actions — CopyFromPreviousMonth, Create and Delete — on the same routes. The
+    per-card "spent" figure is calculated exactly as before. The overview strip
+    reads figures the controller now supplies; nothing is stored.
+*@
 
 @{
     ViewData["Title"] = "Budgets";
+    var inr = CultureInfo.GetCultureInfo("en-IN");
     var yearMonth = ViewData["YearMonth"] as string ?? DateTime.Now.ToString("yyyy-MM");
     var expenses = ViewData["Expenses"] as Dictionary<int, decimal> ?? new();
     var totalSpent = (decimal)(ViewData["TotalSpent"] ?? 0m);
+
+    var budgetedTotal = (decimal)(ViewData["BudgetedTotal"] ?? 0m);
+    var budgetedSpent = (decimal)(ViewData["BudgetedSpent"] ?? 0m);
+    var budgetedCount = (int)(ViewData["BudgetedCount"] ?? 0);
+    var overallBudget = ViewData["OverallBudget"] as decimal?;
+    var copyableCount = (int)(ViewData["CopyableCount"] ?? 0);
+    var previousMonth = ViewData["PreviousMonth"] as string ?? "";
+
+    string MonthLabel(string ym) =>
+        DateTime.TryParseExact(ym, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+            ? d.ToString("MMMM yyyy", CultureInfo.InvariantCulture) : ym;
+
+    string Money(decimal a) => a.ToString("C0", inr);
+    string MoneyFull(decimal a) => a.ToString("C", inr);
+
+    // One risk scale, used by both the strip and the cards.
+    (string cls, string label) Health(decimal pct) =>
+        pct > 100m ? ("is-over", "Over budget")
+        : pct >= 90m ? ("is-critical", "Almost gone")
+        : pct >= 70m ? ("is-watch", "Near limit")
+        : pct > 0m ? ("is-ok", "On track")
+        : ("is-idle", "Not started");
+
+    var overallPct = budgetedTotal > 0 ? Math.Round(budgetedSpent / budgetedTotal * 100, 1) : 0m;
+    var overallHealth = Health(overallPct);
+    var overallRemaining = budgetedTotal - budgetedSpent;
 }
 
-<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
-    <div class="page-header mb-0">
-        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Budget ledger</div>
-        <h1><i class="bi bi-speedometer me-2"></i>Budgets</h1>
-        <p>SET AND TRACK YOUR SPENDING LIMITS</p>
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-end gap-3 mb-4">
+    <div class="page-head has-stroke mb-0">
+        <div class="page-eyebrow">Budget ledger</div>
+        <h1>Budgets</h1>
+        <p class="page-lede">Set and track your spending limits.</p>
     </div>
-    <div class="d-flex gap-2">
-        <form asp-action="CopyFromPreviousMonth" method="post" class="flex-fill flex-sm-grow-0 m-0">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="yearMonth" value="@yearMonth" />
-            <button type="submit" class="btn btn-outline-secondary w-100" title="Copy budgets from previous month">
-                <i class="bi bi-clipboard-check me-1"></i>Copy Previous
+    <div class="d-flex gap-2 bg-toolbar">
+        @* Copying writes real rows, so it says how many and what it skips. *@
+        <span class="inline-confirm bg-copy">
+            <button type="button" class="btn btn-outline-secondary w-100" data-inline-confirm
+                    title="Copy budgets from @MonthLabel(previousMonth)">
+                <i class="bi bi-clipboard-check me-1"></i>Copy previous month
             </button>
-        </form>
+            <span class="inline-confirm-bubble">
+                <div class="inline-confirm-text">
+                    <strong>Copy budgets from @MonthLabel(previousMonth)?</strong><br />
+                    @if (copyableCount > 0)
+                    {
+                        <span>
+                            @copyableCount budget@(copyableCount == 1 ? "" : "s") will be copied into
+                            @MonthLabel(yearMonth). Categories that already have a budget this month are skipped.
+                        </span>
+                    }
+                    else
+                    {
+                        <span>
+                            Nothing to copy — @MonthLabel(previousMonth) has no budgets that aren't
+                            already set for @MonthLabel(yearMonth).
+                        </span>
+                    }
+                </div>
+                <form asp-action="CopyFromPreviousMonth" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="yearMonth" value="@yearMonth" />
+                    <button type="submit" class="btn btn-sm btn-primary">Copy budgets</button>
+                    <button type="button" class="btn btn-sm btn-link inline-confirm-cancel">Cancel</button>
+                </form>
+            </span>
+        </span>
         <a asp-action="Create" asp-route-yearMonth="@yearMonth" class="btn btn-primary flex-fill flex-sm-grow-0">
-            <i class="bi bi-plus-circle me-1"></i>Add Budget
+            <i class="bi bi-plus-lg me-1"></i>Add budget
         </a>
     </div>
 </div>
 
-<!-- Month Selector -->
-<div class="card  mb-4">
-    <div class="card-body py-2">
-        <form method="get" asp-action="Index" class="row g-2 align-items-end">
-            <div class="col-auto">
-                <label class="form-label fw-semibold mb-0">Month</label>
-            </div>
-            <div class="col-auto">
-                <input type="month" name="yearMonth" class="form-control" value="@yearMonth" />
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-funnel me-1"></i>Filter
-                </button>
-            </div>
-        </form>
+@* ── Month filter: the empty right side states what is being shown ─────── *@
+<div class="xp-filters sticky-filter">
+    <div class="bg-filter-head">
+        <div class="xp-filters-title mb-0">Budget month</div>
+        <div class="bg-filter-count">
+            Showing <span class="n">@Model.Count</span>
+            budget@(Model.Count == 1 ? "" : "s") for @MonthLabel(yearMonth)
+        </div>
     </div>
+    <form method="get" asp-action="Index" class="bg-filter-form">
+        <div class="bg-filter-field">
+            <label class="form-label" for="budgetMonth">Month</label>
+            <input type="month" name="yearMonth" id="budgetMonth" class="form-control" value="@yearMonth" />
+        </div>
+        <div class="bg-filter-actions">
+            <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+        </div>
+    </form>
 </div>
 
 @if (!Model.Any())
 {
     <div class="empty-state-v2">
         <div class="es-icon"><i class="bi bi-speedometer"></i></div>
-        <div class="es-title">No budgets set for @yearMonth</div>
-        <p class="es-body">Create a spending limit or copy your budgets from the previous month to start tracking.</p>
+        <div class="es-title">No budgets set for @MonthLabel(yearMonth)</div>
+        <p class="es-body">Create a spending limit, or copy your budgets from the previous month to start tracking.</p>
         <a asp-action="Create" asp-route-yearMonth="@yearMonth" class="btn btn-primary">
-            <i class="bi bi-plus-circle me-1"></i>Add Budget
+            <i class="bi bi-plus-lg me-1"></i>Add budget
         </a>
     </div>
 }
 else
 {
-    <div class="row g-4 mb-4">
+    @* ── Overview: the month in one figure ─────────────────────────────── *@
+    @if (budgetedCount > 0)
+    {
+        <section class="bg-overview @overallHealth.cls" aria-label="Budget overview for @MonthLabel(yearMonth)">
+            <div class="bg-overview-head">
+                <span class="bg-overview-eyebrow">Budget overview · @MonthLabel(yearMonth)</span>
+                <span class="bg-state @overallHealth.cls"><span class="dot" aria-hidden="true"></span>@overallHealth.label</span>
+            </div>
+            <div class="bg-overview-figs">
+                <div class="bg-fig">
+                    <div class="bg-fig-label">Total budgeted</div>
+                    <div class="bg-fig-value" title="@MoneyFull(budgetedTotal)">@Money(budgetedTotal)</div>
+                </div>
+                <div class="bg-fig">
+                    <div class="bg-fig-label">Spent</div>
+                    <div class="bg-fig-value is-out" title="@MoneyFull(budgetedSpent)">@Money(budgetedSpent)</div>
+                </div>
+                <div class="bg-fig">
+                    <div class="bg-fig-label">@(overallRemaining >= 0 ? "Remaining" : "Over by")</div>
+                    <div class="bg-fig-value @(overallRemaining >= 0 ? "is-in" : "is-out")"
+                         title="@MoneyFull(Math.Abs(overallRemaining))">@Money(Math.Abs(overallRemaining))</div>
+                </div>
+            </div>
+            <div class="bg-meter" role="img"
+                 aria-label="@overallPct.ToString("0.0", CultureInfo.InvariantCulture)% of the total budget used">
+                <span class="bg-meter-fill" style="width:@Math.Min(overallPct, 100m).ToString("0.0", CultureInfo.InvariantCulture)%"></span>
+            </div>
+            <div class="bg-overview-foot">
+                <span class="pct">@overallPct.ToString("0.0", CultureInfo.InvariantCulture)% utilised</span>
+                <span class="scope">across @budgetedCount categor@(budgetedCount == 1 ? "y" : "ies")</span>
+            </div>
+            @if (overallBudget.HasValue)
+            {
+                @* An overall budget measures the whole month, not these categories,
+                   so it is reported separately rather than added to the total. *@
+                var opct = overallBudget.Value > 0 ? Math.Round(totalSpent / overallBudget.Value * 100, 1) : 0m;
+                <div class="bg-overall-note">
+                    <i class="bi bi-infinity" aria-hidden="true"></i>
+                    Separately, your overall monthly budget of <strong>@Money(overallBudget.Value)</strong>
+                    is @opct.ToString("0.0", CultureInfo.InvariantCulture)% used
+                    (@Money(totalSpent) spent across every category).
+                </div>
+            }
+        </section>
+    }
+
+    <div class="bg-grid">
         @foreach (var budget in Model)
         {
             var label = budget.Category?.Name ?? "Overall";
+            @* Unchanged: category budgets measure their own category; the overall
+               budget measures the month's whole spend. *@
             var spent = budget.CategoryId.HasValue && expenses.ContainsKey(budget.CategoryId.Value)
                 ? expenses[budget.CategoryId.Value]
                 : (!budget.CategoryId.HasValue ? totalSpent : 0m);
             var pct = budget.Amount > 0 ? Math.Round(spent / budget.Amount * 100, 1) : 0;
             var remaining = budget.Amount - spent;
+            var health = Health(pct);
+            var icon = budget.CategoryId.HasValue
+                ? CategoryIcons.For(label, ExpenseTracker.Models.Domain.CategoryType.Expense)
+                : "bi-infinity";
 
-            var barClass = pct >= 100 ? "bg-danger" : pct >= 80 ? "bg-warning" : "bg-success";
-            var cardBorder = pct >= 100 ? "border-danger" : pct >= 80 ? "border-warning" : "";
-
-            <div class="col-md-6 col-lg-4">
-                <div class="card  @cardBorder">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h5 class="card-title mb-0">
-                                <i class="bi bi-tag me-1"></i>@label
-                            </h5>
-                            <div>
-                                <a asp-action="Edit" asp-route-id="@budget.Id" class="btn btn-sm btn-outline-primary" title="Edit">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <a asp-action="Delete" asp-route-id="@budget.Id" class="btn btn-sm btn-outline-danger" title="Delete">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                            </div>
+            <article class="bg-card @health.cls">
+                @* Name, status and actions share one row. An absolutely-positioned
+                   action cluster sat on top of this header, and the header then
+                   intercepted the clicks meant for the buttons. *@
+                <header class="bg-card-head">
+                    <span class="bg-card-name">
+                        <span class="bg-card-icon" aria-hidden="true"><i class="bi @icon"></i></span>
+                        <span class="nm">@label</span>
+                    </span>
+                    <span class="bg-state @health.cls"><span class="dot" aria-hidden="true"></span>@health.label</span>
+                    <div class="bg-card-actions">
+                        <div class="xp-actions">
+                            <a asp-action="Edit" asp-route-id="@budget.Id" class="btn btn-sm"
+                               aria-label="Edit @label budget" title="Edit">
+                                <i class="bi bi-pencil" aria-hidden="true"></i>
+                            </a>
+                            <span class="inline-confirm">
+                                <button type="button" class="btn btn-sm" data-inline-confirm
+                                        aria-label="Delete @label budget" title="Delete">
+                                    <i class="bi bi-trash" aria-hidden="true"></i>
+                                </button>
+                                <span class="inline-confirm-bubble">
+                                    <div class="inline-confirm-text">
+                                        <strong>Delete the @label budget?</strong><br />
+                                        This removes the limit only — your recorded expenses are untouched.
+                                    </div>
+                                    <form asp-action="Delete" asp-route-id="@budget.Id" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-danger">Delete budget</button>
+                                        <button type="button" class="btn btn-sm btn-link inline-confirm-cancel">Cancel</button>
+                                    </form>
+                                </span>
+                            </span>
                         </div>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="folio">Spent</span>
-                            <span class="fw-semibold text-tabular t-balance">@spent.ToString("C") / @budget.Amount.ToString("C")</span>
-                        </div>
-                        <div class="progress mb-2" style="height: 10px;">
-                            <div class="progress-bar @barClass" role="progressbar"
-                                 style="width: @Math.Min(pct, 100)%" aria-valuenow="@pct"
-                                 aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        <div class="d-flex justify-content-between">
-                            <small class="folio">@pct% used</small>
-                            @if (remaining >= 0)
-                            {
-                                <small class="fw-semibold text-tabular t-income">+@remaining.ToString("C") remaining</small>
-                            }
-                            else
-                            {
-                                <small class="fw-semibold text-tabular t-expense">&minus;@((-remaining).ToString("C")) over budget!</small>
-                            }
-                        </div>
-                        @if (pct >= 100)
-                        {
-                            <div class="alert alert-danger py-1 px-2 mt-2 mb-0 small">
-                                <i class="bi bi-exclamation-triangle-fill me-1"></i>Budget exceeded!
-                            </div>
-                        }
-                        else if (pct >= 80)
-                        {
-                            <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
-                                <i class="bi bi-exclamation-circle me-1"></i>Approaching budget limit
-                            </div>
-                        }
                     </div>
+                </header>
+
+                @* The spent figure leads; the limit is context beneath it. *@
+                <div class="bg-card-money">
+                    <div class="bg-card-label">Spent</div>
+                    <div class="bg-card-spent" title="@MoneyFull(spent)">@Money(spent)</div>
+                    <div class="bg-card-of">of @Money(budget.Amount)</div>
                 </div>
-            </div>
+
+                <div class="bg-meter" role="img"
+                     aria-label="@pct.ToString("0.0", CultureInfo.InvariantCulture)% of @label budget used">
+                    <span class="bg-meter-fill" style="width:@Math.Min(pct, 100m).ToString("0.0", CultureInfo.InvariantCulture)%"></span>
+                </div>
+
+                <footer class="bg-card-foot">
+                    <span class="pct">@pct.ToString("0.0", CultureInfo.InvariantCulture)% used</span>
+                    @if (remaining >= 0)
+                    {
+                        <span class="rem is-in" title="@MoneyFull(remaining)">@Money(remaining) left</span>
+                    }
+                    else
+                    {
+                        <span class="rem is-out" title="@MoneyFull(-remaining)">@Money(-remaining) over</span>
+                    }
+                </footer>
+
+            </article>
         }
     </div>
-
 }
 
 @{

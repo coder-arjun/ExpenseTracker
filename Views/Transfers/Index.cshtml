@@ -1,15 +1,29 @@
+@using System.Globalization
+@using ExpenseTracker.Services
 @model ExpenseTracker.Models.PaginatedList<ExpenseTracker.Models.Domain.Transfer>
 
-@{ ViewData["Title"] = "Transfers"; }
+@*
+    Presentation only. Same model, same ordering, same Edit/Delete routes and the same
+    pagination. From and To are merged into one visual "flow" cell — the data behind it
+    is unchanged, and both names remain in the DOM for screen readers and mobile.
+*@
 
-<div class="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-3 mb-4">
-    <div class="page-header mb-0">
-        <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> Account transfers</div>
-        <h1><i class="bi bi-arrow-left-right me-2"></i>Transfers</h1>
-        <p>MOVE MONEY BETWEEN YOUR ACCOUNTS</p>
+@{
+    ViewData["Title"] = "Transfers";
+    var inr = CultureInfo.GetCultureInfo("en-IN");
+}
+
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-end gap-3 mb-4">
+    <div class="page-head has-stroke mb-0">
+        <div class="page-eyebrow">Account transfers</div>
+        <h1>Transfers</h1>
+        <p class="page-lede">Move money between your accounts.</p>
     </div>
     <div class="d-grid d-sm-block">
-        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Transfer</a>
+        @* The module already owns this icon — use it for its own primary action. *@
+        <a asp-action="Create" class="btn btn-sm btn-primary">
+            <i class="bi bi-arrow-left-right me-1"></i>New transfer
+        </a>
     </div>
 </div>
 
@@ -19,41 +33,62 @@
         <div class="es-icon"><i class="bi bi-arrow-left-right"></i></div>
         <div class="es-title">No transfers yet</div>
         <p class="es-body">Use a transfer to move money from your Cash to your Bank, or between any two accounts.</p>
-        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>New Transfer</a>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-arrow-left-right me-1"></i>New transfer
+        </a>
     </div>
 }
 else
 {
-    <div class="card"><div class="card-body p-0">
-        <table class="table table-hover table-stack table-sticky mb-0 data-table">
-            <thead><tr>
-                <th>Date</th>
-                <th>From</th>
-                <th></th>
-                <th>To</th>
-                <th class="text-end">Amount</th>
-                <th>Note</th>
-                <th>Actions</th>
-            </tr></thead>
-            <tbody>
-                @foreach (var t in Model)
-                {
-                    <tr>
-                        <td data-label="Date" class="folio">@t.Date.ToString("dd MMM yyyy")</td>
-                        <td data-label="From">@(t.FromAccount?.Name ?? "—")</td>
-                        <td data-label="" class="text-muted"><i class="bi bi-arrow-right"></i></td>
-                        <td data-label="To">@(t.ToAccount?.Name ?? "—")</td>
-                        <td data-label="Amount" class="text-end fw-semibold text-tabular t-balance">@t.Amount.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))</td>
-                        <td data-label="Note">@t.Description</td>
-                        <td data-label="Actions">
-                            <a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-outline-primary" aria-label="Edit"><i class="bi bi-pencil" aria-hidden="true"></i></a>
-                            <a asp-action="Delete" asp-route-id="@t.Id" class="btn btn-sm btn-outline-danger" aria-label="Delete"><i class="bi bi-trash" aria-hidden="true"></i></a>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div></div>
+    <table class="xp-table tfr-table">
+        <thead>
+            <tr>
+                <th class="xp-date">Date</th>
+                <th>Transfer</th>
+                <th class="xp-amount">Amount</th>
+                <th class="tfr-note-col">Note</th>
+                <th><span class="visually-hidden">Actions</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var t in Model)
+            {
+                <tr>
+                    <td class="xp-date" data-label="Date">
+                        @t.Date.ToString("dd MMM", inr)
+                        <small>@t.Date.ToString("yyyy", inr)</small>
+                    </td>
+                    <td class="tfr-move" data-label="Transfer">
+                        <span class="tfr-from">@(t.FromAccount?.Name ?? "—")</span>
+                        <span class="tfr-move-arrow" aria-hidden="true"><i class="bi bi-arrow-right"></i></span>
+                        <span class="visually-hidden">to</span>
+                        <span class="tfr-to">@(t.ToAccount?.Name ?? "—")</span>
+                    </td>
+                    <td class="xp-amount" data-label="Amount">@MoneyFormat.Full(t.Amount)</td>
+                    <td class="tfr-note-col" data-label="Note">
+                        @if (string.IsNullOrWhiteSpace(t.Description))
+                        {
+                            <span class="tfr-note-empty">&mdash;</span>
+                        }
+                        else
+                        {
+                            <span class="tfr-note" title="@t.Description">@t.Description</span>
+                        }
+                    </td>
+                    <td data-label="Actions">
+                        <div class="xp-actions">
+                            <a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm" aria-label="Edit transfer" title="Edit">
+                                <i class="bi bi-pencil" aria-hidden="true"></i>
+                            </a>
+                            <a asp-action="Delete" asp-route-id="@t.Id" class="btn btn-sm" aria-label="Delete transfer" title="Delete">
+                                <i class="bi bi-trash" aria-hidden="true"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
 }
 
 @{

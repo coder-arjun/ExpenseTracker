@@ -1,92 +1,145 @@
+@using ExpenseTracker.Models.Domain
 @model ExpenseTracker.Models.Domain.Debt
+
+@*
+    Presentation only. Direction, PersonName, Amount, Date, DueDate and Note keep their
+    exact names, bindings and validation; the POST is untouched. The description under
+    Direction is a display echo of the selected option, nothing more.
+*@
 
 @{
     ViewData["Title"] = "Add Debt";
+    var today = DateTime.Now.ToString("yyyy-MM-dd");
 }
 
-<div class="create-page-header">
-    <i class="bi bi-cash-coin header-icon"></i>
-    <div class="eyebrow mb-2"><span class="seal-dot">&#9679;</span> New IOU</div>
-    <h1>Add Debt</h1>
+<a asp-action="Index" class="ev-back"><i class="bi bi-arrow-left"></i> All debts</a>
+
+@* The header is a page introduction, not another card. *@
+<div class="page-head has-stroke">
+    <div class="page-eyebrow">New IOU</div>
+    <h1>Add debt</h1>
+    <p class="page-lede">Track money owed to you and money you owe.</p>
 </div>
 
 <div class="row g-4 align-items-start">
-    <div class="col-lg-6">
-        <div class="card create-form-card" style="border-top-color: #15715A;">
-            <div class="card-body">
-                <form asp-action="Create">
-                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="col-lg-7">
+        <form asp-action="Create" id="iouForm">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
-                    <div class="form-group mb-3">
-                        <label asp-for="Direction" class="form-label">Direction</label>
-                        <select asp-for="Direction" class="form-select">
-                            <option value="TheyOweMe">Someone owes me</option>
-                            <option value="IOweThem">I owe someone</option>
-                        </select>
-                        <span asp-validation-for="Direction" class="text-danger"></span>
-                    </div>
-
-                    <div class="form-group mb-3">
-                        <label asp-for="PersonName" class="form-label"></label>
-                        <input asp-for="PersonName" class="form-control" placeholder="e.g. Priya, Landlord, Office" />
-                        <span asp-validation-for="PersonName" class="text-danger"></span>
-                    </div>
-
-                    <div class="form-group mb-3">
-                        <label asp-for="Amount" class="form-label"></label>
-                        <div class="input-currency">
-                            <input asp-for="Amount" class="form-control" />
-                        </div>
-                        <span asp-validation-for="Amount" class="text-danger"></span>
-                    </div>
-
-                    <div class="row">
-                        <div class="form-group mb-3 col-sm-6">
-                            <label asp-for="Date" class="form-label">Date</label>
-                            <input asp-for="Date" type="date" class="form-control" value="@DateTime.Now.ToString("yyyy-MM-dd")" max="@DateTime.Now.ToString("yyyy-MM-dd")" />
-                            <span asp-validation-for="Date" class="text-danger"></span>
-                        </div>
-                        <div class="form-group mb-3 col-sm-6">
-                            <label asp-for="DueDate" class="form-label">Due date <span class="text-muted">(optional)</span></label>
-                            <input asp-for="DueDate" type="date" class="form-control" />
-                            <span asp-validation-for="DueDate" class="text-danger"></span>
-                        </div>
-                    </div>
-
-                    <div class="form-group mb-3">
-                        <label asp-for="Note" class="form-label">Note <span class="text-muted">(optional)</span></label>
-                        <input asp-for="Note" class="form-control" placeholder="What it was for…" />
-                        <span asp-validation-for="Note" class="text-danger"></span>
-                    </div>
-
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Create</button>
-                        <a asp-action="Index" class="btn btn-outline-secondary ms-2">Cancel</a>
-                    </div>
-                </form>
+            <div class="xp-field">
+                <label asp-for="Direction" class="xp-label">Direction</label>
+                <select asp-for="Direction" class="form-select" id="iouDirection">
+                    <option value="TheyOweMe">&#8601;&nbsp; Someone owes me</option>
+                    <option value="IOweThem">&#8599;&nbsp; I owe someone</option>
+                </select>
+                @* Reads back what the choice actually means, in money terms. *@
+                <div class="iou-dir-note" id="iouDirNote" aria-live="polite"></div>
+                <span asp-validation-for="Direction" class="text-danger"></span>
             </div>
-        </div>
+
+            <div class="xp-field">
+                <label asp-for="PersonName" class="xp-label">Person</label>
+                <input asp-for="PersonName" class="form-control" placeholder="e.g. Priya, Landlord, Office" />
+                <span asp-validation-for="PersonName" class="text-danger"></span>
+            </div>
+
+            @* The central financial input on this page. *@
+            <div class="xp-field">
+                <label asp-for="Amount" class="xp-label">Amount</label>
+                <div class="xp-money is-md" id="iouMoney">
+                    <span class="xp-money-prefix" aria-hidden="true">&#8377;</span>
+                    <input asp-for="Amount" inputmode="decimal" placeholder="0.00" id="iouAmount" />
+                </div>
+                <span asp-validation-for="Amount" class="text-danger"></span>
+            </div>
+
+            <div class="iou-dates">
+                <div class="xp-field">
+                    <label asp-for="Date" class="xp-label">Date</label>
+                    <input asp-for="Date" type="date" class="form-control" id="iouDate"
+                           value="@today" max="@today" />
+                    <div class="xp-date-echo" id="iouDateEcho" aria-live="polite"></div>
+                    <span asp-validation-for="Date" class="text-danger"></span>
+                </div>
+                <div class="xp-field">
+                    <label asp-for="DueDate" class="xp-label is-optional">Due date <em>(optional)</em></label>
+                    <input asp-for="DueDate" type="date" class="form-control" id="iouDue" />
+                    <div class="xp-hint">Used to flag overdue IOUs.</div>
+                    <span asp-validation-for="DueDate" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="xp-field">
+                <label asp-for="Note" class="xp-label is-optional">Note <em>(optional)</em></label>
+                <input asp-for="Note" class="form-control" placeholder="What it was for…" />
+                <span asp-validation-for="Note" class="text-danger"></span>
+            </div>
+
+            <hr class="hairline my-4" />
+
+            <div class="d-flex gap-2 align-items-center">
+                <button type="submit" class="btn btn-primary btn-lg iou-submit">Create debt</button>
+                <a asp-action="Index" class="btn btn-link tfr-cancel">Cancel</a>
+            </div>
+        </form>
     </div>
-    <div class="col-lg-6 d-none d-lg-block">
-        <div class="create-illustration illus-saving">
-            <div class="illus-ring"></div>
-            <div class="illus-ring"></div>
-            <div class="illus-ring"></div>
-            <span class="illus-particle"><i class="bi bi-people"></i></span>
-            <span class="illus-particle"><i class="bi bi-hand-thumbs-up"></i></span>
-            <span class="illus-particle"><i class="bi bi-cash"></i></span>
-            <span class="illus-particle"><i class="bi bi-clock-history"></i></span>
-            <span class="illus-particle"><i class="bi bi-check2-circle"></i></span>
-            <i class="bi bi-cash-coin illus-icon"></i>
-            <div class="illus-title">Never Forget an IOU</div>
-            <div class="illus-subtitle">Track what's lent and borrowed, record repayments as they happen, and settle up with a clear conscience.</div>
-            <div class="create-tip">
-                <i class="bi bi-lightbulb-fill"></i> Tip: Add a due date and you'll see overdue debts flagged automatically.
+
+    @* Ivory as the "intelligence" surface — warmed down from near-white, and tightened. *@
+    <div class="col-lg-5 d-none d-lg-block">
+        <aside class="iou-panel" aria-label="About IOUs">
+            <span class="iou-panel-mark"><i class="bi bi-cash-coin" aria-hidden="true"></i></span>
+            <h2 class="iou-panel-title">Never forget an IOU</h2>
+            <p class="iou-panel-body">
+                Track what's lent and borrowed, record repayments as they happen, and settle
+                up with a clear conscience.
+            </p>
+            <div class="iou-panel-tip">
+                <i class="bi bi-lightbulb-fill" aria-hidden="true"></i>
+                <span>Add a due date and overdue balances are flagged for you automatically.</span>
             </div>
-        </div>
+        </aside>
     </div>
 </div>
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        // Display only — echoes the selected direction and renders a readable date.
+        // Neither affects what the form posts.
+        (function () {
+            var MONTHS = ['January','February','March','April','May','June',
+                          'July','August','September','October','November','December'];
+            var NOTES = {
+                TheyOweMe: 'Money coming back to you.',
+                IOweThem: 'Money you need to repay.'
+            };
+            var dir = document.getElementById('iouDirection');
+            var note = document.getElementById('iouDirNote');
+            var money = document.getElementById('iouMoney');
+            var date = document.getElementById('iouDate');
+            var echo = document.getElementById('iouDateEcho');
+
+            function sync() {
+                if (dir && note) {
+                    note.textContent = NOTES[dir.value] || '';
+                    // Semantic colour: receivable reads green, liability reads rose.
+                    note.classList.toggle('is-in', dir.value === 'TheyOweMe');
+                    note.classList.toggle('is-out', dir.value === 'IOweThem');
+                    if (money) {
+                        money.classList.toggle('is-in', dir.value === 'TheyOweMe');
+                        money.classList.toggle('is-out', dir.value === 'IOweThem');
+                    }
+                }
+                if (date && echo) {
+                    var p = (date.value || '').split('-');
+                    echo.textContent = (p.length === 3 && MONTHS[parseInt(p[1], 10) - 1])
+                        ? p[2].padStart(2, '0') + ' ' + MONTHS[parseInt(p[1], 10) - 1] + ' ' + p[0]
+                        : '';
+                }
+            }
+            if (dir) dir.addEventListener('change', sync);
+            if (date) { date.addEventListener('input', sync); date.addEventListener('change', sync); }
+            sync();
+        })();
+    </script>
 }

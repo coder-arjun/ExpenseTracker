@@ -46,6 +46,39 @@ namespace ExpenseTracker.Controllers
             ViewData["TotalSpent"] = totalSpent;
             ViewData["YearMonth"] = yearMonth;
 
+            // ── Read-only figures for the overview strip and the copy confirmation.
+            // Additive: nothing below reads them and no behaviour depends on them.
+            // They are computed over the WHOLE month, not just the current page —
+            // a paginated view would otherwise show a partial "total".
+            var allForMonth = await _context.Budgets
+                .Where(b => b.UserId == userId && b.YearMonth == yearMonth)
+                .Select(b => new { b.CategoryId, b.Amount })
+                .ToListAsync();
+
+            // A category budget and an "Overall" budget measure different things, so
+            // they are never summed together — that would double-count the spend.
+            var categoryBudgets = allForMonth.Where(b => b.CategoryId.HasValue).ToList();
+            ViewData["BudgetedTotal"] = categoryBudgets.Sum(b => b.Amount);
+            ViewData["BudgetedCount"] = categoryBudgets.Count;
+            ViewData["BudgetedSpent"] = categoryBudgets
+                .Sum(b => expenses.TryGetValue(b.CategoryId!.Value, out var spent) ? spent : 0m);
+            ViewData["OverallBudget"] = allForMonth
+                .Where(b => !b.CategoryId.HasValue)
+                .Select(b => (decimal?)b.Amount)
+                .FirstOrDefault();
+
+            // How many rows CopyFromPreviousMonth would actually create. Mirrors the
+            // skip rule in that action: a category already budgeted this month is skipped.
+            var previousMonth = DateTime.ParseExact(yearMonth, "yyyy-MM", null)
+                .AddMonths(-1).ToString("yyyy-MM");
+            var previousCategoryIds = await _context.Budgets
+                .Where(b => b.UserId == userId && b.YearMonth == previousMonth)
+                .Select(b => b.CategoryId)
+                .ToListAsync();
+            var existingIds = allForMonth.Select(b => b.CategoryId).ToHashSet();
+            ViewData["PreviousMonth"] = previousMonth;
+            ViewData["CopyableCount"] = previousCategoryIds.Count(id => !existingIds.Contains(id));
+
             return View(budgets);
         }
 

@@ -8,7 +8,7 @@
 
 // Bump this whenever the shell changes — old caches with a different version
 // are dropped on activate.
-const VERSION = 'v2-2026-09-01';
+const VERSION = 'v3-2026-09-04';
 const SHELL_CACHE = `et-shell-${VERSION}`;
 const PAGES_CACHE = `et-pages-${VERSION}`;
 
@@ -65,7 +65,16 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Static assets → cache-first.
+    // Our own CSS/JS → stale-while-revalidate. Cache-first here meant a stylesheet
+    // could outlive the markup it styles indefinitely (which is how an open dropdown
+    // ended up rendering under the page heading: new HTML, months-old CSS).
+    // Third-party libs under /lib/ are versioned by path, so they stay cache-first.
+    if (/^\/(css|js)\//.test(url.pathname)) {
+        event.respondWith(staleWhileRevalidate(req));
+        return;
+    }
+
+    // Everything else static → cache-first.
     event.respondWith(cacheFirst(req));
 });
 
@@ -85,6 +94,23 @@ async function networkFirstHtml(req) {
         const offline = await caches.match('/offline.html');
         return offline || new Response('Offline', { status: 503, statusText: 'Offline' });
     }
+}
+
+// Serve the cached copy immediately, but always re-fetch and replace it, so the
+// next load is current. One stale render at most, never a permanently stale shell.
+async function staleWhileRevalidate(req) {
+    const cached = await caches.match(req);
+    const network = fetch(req).then((response) => {
+        if (response && response.status === 200) {
+            const copy = response.clone();
+            caches.open(SHELL_CACHE).then((cache) => cache.put(req, copy));
+        }
+        return response;
+    }).catch(() => null);
+
+    if (cached) return cached;
+    const fresh = await network;
+    return fresh || new Response('Asset unavailable offline', { status: 503 });
 }
 
 async function cacheFirst(req) {
