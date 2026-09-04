@@ -1,0 +1,32 @@
+@*
+    The brand mark as the loader. Hidden by default and only ever revealed by
+    wwwroot/js/loader.js — with scripting off it is inert markup and the page
+    behaves exactly as it did before.
+
+    The mark is the same one the navbar draws: a ₹ inside a thin ring, with the
+    crimson accent travelling around it.
+*@
+<div class="fin-loader" id="finLoader" hidden role="status" aria-live="polite">
+    <div class="fin-loader-veil" aria-hidden="true"></div>
+
+    <div class="fin-loader-core">
+        <div class="fin-mark" aria-hidden="true">
+            <svg viewBox="0 0 120 120" focusable="false">
+                <defs>
+                    @* The arc fades out behind itself, which reads as a trail. *@
+                    <linearGradient id="finArcTrail" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="currentColor" stop-opacity="0" />
+                        <stop offset="55%" stop-color="currentColor" stop-opacity="0.55" />
+                        <stop offset="100%" stop-color="currentColor" stop-opacity="1" />
+                    </linearGradient>
+                </defs>
+                <circle class="fin-mark-ring" cx="60" cy="60" r="50" />
+                <circle class="fin-mark-arc" cx="60" cy="60" r="50" />
+                @* Stroked first, then filled — the glyph appears to draw itself. *@
+                <text class="fin-mark-glyph" x="60" y="60" text-anchor="middle" dominant-baseline="central">&#8377;</text>
+            </svg>
+        </div>
+
+        <p class="fin-loader-text" id="finLoaderText">Preparing your workspace</p>
+    </div>
+</div>
